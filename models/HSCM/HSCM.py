@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..','..')))
 
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt²
 import networkx as nx
 import numpy as np
 from causalgraphicalmodels import CausalGraphicalModel
