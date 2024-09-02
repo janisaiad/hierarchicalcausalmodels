@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "hcm"
+version = "0.1.0"
+description = ""
+authors = ["janis aiad"]
+license = "MIT License"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11"
+causalgraphicalmodels = {git = "https://github.com/atrxial/causalgraphicalmodels.git"}
+numpy = "1.26.4"
+networkx = "3.3"
+pandas = "2.2.2"
+matplotlib = "3.5.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
