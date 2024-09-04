@@ -4,9 +4,9 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..','..')))
 
 
-import matplotlib.pyplot as plt²
+import matplotlib.pyplot as plt
 import networkx as nx
-import numpy as np
+
 from causalgraphicalmodels import CausalGraphicalModel
 
 from hierarchicalcausalmodels.utils.distributions import EmpiricalDistribution
