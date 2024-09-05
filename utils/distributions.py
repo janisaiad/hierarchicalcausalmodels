@@ -1,8 +1,11 @@
 import numpy as np
+import sys,os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from hierarchicalcausalmodels.utils.distributions_utils import ppf_functor, cdf_functor, pdf_functor # type: ignore
 
 from scipy.stats import wasserstein_distance
-from scipy.stats import entropy, kl_div
+from scipy.stats import entropy
+from scipy.special import kl_div
 
 class Distribution:
     def __init__(self, distribution):
