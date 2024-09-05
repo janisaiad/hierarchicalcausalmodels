@@ -468,6 +468,23 @@ class HSCM:
         self.node_function = deepcopy(lambda_functions)
 
     # more general models
+    def calculate_distribution_distances(self):
+        distances = []
+        for i in range(len(self.sizes)):
+            unit_distances = {}
+            for node in self.subunit_nodes_names:
+                theoretical_dist = self.node_theoretical_distribution[node]
+                experimental_dist = self.node_experimental_distribution[node][node + str(i)]
+                
+                kl_div = theoretical_dist.kl_divergence(experimental_dist)
+                w_dist = theoretical_dist.wasserstein_distance(experimental_dist)
+                
+                unit_distances[f'kl_divergence_{node}'] = kl_div
+                unit_distances[f'wasserstein_distance_{node}'] = w_dist
+            
+            distances.append(unit_distances)
+        
+        return distances
 
     def additive_model(self, functions, randomness):
         # each node is a sum of the functions of its predecessors, where functions is a dictionary of functions indexed by the nodes, and for each edges subunit -> unit, function operates on set (in order to avoid using means everytime)
@@ -527,9 +544,35 @@ class HSCM:
 
 
     # Sampling
-
-
     def sample_data(self):
+        samples = {}  # 1 sample for each SCM
+        for node in nx.topological_sort(self.cgm.dag):
+            if node in self.unit_nodes:
+                for i in range(len(self.sizes)):  # we must distinguish between unit and subunit nodes
+                    parent_samples = dict()
+                    for parent in self.predecessors[node + str(i)]:
+                        if isinstance(parent, frozenset):  # if parent is a subunit node and node is a unit_node
+                            parent_samples[source_sample(list(parent)[0])] = {samples[parents] for parents in
+                                                                              parent}  # if parent is a subunit node, we take a set of all values of the subunit node, and his name is in parent.keys()[0][:-3]
+                        else:  # if parent is a unit node
+                            parent_samples[parent] = samples[parent]
+                    # print(parent_samples, 'parent_samples')
+                    samples[node + str(i)] = self.node_function[node](parent_samples)
+            else:
+                for i in range(len(self.sizes)):
+                    for j in range(self.sizes[i]):
+                        parent_samples = {
+                            parent: samples[parent]
+                            for parent in self.predecessors[node + str(i) + '_' + str(j)]
+                        }
+                        # print(parent_samples, 'parent_samples')
+                        samples[node + str(i) + '_' + str(j)] = self.node_function[node](parent_samples)
+        self.data = samples
+        return samples
+
+
+
+    def sample_data_parallel(self):
         samples = {}  # 1 sample for each SCM
         for node in nx.topological_sort(self.cgm.dag):
             predecessors = self.predecessors[node]
