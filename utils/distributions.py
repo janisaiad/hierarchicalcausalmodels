@@ -1,5 +1,9 @@
 import numpy as np
-from hierarchicalcausalmodels.utils.distributions_utils import ppf_functor, cdf_functor, pdf_functor
+from hierarchicalcausalmodels.utils.distributions_utils import ppf_functor, cdf_functor, pdf_functor # type: ignore
+
+from scipy.stats import wasserstein_distance
+from scipy.stats import entropy, kl_div
+
 class Distribution:
     def __init__(self, distribution):
         self.distribution = distribution
@@ -15,6 +19,15 @@ class Distribution:
 
     def ppf(self, q):
         raise NotImplementedError
+    def kl_divergence(self, other, num_samples=10000):
+        x = np.linspace(self.ppf(0.001), self.ppf(0.999), num_samples)
+        p = self.pdf(x)
+        q = other.pdf(x)
+        return np.sum(kl_div(p, q))
+
+    def wasserstein_distance(self, other, num_samples=10000):
+        x = np.linspace(0, 1, num_samples)
+        return wasserstein_distance(self.ppf(x), other.ppf(x))
 
 
 

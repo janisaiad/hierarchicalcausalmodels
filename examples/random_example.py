@@ -26,7 +26,7 @@ nodes = ["a", "b", "c", "d", "e"]
 edges = [("a", "b"),('a','c'), ("b", "c"), ("c", "d"),("b","d"), ("d", "e"),("b", "e")]
 unit_nodes = ["a", "b", "c", "e"]
 subunit_nodes = ["d","b"]
-sizes = [3, 2]
+sizes = [300]*300
 
 
 
@@ -46,7 +46,7 @@ def generator(node,d,x):
 
 
 # Create an instance of the HSCM class
-hscm = HSCM(nodes, edges, unit_nodes, subunit_nodes, sizes, node_functions={})
+hscm = HSCM(nodes, edges, unit_nodes, subunit_nodes, sizes, node_functions={},data={})
 # hscm.print_predecessors()
 hscm.set_distributions_from_generator(generator)
 hscm.random_model()
@@ -59,7 +59,14 @@ def print_sampled_data(sampled_data):
         print(key, sampled_data[key])
 
 # Print the sampled data
-print_sampled_data(sampled_data)
+#print_sampled_data(sampled_data)
 
+#sampled_data_parallel = hscm.sample_data_parallel()
+#print('sampled_data_parallel',sampled_data_parallel)
 # Print the graph
 hscm.cgm.draw()
+
+from experiments.utils.utils import store_dict_to_file
+
+store_dict_to_file(sampled_data, "sampled_data.txt")
+
