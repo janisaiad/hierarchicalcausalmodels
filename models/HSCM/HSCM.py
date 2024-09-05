@@ -669,12 +669,12 @@ class HSCM:
         # we assume sizes are already set
         # we assume the data is already cleaned
         for node in self.unit_nodes:
-            self.node_distribution[node] = lambda d, random_sample: EmpiricalDistribution(
+            self.node_function[node] = lambda random_sample: EmpiricalDistribution(
                 {self.data[node + i] for i in range(len(self.sizes))}).ppf(random_sample)
 
         for node in self.subunit_nodes_names:
             # we should use d to distinguish between every distributions in every units,
-            self.node_distribution['_' + node] = lambda d, random_sample: distribution_functor(d, random_sample,
+            self.node_function['_' + node] = lambda d: distribution_functor(d,
                                                                                                self.data, node,
                                                                                                self.sizes)
 
