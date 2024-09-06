@@ -34,6 +34,7 @@ def linear_functor(d, node, coeffs, is_unit, aggregator):
         if key[0] == '_':  # if the previous is a subunit node
 
             if is_unit:
+                print(node, source(key), d[key])
                 s += coeffs[node][source(key)] * aggregator[node][source(key)](d[key])  # if the previous is a subunit node and the node is a unit node, we take the mean for a linear model
             else:  # if the previous is a subunit node and the node is a subunit node
                 s += coeffs[node][source(key)] * d[key]  # we are with the same person in the same subunit
@@ -62,7 +63,7 @@ def distribution_functor(d, random_sample, data, node, sizes):
     # this will produce a family of distributions parametrized by the unit (3 schools = 3 distributions)
     emp_dists = dict()
     for i in range(sizes[node]):
-        emp_dists[i] = EmpiricalDistribution({data[node + str(i) + '_' + str(j)] for j in len(sizes[i])})
+        emp_dists[i] = EmpiricalDistribution({data['_'+node + str(i) + '_' + str(j)] for j in len(sizes[i])})
     # now we have to recover in which unit we are
 
     if d.keys[0][0] == '_':  # ie we miraculously got a subunit node ... we have to recover the unit number

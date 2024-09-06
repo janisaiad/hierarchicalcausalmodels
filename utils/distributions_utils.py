@@ -2,11 +2,27 @@
 
 import numpy as np
 
-def ppf_functor(data):
+
+def create_subunit_distribution(data, node, unit_index, size):
+    """
+    Create a distribution from all subunit nodes for a given unit.
+
+    :param data: The data dictionary containing all node values
+    :param node: The base name of the node (e.g., 'b' for '_b3_k')
+    :param unit_index: The index of the unit (e.g., 3 for '_b3_k')
+    :param size: The number of subunits for this unit
+    :return: A list of values for all subunits of this unit
+    """
+    subunit_values = [data[f'_{node}{unit_index}_{k}'] for k in range(size[unit_index])]
+    return subunit_values
+
+
+def ppf_functor(data, node, unit_index, size):
     # Convert data to a numpy array if it's not already
-    data_array = np.array(list(data)) if isinstance(data, set) else np.array(data)
+    data_array = create_subunit_distribution(data, node, unit_index, size[unit_index])
     x = np.random.random()
     return np.percentile(data_array, x * 100)
+
 
 # ... existing code ...
 
@@ -15,6 +31,7 @@ def cdf_functor(data):
     data_array = np.array(list(data)) if isinstance(data, set) else np.array(data)
     return lambda x: np.searchsorted(data_array, x, side='right') / len(data_array)
 
+
 def pdf_functor(data):
     # Convert data to a numpy array if it's not already
     data_array = np.array(list(data)) if isinstance(data, set) else np.array(data)
@@ -22,5 +39,13 @@ def pdf_functor(data):
     return lambda x: np.interp(x, (bin_edges[:-1] + bin_edges[1:]) / 2, hist)
 
 
-def distribution_functor(d,data,node,sizes):
-    return ppf_functor(data), cdf_functor(data), pdf_functor(data)
+def distribution_functor(data, node, unit_index, size):
+    return ppf_functor(data, node, unit_index, size), cdf_functor(data), pdf_functor(data)
+
+
+
+
+def ppf_functor_unit(data):
+    # Convert data to a numpy array if it's not already
+    data_array = np.array(list(data)) if isinstance(data, set) else np.array(data)
+    return lambda q: np.percentile(data_array, q * 100)

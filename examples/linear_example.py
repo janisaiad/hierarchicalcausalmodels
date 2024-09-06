@@ -13,7 +13,7 @@ coeffs = {
     "b": {"a": 1.5, "mean": 0, "std": 1},
     "c": {"a": 0.5, "b": 2.0, "mean": 0, "std": 1},
     "d": {"b": 1.0, "c": 1.0, "mean": 0, "std": 1},
-    "e": {"d": 3.0,'b':1, "mean": 0, "std": 1}
+    "e": {"d": 3.0,"b" :1, "mean" : 0, "std": 1}
 }
 
 # Define the
@@ -23,7 +23,7 @@ nodes = ["a", "b", "c", "d", "e"]
 edges = [("a", "b"),('a','c'), ("b", "c"), ("c", "d"),("b","d"), ("d", "e"),("b", "e")]
 unit_nodes = ["a", "c", "e"]
 subunit_nodes = ["d","b"]
-sizes = [10000]*4
+sizes = [100]*4
 
 
 
