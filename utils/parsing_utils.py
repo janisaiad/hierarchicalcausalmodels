@@ -43,7 +43,3 @@ def extract_number1(input_string):
     else:
         # Return None if the pattern does not match
         return None
-
-
-print(source('a1_2'))  # a
-print(source_sample('a1_2'))  # a1

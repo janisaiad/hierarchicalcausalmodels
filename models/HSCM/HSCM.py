@@ -100,10 +100,10 @@ class HSCM:
 
         # by default, we take the mean
         for (x, y) in self.edges:
-            if x in self.subunit_nodes_names and y in self.unit_nodes:  # we use the same notation as in the predecessors without '_' prefix for the subunit nodes
-                self.aggregator_functions[y]['_' + x] = lambda d: np.mean(
+            if x in self.subunit_nodes and y in self.unit_nodes:  # we use the same notation as in the predecessors without '_' prefix for the subunit nodes
+                self.aggregator_functions[y][x] = lambda d: np.mean(
                     np.array(list(d)))  # not the most efficient way but to dev a better one
-
+        print(self.aggregator_functions, 'aggregator_functions')
 
 
 
@@ -413,15 +413,8 @@ class HSCM:
                     temp[key] = coeffs[dicts][key]
 
             self.coeffs[dicts] = temp
-
-        if is_empty(self.aggregator_functions):
-            temp_aggregator_functions = dict()
-            for (x, y) in self.edges:
-                if x in self.subunit_nodes_names and y in self.unit_nodes:
-                    temp_aggregator_functions[y]['_' + x] = lambda d: np.mean(np.array(list(d)))
-        else:
-            temp_aggregator_functions = self.aggregator_functions
-
+        print(is_empty(self.aggregator_functions), 'is_empty')
+        temp_aggregator_functions = self.aggregator_functions
         def create_lambda(node):
             return lambda d: linear_functor(d, str(node), self.coeffs, node in self.unit_nodes,
                                             temp_aggregator_functions)
@@ -558,6 +551,7 @@ class HSCM:
                             parent_samples[parent] = samples[parent]
                     # print(parent_samples, 'parent_samples')
                     samples[node + str(i)] = self.node_function[node](parent_samples)
+                    print(node,'sample node')
             else:
                 for i in range(len(self.sizes)):
                     for j in range(self.sizes[i]):
@@ -669,16 +663,21 @@ class HSCM:
         # we assume sizes are already set
         # we assume the data is already cleaned
         for node in self.unit_nodes:
+            for i in range(len(self.sizes)):
+                key = node + str(i)
+                if key not in self.data.keys():
+                    raise KeyError(f"Key '{key}' not found in self.data")
+
+        # Assign the node functions
+        for node in enumerate(self.unit_nodes):
             self.node_function[node] = lambda random_sample: EmpiricalDistribution(
-                {self.data[node + i] for i in range(len(self.sizes))}).ppf(random_sample)
+                {self.data[node + str(i)] for i in range(len(self.sizes))}
+            ).ppf(random_sample)
 
         for node in self.subunit_nodes_names:
             # we should use d to distinguish between every distributions in every units,
-            self.node_function['_' + node] = lambda d: distribution_functor(d,
-                                                                                               self.data, node,
-                                                                                               self.sizes)
-
-
+            for unit_index in range(len(self.sizes)):
+                self.node_function['_' + node+str(unit_index)] = lambda d: distribution_functor(self.data, node, unit_index,self.sizes)
 
 
 
