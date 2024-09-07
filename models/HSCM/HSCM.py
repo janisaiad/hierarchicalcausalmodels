@@ -566,6 +566,12 @@ class HSCM:
 
 
 
+    # add a sampling according to formerly adapted distributions from data
+    
+    
+    # then parallel sampling
+
+
     def sample_data_parallel(self):
         samples = {}  # 1 sample for each SCM
         for node in nx.topological_sort(self.cgm.dag):
