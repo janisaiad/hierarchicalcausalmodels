@@ -1,0 +1,13 @@
+futures/meta-learning-hierarchical-model-similar-causal-mechanisms/experiment_env
+futures/meta-learning-hierarchical-model-similar-causal-mechanisms/data/medical/data
+futures/meta-learning-hierarchical-model-similar-causal-mechanisms/data/synthetic/output
+futures/meta-learning-hierarchical-model-similar-causal-mechanisms/experiments/output/test
+../../futures/meta-learning-hierarchical-model-similar-causal-mechanisms/mlruns
+futures/meta-learning-hierarchical-model-similar-causal-mechanisms/__pycache__
+.idea
+
+hierarchicalcausalmodels/.git/
+hierarchicalcausalmodels/.vscode
+hierarchicalcausalmodels/__pycache__
+hierarchicalcausalmodels/.vscode/sftp.json
+hierarchicalcausalmodelS/data

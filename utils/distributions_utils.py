@@ -42,7 +42,7 @@ def pdf_functor(data):
 
 
 def distribution_functor(data, node, unit_index, sizes):
-    return ppf_functor(data, node, unit_index, sizes), cdf_functor(data), pdf_functor(data)
+    return ppf_functor(data, node, unit_index, sizes)
 
 
 

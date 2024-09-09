@@ -540,6 +540,8 @@ class HSCM:
         samples = {}  # 1 sample for each SCM
         for node in nx.topological_sort(self.cgm.dag):
             if node in self.unit_nodes:
+
+
                 for i in range(len(self.sizes)):  # we must distinguish between unit and subunit nodes
                     parent_samples = dict()
                     for parent in self.predecessors[node + str(i)]:
@@ -575,18 +577,31 @@ class HSCM:
     # Sampling
     def resample_data(self):  # used after set distribution from data
         samples = {}  # 1 sample for each SCM
+        for i in range(len(self.sizes)):
+            samples['a'+str(i)] = np.random.random() # because we know it well ... huge artefact
         for node in nx.topological_sort(self.cgm.dag):
-            if node in self.unit_nodes:
-                for i in range(len(self.sizes)):  # we must distinguish between unit and subunit nodes
-                    print("resample", node, i)
-                    
-                    samples[node + str(i)] = self.node_function[node]({})
-            else:
-                for i in range(len(self.sizes)):
-                    print("resample", node, i)
-                    for j in range(self.sizes[i]):
-                        samples[node + str(i) + '_' + str(j)] = self.node_function[node+str(i)]({})
-        self.data_resampled = samples
+            if node != 'a':
+                if node in self.unit_nodes:
+                    for i in range(len(self.sizes)):  # we must distinguish between unit and subunit nodes
+                        parent_samples = dict()
+                        for parent in self.predecessors[node + str(i)]:
+                            if isinstance(parent, frozenset):  # if parent is a subunit node and node is a unit_node
+                                parent_samples[source_sample(list(parent)[0])] = {samples[parents] for parents in
+                                                                                parent}  # if parent is a subunit node, we take a set of all values of the subunit node, and his name is in parent.keys()[0][:-3]
+                            else:  # if parent is a unit node
+                                parent_samples[parent] = samples[parent]
+                        # print(parent_samples, 'parent_samples')
+                        samples[node + str(i)] = self.node_function[node](parent_samples)
+                else:
+                    for i in range(len(self.sizes)):
+                        for j in range(self.sizes[i]):
+                            parent_samples = {
+                                parent: samples[parent]
+                                for parent in self.predecessors[node + str(i) + '_' + str(j)]
+                            }
+                            # print(parent_samples, 'parent_samples')
+                            samples[node + str(i) + '_' + str(j)] = self.node_function[node](parent_samples)
+        self._resampled = samples
         return samples
 
 
@@ -730,17 +745,26 @@ class HSCM:
         # we assume sizes are already set
         # we assume the data is already cleaned
         # Assign the node functions
+        """
+        self.node_function['a'] = lambda random_sample: EmpiricalDistribution(
+                {self.data['a' + str(i)] for i in range(len(self.sizes))}
+            ).ppf(random_sample)
+        
+        
+        
         for node in enumerate(self.unit_nodes):
-            print(node)
+            
             self.node_function[node] = lambda random_sample: EmpiricalDistribution(
                 {self.data[node + str(i)] for i in range(len(self.sizes))}
             ).ppf(random_sample)
 
         for node in self.subunit_nodes_names:
-            print(node)
+            
             # we should use d to distinguish between every distributions in every units,
             for unit_index in range(len(self.sizes)):
                 self.node_function['_' + node+str(unit_index)] = lambda d: distribution_functor(self.data, node, unit_index, self.sizes)
+                """
+        
 
 
 
