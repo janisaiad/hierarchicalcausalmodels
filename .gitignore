@@ -916,7 +916,7 @@ table/interv_subunit/propermodel/data/sampled_intervention_96.json
 table/interv_subunit/propermodel/data/sampled_intervention_97.json
 table/interv_subunit/propermodel/data/sampled_intervention_98.json
 table/interv_subunit/propermodel/data/sampled_intervention_99.json
-table/no_interv/causalGEN/50_50.ipynb
+table/no_interv/causalGEN/50_50notin_causal.ipynb
 table/no_interv/causalGEN/data/__init__.py
 table/no_interv/causalGEN/data/resampled_data_0.json
 table/no_interv/causalGEN/data/resampled_data_1.json
