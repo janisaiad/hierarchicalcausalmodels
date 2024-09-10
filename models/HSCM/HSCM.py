@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 from causalgraphicalmodels import CausalGraphicalModel
-
+import scipy
 from hierarchicalcausalmodels.utils.distributions import EmpiricalDistribution, Distribution
 from hierarchicalcausalmodels.utils.parsing_utils import source_sample
 from hierarchicalcausalmodels.utils.utils import linear_functor, logit_functor, random_functor, additive_functor, is_empty, cleaner, extract_distributions_from_data #distribution_functor
@@ -105,7 +105,7 @@ class HSCM:
             if x in self.subunit_nodes and y in self.unit_nodes:  # we use the same notation as in the predecessors without '_' prefix for the subunit nodes
                 self.aggregator_functions[y][x] = lambda d: np.mean(
                     np.array(list(d)))  # not the most efficient way but to dev a better one
-        print(self.aggregator_functions, 'aggregator_functions')
+        #print(self.aggregator_functions, 'aggregator_functions')
 
 
 
@@ -229,7 +229,7 @@ class HSCM:
     #######################
     def set_aggregator(self, edge, aggregator_function):
 
-        print(self.aggregator_functions, 'aggregator_functions')
+        #print(self.aggregator_functions, 'aggregator_functions')
         # aggregator will be used for (a,b) with a subunit node and b unit node, for instance the mean of all student SAT score in a school
         parent, child = edge
         if parent in self.subunit_nodes_names and child in self.unit_nodes:  # we use the same notation as in the predecessors without '_' prefix for the subunit nodes
@@ -424,7 +424,7 @@ class HSCM:
                     temp[key] = coeffs[dicts][key]
 
             self.coeffs[dicts] = temp
-        print(is_empty(self.aggregator_functions), 'is_empty')
+        #print(is_empty(self.aggregator_functions), 'is_empty')
         temp_aggregator_functions = self.aggregator_functions
         def create_lambda(node):
             return lambda d: linear_functor(d, str(node), self.coeffs, node in self.unit_nodes,
@@ -535,39 +535,82 @@ class HSCM:
 
 
 
-    # Sampling
-    def resample_data_after_intervention(self,node_intervened,distribution):  # used after set distribution from data
+    def sample_data_after_intervention(self,intervened_node,dist):
         samples = {}  # 1 sample for each SCM
+        for i in range(len(self.sizes)):
+            samples['a'+str(i)] = np.random.normal(0,1) # because we know it well ... huge artefact
         for node in nx.topological_sort(self.cgm.dag):
-            if node in self.unit_nodes:
-
-
-                for i in range(len(self.sizes)):  # we must distinguish between unit and subunit nodes
-                    parent_samples = dict()
-                    for parent in self.predecessors[node + str(i)]:
-                        if isinstance(parent, frozenset):  # if parent is a subunit node and node is a unit_node
-                            parent_samples[source_sample(list(parent)[0])] = {samples[parents] for parents in
-                                                                              parent}  # if parent is a subunit node, we take a set of all values of the subunit node, and his name is in parent.keys()[0][:-3]
-                        else:  # if parent is a unit node
-                            parent_samples[parent] = samples[parent]
-                    # print(parent_samples, 'parent_samples')
-                    samples[node + str(i)] = self.node_function[node](parent_samples)
-            else:
-                if node == node_intervened:
-                    for i in range(len(self.sizes)):
-                        for j in range(self.sizes[i]):
-                            samples[node + str(i) + '_' + str(j)] =distribution(np.random.random())
-                            
-                else:            
-                    for i in range(len(self.sizes)):
-                        for j in range(self.sizes[i]):
-                            parent_samples = {
-                                parent: samples[parent]
-                                for parent in self.predecessors[node + str(i) + '_' + str(j)]
-                            }
-                            # print(parent_samples, 'parent_samples')
-                            samples[node + str(i) + '_' + str(j)] = self.node_function[node](parent_samples)
+            if node != 'a':
+                if node in self.unit_nodes:
+                    for i in range(len(self.sizes)):  # we must distinguish between unit and subunit nodes
+                        parent_samples = dict()
+                        for parent in self.predecessors[node + str(i)]:
+                            if isinstance(parent, frozenset):  # if parent is a subunit node and node is a unit_node
+                                parent_samples[source_sample(list(parent)[0])] = {samples[parents] for parents in
+                                                                                parent}  # if parent is a subunit node, we take a set of all values of the subunit node, and his name is in parent.keys()[0][:-3]
+                            else:  # if parent is a unit node
+                                parent_samples[parent] = samples[parent]
+                        # print(parent_samples, 'parent_samples')
+                        samples[node + str(i)] = self.node_function[node](parent_samples)
+                else:
+                    if node == 'b':
+                        for i in range(len(self.sizes)):
+                            for j in range(self.sizes[i]):
+                                samples[node + str(i) + '_' + str(j)] = dist(np.random.random())
+                    else:
+                        for i in range(len(self.sizes)):
+                            for j in range(self.sizes[i]):
+                                parent_samples = {
+                                    parent: samples[parent]
+                                    for parent in self.predecessors[node + str(i) + '_' + str(j)]
+                                }
+                                # print(parent_samples, 'parent_samples')
+                                samples[node + str(i) + '_' + str(j)] = self.node_function[node](parent_samples)    
         self.data = samples
+        return samples
+
+
+
+
+
+    # Sampling
+    def resample_data_after_intervention(self):  # used after set distribution from data
+        samples = {}  # 1 sample for each SCM
+        for i in range(len(self.sizes)):
+            samples['a'+str(i)] = np.random.normal(0,1) # because we know it well ... huge artefact
+        for node in nx.topological_sort(self.cgm.dag):
+            if node != 'a':
+                if node in self.unit_nodes:
+                    for i in range(len(self.sizes)):  # we must distinguish between unit and subunit nodes
+                        parent_samples = dict()
+                        for parent in self.predecessors[node + str(i)]:
+                            if isinstance(parent, frozenset):  # if parent is a subunit node and node is a unit_node
+                                parent_samples[source_sample(list(parent)[0])] = {samples[parents] for parents in
+                                                                                parent}  # if parent is a subunit node, we take a set of all values of the subunit node, and his name is in parent.keys()[0][:-3]
+                            else:  # if parent is a unit node
+                                parent_samples[parent] = samples[parent]
+                        # print(parent_samples, 'parent_samples')
+                        samples[node + str(i)] = self.node_function[node](parent_samples)
+                else:
+                    if node == 'b':
+                        for i in range(len(self.sizes)):
+                            for j in range(self.sizes[i]):
+                                parent_samples = {
+                                    parent: samples[parent]
+                                    for parent in self.predecessors[node + str(i) + '_' + str(j)]
+                                }
+                                # print(parent_samples, 'parent_samples')
+                                samples[node + str(i) + '_' + str(j)] = self.node_function[node+str(i)](parent_samples)
+                    else:
+                        for i in range(len(self.sizes)):
+                            for j in range(self.sizes[i]):
+                                parent_samples = {
+                                    parent: samples[parent]
+                                    for parent in self.predecessors[node + str(i) + '_' + str(j)]
+                                }
+                                # print(parent_samples, 'parent_samples')
+                                samples[node + str(i) + '_' + str(j)] = self.node_function[node](parent_samples)    
+        self.data_resampled = samples
         return samples
 
 
@@ -578,7 +621,7 @@ class HSCM:
     def resample_data(self):  # used after set distribution from data
         samples = {}  # 1 sample for each SCM
         for i in range(len(self.sizes)):
-            samples['a'+str(i)] = np.random.random() # because we know it well ... huge artefact
+            samples['a'+str(i)] = np.random.normal(0,1) # because we know it well ... huge artefact
         for node in nx.topological_sort(self.cgm.dag):
             if node != 'a':
                 if node in self.unit_nodes:
@@ -598,10 +641,10 @@ class HSCM:
                             parent_samples = {
                                 parent: samples[parent]
                                 for parent in self.predecessors[node + str(i) + '_' + str(j)]
-                            }
-                            # print(parent_samples, 'parent_samples')
-                            samples[node + str(i) + '_' + str(j)] = self.node_function[node](parent_samples)
-        self._resampled = samples
+                                }
+                                # print(parent_samples, 'parent_samples')
+                            samples[node + str(i) + '_' + str(j)] = self.node_function[node+str(i)](parent_samples)    
+        self.data_resampled = samples
         return samples
 
 
@@ -745,25 +788,27 @@ class HSCM:
         # we assume sizes are already set
         # we assume the data is already cleaned
         # Assign the node functions
-        """
+        
         self.node_function['a'] = lambda random_sample: EmpiricalDistribution(
                 {self.data['a' + str(i)] for i in range(len(self.sizes))}
             ).ppf(random_sample)
-        
-        
-        
+            
+            
         for node in enumerate(self.unit_nodes):
             
             self.node_function[node] = lambda random_sample: EmpiricalDistribution(
                 {self.data[node + str(i)] for i in range(len(self.sizes))}
-            ).ppf(random_sample)
-
-        for node in self.subunit_nodes_names:
+            ).ppf(random_sample) 
             
+        #for node in self.subunit_nodes_names:
+        node = 'b'  
+        for unit_index in range(len(self.sizes)):
+            self.node_function['_' + node+str(unit_index)] = lambda d: distribution_functor(self.data, node, unit_index, self.sizes)
+        
+        
+        #self.node_function[node] = lambda random_sample: scipy.stats.norm.ppf(random_sample)
+          
             # we should use d to distinguish between every distributions in every units,
-            for unit_index in range(len(self.sizes)):
-                self.node_function['_' + node+str(unit_index)] = lambda d: distribution_functor(self.data, node, unit_index, self.sizes)
-                """
         
 
 
@@ -802,7 +847,19 @@ class HSCM:
 
 
 
-
+    
+    def plot_data_resampled(self):
+        # we plot the data for each node
+        s = []
+        for node in self.unit_nodes: # better things can be done ..
+            #print(node, )
+            ax, fig = plt.subplots()
+            plt.hist([self.data_resampled[node + str(i)] for i in range(len(self.sizes))], bins='auto', alpha=0.7, color='r')
+            plt.xlabel('distribution of ' + node)
+            #plt.xlim(min([self.data[node + str(i)] for i in range(len(self.sizes))]),max([self.data[node + str(i)] for i in range(len(self.sizes))]))
+            plt.show()
+            s.append([self.data[node + str(i)] for i in range(len(self.sizes))])
+        return s
 
 
 
@@ -818,7 +875,7 @@ class HSCM:
         # we plot the data for each node
         s = []
         for node in self.unit_nodes: # better things can be done ..
-            print(node, )
+            #print(node, )
             ax, fig = plt.subplots()
             plt.hist([self.data[node + str(i)] for i in range(len(self.sizes))], bins='auto', alpha=0.7, color='r')
             plt.xlabel('distribution of ' + node)
