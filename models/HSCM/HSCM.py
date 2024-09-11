@@ -553,7 +553,7 @@ class HSCM:
                         # print(parent_samples, 'parent_samples')
                         samples[node + str(i)] = self.node_function[node](parent_samples)
                 else:
-                    if node == 'b':
+                    if node == '_b': #big error lmao
                         for i in range(len(self.sizes)):
                             for j in range(self.sizes[i]):
                                 samples[node + str(i) + '_' + str(j)] = dist(np.random.random())
@@ -592,7 +592,7 @@ class HSCM:
                         # print(parent_samples, 'parent_samples')
                         samples[node + str(i)] = self.node_function[node](parent_samples)
                 else:
-                    if node == 'b':
+                    if node == '_b':
                         for i in range(len(self.sizes)):
                             for j in range(self.sizes[i]):
                                 parent_samples = {

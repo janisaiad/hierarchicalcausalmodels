@@ -19,8 +19,7 @@ def create_subunit_distribution(data, node, unit_index, size):
 
 def ppf_functor(data, node, unit_index, size):
     # Convert data to a numpy array if it's not already
-    data_array = create_subunit_distribution(data, node, unit_index, size[unit_index])
-    print(data_array, "data_array")
+    data_array = create_subunit_distribution(data, node, unit_index, size[unit_index]) # there was here a former indicator that it was working well
     x = np.random.random()
     return np.percentile(data_array, x * 100)
 
