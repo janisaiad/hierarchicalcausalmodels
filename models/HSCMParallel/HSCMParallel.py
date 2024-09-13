@@ -17,22 +17,32 @@ from hierarchicalcausalmodels.utils.distributions_utils import ppf_functor, cdf_
 
 import numpy as np
 
-from numba import cuda
+from numba import cuda # type: ignore
 
+from numba import types
+empty_set = types.Set(types.int64)()
 @cuda.jit
 def sample_unit_node_gpu(node, predecessors, node_function, samples, result, sizes):
-    i, j = cuda.grid(2)
-    if i < len(sizes) and j < sizes[i]:
-        parent_samples = {parent: samples[parent][i][j] for parent in predecessors}
-        result[i][j] = node_function(parent_samples)
-
-@cuda.jit
-def sample_subunit_node_gpu(node, predecessors, node_function, samples, result):
     i = cuda.grid(1)
-    if i < len(samples[list(samples.keys())[0]]):
-        parent_samples = {parent: samples[parent][i] for parent in predecessors}
+    if i < len(sizes):
+        parent_samples = {}
+        for parent in predecessors:
+            if isinstance(parent, tuple):  # Remplacez frozenset par tuple
+                parent_samples[source_sample(parent[0])] = [samples[p][i] for p in parent]
+            else:
+                parent_samples[parent] = samples[parent][i]
         result[i] = node_function(parent_samples)
         
+        
+@cuda.jit
+def sample_subunit_node_gpu(node, predecessors, node_function, samples, result, sizes):
+    i, j = cuda.grid(2)
+    if i < len(sizes) and j < sizes[i]:
+        parent_samples = {parent: samples[parent+str(i)+'_'+str(j)] for parent in predecessors}
+        result[i][j] = node_function[node](parent_samples)
+
+  
+  
         
 class HSCM:
     def __init__(self, nodes: set, edges: set, unit_nodes: set, subunit_nodes: set, sizes: list, node_functions: dict,
@@ -60,6 +70,14 @@ class HSCM:
         self.coeffs = dict()
         self.additive_functions = dict()
 
+        
+        self.global_predecessors = dict()
+        for node in self.nodes:
+            self.global_predecessors[node] = set()
+        for (parent, child) in self.edges:
+            self.global_predecessors[child].add(parent)
+            
+            
         # for predecessors
         for node in self.unit_nodes:
             for i in range(len(sizes)):
@@ -725,43 +743,47 @@ class HSCM:
     def sample_data_parallel(self):
         samples = {}  # 1 sample for each SCM
         for node in nx.topological_sort(self.cgm.dag):
-            predecessors = self.predecessors[node]
-            node_function = self.node_function[node]
-            
-            if node in self.unit_nodes:
-                # Prepare data for GPU
-                sample_size = len(self.sizes)
-                d_samples = {k: cuda.to_device(v) for k, v in samples.items()}
-                d_result = cuda.device_array((sample_size, max(self.sizes)))
-                d_sizes = cuda.to_device(np.array(self.sizes))
-                
-                # Configure GPU grid
-                threads_per_block = (16, 16)
-                blocks_per_grid_x = (sample_size + (threads_per_block[0] - 1)) // threads_per_block[0]
-                blocks_per_grid_y = (max(self.sizes) + (threads_per_block[1] - 1)) // threads_per_block[1]
-                blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
-                
-                # Launch GPU kernel
-                sample_unit_node_gpu[blocks_per_grid, threads_per_block](node, predecessors, node_function, d_samples, d_result, d_sizes)
-                
-                # Copy result back to host
-                samples[node] = d_result.copy_to_host()
+            if node == 'a':
+                for i in range(len(self.sizes)):
+                    samples['a' + str(i)] = np.random.normal(0, 1)
             else:
-                # Subunit node processing
-                sample_size = len(samples[list(samples.keys())[0]])
-                d_samples = {k: cuda.to_device(v) for k, v in samples.items()}
-                d_result = cuda.device_array(sample_size)
-                
-                # Configure GPU grid
-                threads_per_block = 256
-                blocks_per_grid = (sample_size + (threads_per_block - 1)) // threads_per_block
-                
-                # Launch GPU kernel
-                sample_subunit_node_gpu[blocks_per_grid, threads_per_block](node, predecessors, node_function, d_samples, d_result)
-                
-                # Copy result back to host
-                samples[node] = d_result.copy_to_host()
-        
+                predecessors = self.global_predecessors[node]
+                node_function = self.node_function[node]
+
+                if node in self.unit_nodes:
+                    # Prepare data for GPU
+                    sample_size = len(self.sizes)
+                    d_samples = {k: cuda.to_device(v) for k, v in samples.items()}
+                    d_result = cuda.device_array((sample_size, max(self.sizes)))
+                    d_sizes = cuda.to_device(np.array(self.sizes))
+
+                    # Configure GPU grid
+                    threads_per_block = (16, 16)
+                    blocks_per_grid_x = (sample_size + (threads_per_block[0] - 1)) // threads_per_block[0]
+                    blocks_per_grid_y = (max(self.sizes) + (threads_per_block[1] - 1)) // threads_per_block[1]
+                    blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
+
+                    # Launch GPU kernel
+                    sample_unit_node_gpu[blocks_per_grid, threads_per_block](node, predecessors, node_function, d_samples, d_result, d_sizes)
+
+                    # Copy result back to host
+                    samples[node] = d_result.copy_to_host()
+                else:
+                    # Subunit node processing
+                    sample_size = sum(self.sizes)
+                    d_samples = {k: cuda.to_device(v) for k, v in samples.items()}
+                    d_result = cuda.device_array(sample_size)
+
+                    # Configure GPU grid
+                    threads_per_block = 256
+                    blocks_per_grid = (sample_size + (threads_per_block - 1)) // threads_per_block
+
+                    # Launch GPU kernel
+                    sample_subunit_node_gpu[blocks_per_grid, threads_per_block](node, predecessors, node_function, d_samples, d_result)
+
+                    # Copy result back to host
+                    samples[node] = d_result.copy_to_host()
+
         self.data = samples
         return samples
 

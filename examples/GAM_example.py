@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..','..
 
 
 import numpy as np
-from hierarchicalcausalmodels.models.HSCM.HSCM import HSCM
+from hierarchicalcausalmodels.models.HSCMParallel.HSCMParallel import HSCM
 import graphviz
 from scipy.stats import norm, beta, gamma, poisson, binom, bernoulli, expon, uniform
 
@@ -26,7 +26,7 @@ nodes = ["a", "b", "c", "d", "e"]
 edges = [("a", "b"),('a','c'), ("b", "c"), ("c", "d"),("b","d"), ("d", "e"),("b", "e")]
 unit_nodes = ["a", "c", "e"]
 subunit_nodes = ["d","b"]
-sizes = [150]*500
+sizes = [50]*50
 
 
 
@@ -62,7 +62,7 @@ hscm = HSCM(nodes, edges, unit_nodes, subunit_nodes, sizes, node_functions={},da
 # hscm.print_predecessors()
 hscm.additive_model(additive_functions,randomness)
 # Sample data
-sampled_data = hscm.sample_data()
+sampled_data = hscm.sample_data_parallel()
 
 hscm.set_distribution_from_data()
 

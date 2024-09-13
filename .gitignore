@@ -2163,3 +2163,5 @@ table/interv_subunit/hierarchicalnaivebayes/with_interv_data/data/sampled_interv
 table/interv_subunit/hierarchicalnaivebayes/with_interv_data/data/sampled_intervention_98.json
 table/interv_subunit/hierarchicalnaivebayes/with_interv_data/data/sampled_intervention_99.json
 table/interv_subunit/hierarchicalnaivebayes/with_interv_data/data/sampled_intervention.json
+table/real_data/propermodel/datasets/selected_diabetes_indicators.csv
+data/school datase/openml/data.csv.txt
