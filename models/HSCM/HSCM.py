@@ -16,22 +16,9 @@ from hierarchicalcausalmodels.utils.utils import linear_functor, logit_functor, 
 from hierarchicalcausalmodels.utils.distributions_utils import ppf_functor, cdf_functor, pdf_functor,ppf_functor_unit,distribution_functor # type: ignore
 
 import numpy as np
-from numba import cuda
 
-@cuda.jit
-def sample_unit_node_gpu(node, predecessors, node_function, samples, result, sizes):
-    i, j = cuda.grid(2)
-    if i < len(sizes) and j < sizes[i]:
-        parent_samples = {parent: samples[parent][i][j] for parent in predecessors}
-        result[i][j] = node_function(parent_samples)
-
-@cuda.jit
-def sample_subunit_node_gpu(node, predecessors, node_function, samples, result):
-    i = cuda.grid(1)
-    if i < len(samples[list(samples.keys())[0]]):
-        parent_samples = {parent: samples[parent][i] for parent in predecessors}
-        result[i] = node_function(parent_samples)
-
+        
+        
 class HSCM:
     def __init__(self, nodes: set, edges: set, unit_nodes: set, subunit_nodes: set, sizes: list, node_functions: dict,
                  data: dict):
