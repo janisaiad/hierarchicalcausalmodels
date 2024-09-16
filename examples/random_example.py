@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..','..
 
 
 import numpy as np
-from hierarchicalcausalmodels.models.HSCM.HSCM import HSCM
+from hierarchicalcausalmodels.models.HSCM.HSCM import HSCM # type: ignore
 
 from scipy.stats import norm
 
