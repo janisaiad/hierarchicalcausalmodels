@@ -1,6 +1,6 @@
 import numpy as np
-from hierarchicalcausalmodels.utils.distributions import EmpiricalDistribution
-from hierarchicalcausalmodels.utils.parsing_utils import source, extract_number1
+from hierarchicalcausalmodels.utils.distributions import EmpiricalDistribution # type: ignore
+from hierarchicalcausalmodels.utils.parsing_utils import source, extract_number1 # type: ignore
 import pandas as pd
 
 def additive_functor(d, node, additive_functions, is_unit, randomness):

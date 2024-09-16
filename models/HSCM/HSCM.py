@@ -9,10 +9,10 @@ import networkx as nx
 
 from causalgraphicalmodels import CausalGraphicalModel
 import scipy
-from hierarchicalcausalmodels.utils.distributions import EmpiricalDistribution, Distribution
-from hierarchicalcausalmodels.utils.parsing_utils import source_sample
-from hierarchicalcausalmodels.utils.utils import linear_functor, logit_functor, random_functor, additive_functor, is_empty, cleaner, extract_distributions_from_data #distribution_functor
-    
+from hierarchicalcausalmodels.utils.distributions import EmpiricalDistribution, Distribution # type: ignore
+from hierarchicalcausalmodels.utils.parsing_utils import source_sample # type: ignore
+from hierarchicalcausalmodels.utils.utils import linear_functor, logit_functor, random_functor, additive_functor, is_empty, cleaner, extract_distributions_from_data # type: ignore
+# don't forget    distribution_functor
 from hierarchicalcausalmodels.utils.distributions_utils import ppf_functor, cdf_functor, pdf_functor,ppf_functor_unit,distribution_functor # type: ignore
 
 import numpy as np
@@ -716,9 +716,9 @@ class HSCM:
             if node in self.unit_nodes:
                 # Prepare data for GPU
                 sample_size = len(self.sizes)
-                d_samples = {k: cuda.to_device(v) for k, v in samples.items()}
-                d_result = cuda.device_array((sample_size, max(self.sizes)))
-                d_sizes = cuda.to_device(np.array(self.sizes))
+                d_samples = {k: cuda.to_device(v) for k, v in samples.items()} # type: ignore
+                d_result = cuda.device_array((sample_size, max(self.sizes))) # type: ignore
+                d_sizes = cuda.to_device(np.array(self.sizes)) # type: ignore
                 
                 # Configure GPU grid
                 threads_per_block = (16, 16)
@@ -734,8 +734,8 @@ class HSCM:
             else:
                 # Subunit node processing
                 sample_size = len(samples[list(samples.keys())[0]])
-                d_samples = {k: cuda.to_device(v) for k, v in samples.items()}
-                d_result = cuda.device_array(sample_size)
+                d_samples = {k: cuda.to_device(v) for k, v in samples.items()} # type: ignore
+                d_result = cuda.device_array(sample_size) # type: ignore
                 
                 # Configure GPU grid
                 threads_per_block = 256
