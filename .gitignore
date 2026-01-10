@@ -79,7 +79,7 @@ table/
 .idea/
 *.sublime-workspace
 *.sublime-project
-
+.specstory/
 # OS files
 .DS_Store
 Thumbs.db
