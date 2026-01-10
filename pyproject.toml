@@ -6,11 +6,39 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "causalgraphicalmodels",
+    "jupyter>=1.1.1",
+    "jupytext>=1.18.1",
     "matplotlib>=3.10.8",
     "networkx>=3.6.1",
     "numpy>=2.4.1",
     "polars>=1.37.0",
+    "pytest>=9.0.2",
+    "ruff>=0.14.11",
+    "tach>=0.33.0",
+    "torch>=2.9.1",
+    "tqdm>=4.67.1",
+    "ty>=0.0.11",
 ]
 
 [tool.uv.sources]
 causalgraphicalmodels = { git = "https://github.com/janisaiad/causalgraphicalmodels.git" }
+
+
+
+
+
+[build-system]
+requires = ["uv_build>=0.7.19,<0.8.0"]
+build-backend = "uv_build"
+
+
+
+[tool.setuptools]
+package-dir = {hierarchicalcausalmodels = "src/hierarchicalcausalmodels/"} # you can write inside the brackets something like "Model1" = "models/model1/", "Model2" = "models/model2/"
+packages = ["hierarchicalcausalmodels"] # same, smth like ["Model1", "Model2"]
+
+
+
+[tool.setuptools.package-data]
+"*" = ["*.py", "*.pyi", "*.c", "*.h", "*.cpp", "*.hpp"]
+
