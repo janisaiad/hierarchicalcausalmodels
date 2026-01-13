@@ -91,3 +91,8 @@ Thumbs.db
 *.bak
 *.swp
 *.tmp
+
+
+
+# alone
+*CLIMB.md

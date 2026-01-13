@@ -1,5 +1,3 @@
-### README for Hierarchical Causal Models (HCM)
-
 ## Hierarchical Causal Models (HCM)
 
 Hierarchical Causal Models (HCM) is a Python library for creating and analyzing hierarchical causal models. This library allows you to define nodes, edges, unit nodes, subunit nodes, and sizes, and provides functionality for sampling data and estimating effects.
@@ -8,7 +6,7 @@ Hierarchical Causal Models (HCM) is a Python library for creating and analyzing 
 
 To install the HCM library, follow these steps:
 
-### Prerequisites
+### Prerequisites   
 
 - Python 3.11 or higher
 - Poetry
@@ -43,6 +41,13 @@ To install the HCM library, follow these steps:
     ```bash
     poetry shell
     ```
+
+
+
+
+
+
+
 
 ## Usage
 
