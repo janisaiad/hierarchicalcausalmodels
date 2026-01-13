@@ -19,7 +19,7 @@ from hierarchicalcausalmodels.utils.utils import linear_functor, logit_functor, 
     is_empty, distribution_functor, cleaner, extract_distributions_from_data
 
 
-class HSCM:
+class HSCMParametric:
     def __init__(self, nodes: set, edges: set, unit_nodes: set, subunit_nodes: set, sizes: list, node_functions: dict,
                  data: dict):
         # each scm comes with a size dict for sampling
