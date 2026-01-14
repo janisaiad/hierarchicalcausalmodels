@@ -8,8 +8,8 @@ To install the HCM library, follow these steps:
 
 ### Prerequisites   
 
-- Python 3.11 or higher
-- Poetry
+- Python 3.13 or higher
+- `uv` (fast Python package installer)
 
 ### Steps
 
@@ -19,28 +19,33 @@ To install the HCM library, follow these steps:
     cd hierarchicalcausalmodels
     ```
 
-2. **Install Poetry**:
-    If you don't have Poetry installed, you can install it using the following command:
+2. **Install uv**:
+    If you don't have `uv` installed, you can install it using the official installer:
     ```bash
-    curl -sSL https://install.python-poetry.org | python3 -
+    curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
-   or using pip:
+    Or using pip:
     ```bash
-    pip install poetry
-    ```
-
-
-3. **Install dependencies**:
-    Use Poetry to install the project dependencies:
-    ```bash
-    poetry install
+    pip install uv
     ```
 
-4. **Activate the virtual environment**:
-    Activate the virtual environment created by Poetry:
+3. **Create and activate virtual environment**:
+    Create a virtual environment and activate it:
     ```bash
-    poetry shell
+    uv venv
+    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
     ```
+
+4. **Install the package in editable mode**:
+    Install the package and its dependencies:
+    ```bash
+    uv pip install -e .
+    ```
+
+Alternatively, you can use `uv` to run commands directly without activating the virtual environment:
+```bash
+uv run python your_script.py
+```
 
 
 
