@@ -15,7 +15,7 @@ To install the HCM library, follow these steps:
 
 1. **Clone the repository**:
     ```bash
-    git clone https://code.ai-vidence.com/causalit/HCM.git
+    git clone https://github.com/janisaiad/hierarchicalcausalmodels
     cd hierarchicalcausalmodels
     ```
 
