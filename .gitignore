@@ -70,9 +70,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# Data files
-data/
-table/
 
 # Editor directories and files
 .vscode/
