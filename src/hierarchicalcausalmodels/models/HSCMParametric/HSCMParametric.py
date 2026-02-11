@@ -21,7 +21,7 @@ from hierarchicalcausalmodels.utils.utils import linear_functor, logit_functor, 
 
 class HSCMParametric:
     def __init__(self, nodes: set, edges: set, unit_nodes: set, subunit_nodes: set, sizes: list, node_functions: dict,
-                 data: dict):
+                 data: dict,observed_nodes: set):
         # each scm comes with a size dict for sampling
         self.subunit_nodes = {"_" + k for k in
                               subunit_nodes}  # to keep track of the names of the subunit nodes with the "_" prefix
@@ -76,9 +76,17 @@ class HSCMParametric:
                 else:
                     for i in range(len(sizes)):
                         predecessors[child + str(i)].add(parent + str(i))
-
+        self.observed_nodes = {node: False for node in self.nodes} | observed_nodes
+        
+        
         self.predecessors = predecessors
+        
+        
         self.cgm = CausalGraphicalModel(nodes=self.nodes, edges=self.edges)
+        self.cgm.observed_variables = {node for node in self.nodes if self.observed_nodes[node]}
+        self.cgm.unobserved_variables = {node for node in self.nodes if not self.observed_nodes[node]}
+        
+        
         self.data = data
         self.node_distribution = dict()  # dictionary of distributions passing functions indexed by the nodes, taking all previous values as parameters, and a random(0,1) as a last parameter to perform a sampling (with a ppf like norm.ppf etc .. for instance)
         self.aggregator_functions = {}  # dictionary of functions indexed by the unit nodes, and for each, a dictionary of functions indexed by the subunit nodes with functions like np.mean, np.median, np.std etc ...
@@ -90,6 +98,9 @@ class HSCMParametric:
             if x in self.subunit_nodes_names and y in self.unit_nodes:  # we use the same notation as in the predecessors without '_' prefix for the subunit nodes
                 self.aggregator_functions[y]['_' + x] = lambda d: np.mean(
                     np.array(list(d)))  # not the most efficient way but to dev a better one
+
+
+
 
         self.collapsed = CausalGraphicalModel(nodes=self.nodes, edges=self.edges)
         self.augmented = CausalGraphicalModel(nodes=self.nodes, edges=self.edges)
@@ -300,6 +311,10 @@ class HSCMParametric:
                     temp_aggregator_functions[y]['_' + x] = lambda d: np.mean(np.array(list(d)))
         else:
             temp_aggregator_functions = self.aggregator_functions
+            
+        def observed_node(self, node):
+            self.observed_nodes[node] = True
+            return
 
         def create_lambda(node):
             return lambda d: linear_functor(d, str(node), self.coeffs, node in self.unit_nodes,
