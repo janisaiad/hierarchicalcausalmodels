@@ -21,7 +21,7 @@ from hierarchicalcausalmodels.utils.utils import linear_functor, logit_functor, 
 
 class HSCMParametric:
     def __init__(self, nodes: set, edges: set, unit_nodes: set, subunit_nodes: set, sizes: list, node_functions: dict,
-                 data: dict,observed_nodes: set):
+                 data: dict,observed_nodes: set=None):
         # each scm comes with a size dict for sampling
         self.subunit_nodes = {"_" + k for k in
                               subunit_nodes}  # to keep track of the names of the subunit nodes with the "_" prefix
@@ -76,15 +76,17 @@ class HSCMParametric:
                 else:
                     for i in range(len(sizes)):
                         predecessors[child + str(i)].add(parent + str(i))
-        self.observed_nodes = {node: False for node in self.nodes} | observed_nodes
         
         
         self.predecessors = predecessors
         
         
         self.cgm = CausalGraphicalModel(nodes=self.nodes, edges=self.edges)
-        self.cgm.observed_variables = {node for node in self.nodes if self.observed_nodes[node]}
-        self.cgm.unobserved_variables = {node for node in self.nodes if not self.observed_nodes[node]}
+        if observed_nodes is not None:
+            self.cgm.observed_variables = {node for node in self.nodes if self.observed_nodes[node]}
+            self.cgm.unobserved_variables = {node for node in self.nodes if not self.observed_nodes[node]}
+        else:
+            self.cgm.observed_variables = nodes
         
         
         self.data = data
