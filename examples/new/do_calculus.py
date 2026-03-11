@@ -19,6 +19,117 @@ from causalgraphicalmodels import CausalGraphicalModel
 import copy
 import re
 
+try:
+    import pyagrum as gum
+    import pyagrum.causal as csl
+    PYAGNUM_AVAILABLE = True
+except ImportError:
+    PYAGNUM_AVAILABLE = False
+
+
+# %%
+def _sanitize_node_name(name: str) -> str:
+    """Sanitize CGM node name for pyAgrum (no ^{}|). Paper Q^{y|a} -> Qy_a."""
+    return name.replace("^", "").replace("{", "").replace("}", "").replace("|", "_")
+
+
+def cgm_to_pyagrum_causal(cgm: CausalGraphicalModel, unobserved=None, domain_size: int = 2):
+    """
+    Build a pyAgrum BayesNet and latent descriptor from a (collapsed/augmented) CGM.
+
+    Use this to run do-calculus on the flat graph with Q-variables. The BN has only
+    observed nodes; unobserved nodes become latent confounder groups in CausalModel.
+
+    Parameters
+    ----------
+    cgm : CausalGraphicalModel
+        Collapsed (and optionally augmented/marginalized) CGM with nodes like Q^a, Q^{y|a}, U, etc.
+    unobserved : set[str] or None
+        Node names to treat as unobserved (e.g. {"U"}). If None, uses cgm.unobserved_variables
+        when it is a set of node names in the graph; otherwise no latent.
+    domain_size : int
+        Number of states per variable in the BN (pyAgrum is discrete). 2 = binary.
+
+    Returns
+    -------
+    bn : pyagrum.BayesNet
+        Observational BN over observed nodes with uniform CPTs (for identification only).
+    latent_descriptor : list[tuple[str, list[str]]]
+        For CausalModel: list of (latent_name, list of observed children).
+    name_map : dict[str, str]
+        Paper name -> sanitized name used in the BN (for calling identifyingIntervention).
+    """
+    if not PYAGNUM_AVAILABLE:
+        raise ImportError("pyagrum is required for cgm_to_pyagrum_causal. Install with: pip install pyagrum")
+    nodes_all = set(cgm.dag.nodes)
+    if unobserved is not None:
+        unobs = set(unobserved) & nodes_all
+    else:
+        u = getattr(cgm, "unobserved_variables", None)
+        unobs = (set(u) & nodes_all) if u else set()
+    observed = nodes_all - unobs
+    name_map = {n: _sanitize_node_name(n) for n in observed}
+    name_map.update({n: _sanitize_node_name(n) for n in unobs})
+    obs_sanitized = [name_map[n] for n in sorted(observed)]
+    bn = gum.BayesNet()
+    for n in obs_sanitized:
+        bn.add(n, domain_size)
+    for (u, v) in cgm.dag.edges:
+        if u in observed and v in observed:
+            bn.addArc(name_map[u], name_map[v])
+    for node in obs_sanitized:
+        bn.cpt(node).fillWith(1.0).normalize()
+    latent_descriptor = []
+    for u in unobs:
+        children_obs = [name_map[v] for v in cgm.dag.successors(u) if v in observed]
+        if children_obs:
+            latent_descriptor.append((name_map[u], children_obs))
+    return bn, latent_descriptor, name_map
+
+
+def run_do_calculus(cgm: CausalGraphicalModel, Y, X, unobserved=None, method: str = "identifyingIntervention"):
+    """
+    Run pyAgrum do-calculus on a collapsed/augmented CGM: get identification formula (and optionally impact).
+
+    Y = set of outcome variable names (paper notation, e.g. {"Q^y"}).
+    X = set of intervention variable names (e.g. {"Q^a"}).
+    Soft intervention on subunit A corresponds to hard intervention on Q^a in the collapsed model.
+
+    Parameters
+    ----------
+    cgm : CausalGraphicalModel
+        Flat CGM with Q-variables (after collapse and optional augment/marginalize).
+    Y : set[str] or str
+        Outcome variable(s), e.g. {"Q^y"} or "Q^y".
+    X : set[str] or str
+        Intervention variable(s), e.g. {"Q^a"} or "Q^a".
+    unobserved : set[str] or None
+        Unobserved nodes (e.g. {"U"}). If None, inferred from cgm when possible.
+    method : str
+        "identifyingIntervention" (default) or "causalImpact".
+
+    Returns
+    -------
+    If method == "identifyingIntervention": ASTtree with .toLatex().
+    If method == "causalImpact": (formula, tensor, explanation).
+    """
+    if not PYAGNUM_AVAILABLE:
+        raise ImportError("pyagrum is required for run_do_calculus. Install with: pip install pyagrum")
+    Y_set = {Y} if isinstance(Y, str) else set(Y)
+    X_set = {X} if isinstance(X, str) else set(X)
+    bn, latent_descriptor, name_map = cgm_to_pyagrum_causal(cgm, unobserved=unobserved)
+    Y_sanitized = [name_map[n] for n in Y_set if n in name_map]
+    X_sanitized = [name_map[n] for n in X_set if n in name_map]
+    if len(Y_sanitized) != len(Y_set) or len(X_sanitized) != len(X_set):
+        missing = (Y_set | X_set) - set(name_map.keys())
+        raise ValueError("Y or X refer to nodes not in the CGM or not observed: " + str(missing))
+    cm = csl.CausalModel(bn, latent_descriptor, keepArcs=False)
+    if method == "causalImpact":
+        return csl.causalImpact(cm, on=Y_sanitized[0] if len(Y_sanitized) == 1 else Y_sanitized,
+                                doing=X_sanitized[0] if len(X_sanitized) == 1 else X_sanitized)
+    ast = csl.identifyingIntervention(cm, Y=set(Y_sanitized), X=set(X_sanitized))
+    return ast
+
 
 # %%
 def _q_node_name_paper(subunit: str, original_edges, subunit_nodes: set) -> str:
@@ -159,6 +270,73 @@ print("Instrument CGM edges:", instrument_cgm.dag.edges)
 
 
 # %%
+def _subunit_ancestors_of_subunit(node: str, edges: set, subunit_nodes: set) -> set:
+    """Subunit nodes that are ancestors of the given subunit node (including itself)."""
+    from collections import deque
+    in_edges = {}
+    for a, b in edges:
+        in_edges.setdefault(b, set()).add(a)
+    seen = set()
+    queue = deque([node])
+    while queue:
+        n = queue.popleft()
+        if n in seen or n not in subunit_nodes:
+            continue
+        seen.add(n)
+        for p in in_edges.get(n, ()):
+            if p not in seen:
+                queue.append(p)
+    return seen
+
+
+def suggest_augment_for_outcome(hscm: HSCMParametric, outcome_subunit: str) -> tuple[str, set[str]]:
+    """
+    Suggest augmentation (q_hat, parents) so that the estimand E[outcome | do(...)] can be identified.
+
+    Paper: the estimand for subunit outcome Y involves the within-unit marginal Q^y. That marginal
+    is a deterministic function of the conditionals for Y and its subunit ancestors (eq. 4140 with
+    L = {Y}, R = empty). So we augment with Q^y with parents = { Q^{v|pa_S(v)} : v in an_S(Y) }.
+    The augmentation is observed iff all those Q nodes are observed (Alg 2: computable from
+    q(x^{S_obs})).
+
+    Parameters
+    ----------
+    hscm : HSCMParametric
+        The hierarchical SCM (used for edges and subunit_nodes).
+    outcome_subunit : str
+        Name of the subunit outcome variable (e.g. "Y").
+
+    Returns
+    -------
+    q_hat : str
+        Augmentation variable name (e.g. "Q^y").
+    q_hat_parents : set[str]
+        Parent Q-node names (e.g. {"Q^a", "Q^{y|a}"}).
+    """
+    edges = set(hscm.edges)
+    subunit_nodes = set(hscm.subunit_nodes)
+    names_no_prefix = getattr(hscm, "subunit_nodes_names", set())
+    # HSCMParametric uses "_" prefix for subunit nodes; accept "Y" or "_Y"
+    if outcome_subunit in subunit_nodes:
+        out = outcome_subunit
+    elif outcome_subunit in names_no_prefix:
+        out = "_" + outcome_subunit.lstrip("_")
+    else:
+        raise ValueError("outcome_subunit must be a subunit node (e.g. 'Y' or '_Y'): {}".format(outcome_subunit))
+    if out not in subunit_nodes:
+        raise ValueError("outcome_subunit must be a subunit node: {}".format(outcome_subunit))
+    an_s = _subunit_ancestors_of_subunit(out, edges, subunit_nodes)
+    parents = set()
+    for v in an_s:
+        q_node = _q_node_name_paper(v, edges, subunit_nodes)
+        parents.add(q_node)
+    # q_hat = marginal of outcome -> Q^{outcome}; paper notation Q^y for variable Y
+    outcome_lower = out.lstrip("_").lower()
+    q_hat = "Q^{}".format(outcome_lower)
+    return q_hat, parents
+
+
+# %%
 # I'll just write mechanisms but we can get it from HSCMParametric.functions by restraining to unit_level variables
 # we can represent each mechanism as a dictionnary containing the function for sampling, the parents in the order the function should take them and finally a string expressing whether or not another function is present in there
 
@@ -231,6 +409,13 @@ augmented_confounder_cgm = augment_collapsed_model(confounder_cgm, 'Q^y', {'Q^{y
 print(augmented_confounder_cgm.dag.nodes)
 print(augmented_confounder_cgm.dag.edges)
 
+# %%
+# Do-calculus via pyAgrum: set U as unobserved, then identify P(Q^y | do(Q^a))
+if PYAGNUM_AVAILABLE:
+    augmented_confounder_cgm.unobserved_variables = {"U"}
+    ast_confounder = run_do_calculus(augmented_confounder_cgm, Y={"Q^y"}, X={"Q^a"}, unobserved={"U"})
+    print("Confounder: P(Q^y | do(Q^a)) identified as:")
+    print(ast_confounder.toLatex())
 
 # %%
 augmented_cofounder_interferer_cgm = augment_collapsed_model(confounder_interferer_cgm, 'Q^y', {'Q^{y|a}',"Q^a"})
@@ -300,7 +485,17 @@ print("Instrument CGM edges:", augmented_instrument_cgm.dag.edges)
 # %%
 instrument_cgm = marginalize_augmented_model(augmented_instrument_cgm,'Y',{'Q^z'})
 print("Instrument CGM nodes:", instrument_cgm.dag.nodes)
-print("Instrument CGM edges:", instrument_cgm.dag.edges) 
+print("Instrument CGM edges:", instrument_cgm.dag.edges)
+
+# %%
+# Do-calculus on instrument (marginalized) model: P(Y | do(Q^a))
+if PYAGNUM_AVAILABLE:
+    instrument_cgm.unobserved_variables = {"U"}
+    ast_instrument = run_do_calculus(instrument_cgm, Y={"Y"}, X={"Q^a"}, unobserved={"U"})
+    print("Instrument: P(Y | do(Q^a)) identified as:")
+    print(ast_instrument.toLatex())
+    # Optional: causalImpact returns (formula, tensor, explanation); use method="causalImpact" for numeric eval
+    # formula, impact_tensor, expl = run_do_calculus(augmented_confounder_cgm, "Q^y", "Q^a", unobserved={"U"}, method="causalImpact")
 
 # %% [markdown]
 # ## Figure A3: Additional ID examples (effect of A on Y identified)
