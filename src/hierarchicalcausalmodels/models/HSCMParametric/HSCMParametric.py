@@ -599,5 +599,71 @@ class HSCMParametric:
 
 
     def augment(self, augmentation_variable, mechanism):
-        return
+        level = mechanism['level']
+        parents = mechanism.get('parents', [])
+        children = mechanism.get('children', [])
+        function = mechanism.get('function', lambda d: 0.0)
+
+        is_subunit = (level == 'subunit')
+        internal_name = '_' + augmentation_variable if is_subunit else augmentation_variable
+
+        self.nodes.add(internal_name)
+        if is_subunit:
+            self.subunit_nodes.add(internal_name)
+            self.subunit_nodes_names.add(augmentation_variable)
+        else:
+            self.unit_nodes.add(augmentation_variable)
+            self.aggregator_functions[augmentation_variable] = {}
+
+        def _int(name):
+            return '_' + name if name in self.subunit_nodes_names else name
+
+        for p in parents:
+            self.edges.add((_int(p), internal_name))
+        for c in children:
+            self.edges.add((internal_name, _int(c)))
+
+        if is_subunit:
+            for i in range(len(self.sizes)):
+                for j in range(self.sizes[i]):
+                    key = internal_name + str(i) + '_' + str(j)
+                    self.predecessors[key] = set()
+                    for p in parents:
+                        if p in self.subunit_nodes_names:
+                            self.predecessors[key].add(_int(p) + str(i) + '_' + str(j))
+                        else:
+                            self.predecessors[key].add(p + str(i))
+        else:
+            for i in range(len(self.sizes)):
+                key = augmentation_variable + str(i)
+                self.predecessors[key] = set()
+                for p in parents:
+                    if p in self.subunit_nodes_names:
+                        self.predecessors[key].add(frozenset(_int(p) + str(i) + '_' + str(j) for j in range(self.sizes[i])))
+                    else:
+                        self.predecessors[key].add(p + str(i))
+
+        for c in children:
+            if c in self.subunit_nodes_names:
+                for i in range(len(self.sizes)):
+                    for j in range(self.sizes[i]):
+                        c_key = _int(c) + str(i) + '_' + str(j)
+                        if is_subunit:
+                            self.predecessors[c_key].add(internal_name + str(i) + '_' + str(j))
+                        else:
+                            self.predecessors[c_key].add(augmentation_variable + str(i))
+            else:
+                for i in range(len(self.sizes)):
+                    if is_subunit:
+                        self.predecessors[c + str(i)].add(frozenset(internal_name + str(i) + '_' + str(j) for j in range(self.sizes[i])))
+                    else:
+                        self.predecessors[c + str(i)].add(augmentation_variable + str(i))
+
+        if is_subunit:
+            for c in children:
+                if c in self.unit_nodes:
+                    self.aggregator_functions[c][internal_name] = lambda d: np.mean(np.array(list(d)))
+
+        self.node_function[internal_name] = function
+        self.cgm = CausalGraphicalModel(nodes=self.nodes, edges=self.edges)
 
