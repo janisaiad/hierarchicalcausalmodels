@@ -667,3 +667,53 @@ class HSCMParametric:
         self.node_function[internal_name] = function
         self.cgm = CausalGraphicalModel(nodes=self.nodes, edges=self.edges)
 
+
+
+def is_identifiable(self, treatment, outcome):
+    collapsed_graph = self.collapse()
+
+    # treatment and outcome in collapsed graph use unit names directly
+    # Q_ prefix for collapsed subunit nodes
+    t = treatment if treatment in self.unit_nodes else 'Q__' + treatment
+    o = outcome if outcome in self.unit_nodes else 'Q__' + outcome
+
+    # check if a valid backdoor adjustment set exists
+    adjustment_sets = collapsed_graph.get_all_backdoor_adjustment_sets(t, o)
+
+    if adjustment_sets:
+        return True, adjustment_sets
+    else:
+        return False, set()
+
+
+def marginalize(self, variables=None):
+    # if no variables specified, marginalize all subunit nodes
+    if variables is None:
+        variables = set(self.subunit_nodes_names)
+
+    nodes = set(self.unit_nodes)
+    edges = set()
+
+    # only keep unit-level edges, rewiring through marginalized subunit nodes
+    for node in self.unit_nodes:
+        for parent, child in self.edges:
+            # unit -> unit edges, keep as is
+            if parent in self.unit_nodes and child in self.unit_nodes:
+                edges.add((parent, child))
+            # subunit -> unit: connect subunit's unit parents directly to the unit child
+            if '_' + parent in self.subunit_nodes and child in self.unit_nodes and parent in variables:
+                for grandparent, p in self.edges:
+                    if p == '_' + parent and grandparent in self.unit_nodes:
+                        edges.add((grandparent, child))
+            # unit -> subunit -> unit chain
+            if parent in self.unit_nodes and '_' + child in self.subunit_nodes and child in variables:
+                for p2, c2 in self.edges:
+                    if p2 == '_' + child and c2 in self.unit_nodes:
+                        edges.add((parent, c2))
+
+    # deduplicate and remove self-loops
+    edges = {(p, c) for p, c in edges if p != c}
+
+    graph = CausalGraphicalModel(nodes=nodes, edges=edges)
+    self.marginalized = graph
+    return graph
