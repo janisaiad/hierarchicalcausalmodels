@@ -840,3 +840,37 @@ def plot_causal_graph(self, which='full'):
 
 
 
+# estimates causal effect of treatment on outcome using regression adjustment
+# fits a linear model on sampled data: outcome ~ treatment + adjustment variables
+# returns the coefficient of treatment as the effect estimate
+def regression_estimate(self, treatment, outcome, n_samples=500):
+    identifiable, adj_sets = self.is_identifiable(treatment, outcome)
+    if not identifiable:
+        print("Effect is not identifiable.")
+        return None
+
+    adjustment_set = min(adj_sets, key=len)
+    t = treatment if treatment in self.unit_nodes else '_' + treatment
+    o = outcome if outcome in self.unit_nodes else '_' + outcome
+
+    X, Y = [], []
+    for _ in range(n_samples):
+        sample = self.sample_data()
+        for i in range(len(self.sizes)):
+            row = [sample[t + str(i)]]
+            for adj in adjustment_set:
+                adj_int = adj if adj in self.unit_nodes else '_' + adj
+                row.append(sample[adj_int + str(i)])
+            X.append(row)
+            Y.append(sample[o + str(i)])
+
+    X, Y = np.array(X), np.array(Y)
+    # add intercept
+    X = np.hstack([np.ones((X.shape[0], 1)), X])
+    # OLS: beta = (X'X)^-1 X'Y
+    beta = np.linalg.lstsq(X, Y, rcond=None)[0]
+    # coefficient at index 1 is the treatment effect
+    return beta[1]
+
+
+
