@@ -965,3 +965,41 @@ def frontdoor_adjustment(self, treatment, outcome, mediator, n_samples=1000):
     e_y1 = np.dot(results[n_t - 1], y_centers[:n_o])
     e_y0 = np.dot(results[0], y_centers[:n_o])
     return e_y1 - e_y0
+
+
+# tests robustness of the ATE estimate to unobserved confounding
+# varies a hypothetical confounder strength gamma from 0 to max_gamma
+# and reports at what point the ATE estimate crosses zero (i.e. becomes non-significant)
+def sensitivity_analysis(self, treatment, outcome, max_gamma=2.0, steps=20, n_samples=500):
+    base_ate = self.ate(treatment, outcome, n_samples=n_samples)
+    if base_ate is None:
+        return None
+
+    gammas = np.linspace(0, max_gamma, steps)
+    adjusted_ates = []
+
+    for gamma in gammas:
+        # Rosenbaum-style: bias bound = gamma * std(Y)
+        o = outcome if outcome in self.unit_nodes else '_' + outcome
+        y_vals = [self.data[o + str(i)] for i in range(len(self.sizes))]
+        bias = gamma * np.std(y_vals)
+        adjusted_ates.append(base_ate - bias)
+
+    # find where ATE crosses zero
+    crossover = None
+    for i, val in enumerate(adjusted_ates):
+        if val <= 0:
+            crossover = gammas[i]
+            break
+
+    plt.plot(gammas, adjusted_ates, color='steelblue')
+    plt.axhline(0, color='salmon', linestyle='--')
+    plt.xlabel('Confounder strength (gamma)')
+    plt.ylabel('Adjusted ATE')
+    plt.title('Sensitivity analysis')
+    if crossover:
+        plt.axvline(crossover, color='gray', linestyle=':', label=f'ATE=0 at gamma={crossover:.2f}')
+        plt.legend()
+    plt.show()
+
+    return {'base_ate': base_ate, 'crossover_gamma': crossover, 'adjusted_ates': list(zip(gammas, adjusted_ates))}
