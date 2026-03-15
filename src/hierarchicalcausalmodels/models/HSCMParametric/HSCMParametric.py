@@ -717,7 +717,11 @@ def marginalize(self, variables=None):
     graph = CausalGraphicalModel(nodes=nodes, edges=edges)
     self.marginalized = graph
     return graph
-
+# Estimates the Average Treatment Effect (ATE) of treatment on outcome.
+# Uses backdoor adjustment: check identifiability, pick the smallest valid
+# adjustment set, then estimate E[Y|do(T=1)] - E[Y|do(T=0)] by sampling
+# adjustment variables from the observational distribution and intervening
+# on treatment directly via node_function. Adapted to the unit-level structure.
 def ate(self, treatment, outcome, n_samples=1000):
     # check identifiability first
     identifiable, adj_sets = self.is_identifiable(treatment, outcome)
@@ -759,3 +763,75 @@ def ate(self, treatment, outcome, n_samples=1000):
 
     ate_value = np.mean(results[1]) - np.mean(results[0])
     return ate_value
+
+# Estimates the interventional distribution Q = P(Y|do(T=t)) by intervening
+# on treatment and sampling outcome values across all units.
+def estimate_q(self, treatment, outcome, t_val, n_samples=1000):
+    t = treatment if treatment in self.unit_nodes else '_' + treatment
+    o = outcome if outcome in self.unit_nodes else '_' + outcome
+
+    y_samples = []
+    for _ in range(n_samples):
+        sample = self.sample_data()
+        for i in range(len(self.sizes)):
+            parent_samples = {parent: sample[parent] for parent in self.predecessors[o + str(i)]}
+            parent_samples[t + str(i)] = t_val
+            y_samples.append(self.node_function[o](parent_samples))
+
+    return np.array(y_samples)
+
+
+# Estimates the Conditional ATE E[Y|do(T=1),C=c] - E[Y|do(T=0),C=c]
+# for a given conditioning variable and value.
+# Builds on estimate_q, filtering samples where the condition holds.
+def cate(self, treatment, outcome, condition_node, condition_value, n_samples=1000, tol=0.1):
+    c = condition_node if condition_node in self.unit_nodes else '_' + condition_node
+    t = treatment if treatment in self.unit_nodes else '_' + treatment
+    o = outcome if outcome in self.unit_nodes else '_' + outcome
+
+    results = {0: [], 1: []}
+    for t_val in [0, 1]:
+        for _ in range(n_samples):
+            sample = self.sample_data()
+            for i in range(len(self.sizes)):
+                # only keep samples where condition is satisfied
+                if abs(sample[c + str(i)] - condition_value) > tol:
+                    continue
+                parent_samples = {parent: sample[parent] for parent in self.predecessors[o + str(i)]}
+                parent_samples[t + str(i)] = t_val
+                results[t_val].append(self.node_function[o](parent_samples))
+
+    if not results[0] or not results[1]:
+        print("Not enough samples satisfying the condition, try increasing n_samples or tol.")
+        return None
+
+    return np.mean(results[1]) - np.mean(results[0])
+
+# Plots the causal DAG with unit nodes in blue and subunit nodes in red.
+# Optionally plots the collapsed or marginalized graph instead.
+def plot_causal_graph(self, which='full'):
+    if which == 'collapsed':
+        graph = self.collapsed.dag
+        title = 'Collapsed graph'
+    elif which == 'marginalized':
+        graph = self.marginalized.dag
+        title = 'Marginalized graph'
+    else:
+        graph = self.cgm.dag
+        title = 'Full causal graph'
+
+    color_map = []
+    for node in graph.nodes():
+        if node in self.unit_nodes:
+            color_map.append('steelblue')
+        else:
+            color_map.append('salmon')
+
+    pos = nx.spring_layout(graph, seed=42)
+    nx.draw(graph, pos, with_labels=True, node_color=color_map,
+            node_size=1500, font_size=10, font_color='white',
+            arrows=True, arrowsize=20)
+    plt.title(title)
+    plt.show()
+
+    
