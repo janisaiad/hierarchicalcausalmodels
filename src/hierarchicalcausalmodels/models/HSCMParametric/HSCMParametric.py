@@ -261,11 +261,15 @@ class HSCMParametric:
         self.node_function[node] = distribution_object.ppf()
         return
 
-    def soft_conditional_intervention(self, node, distribution_object):
-        # conditioning on its parent ! a_i_j follow q_star(a|parents(a_i_j)) -> parents are subunits z_i_j or units x_i
-
-
-        return
+# intervenes on a node by replacing its mechanism with a new distribution
+# conditioned on its parents, i.e. node follows q*(node | parents(node))
+# distribution_object is a callable taking a dict of parent values and returning a sample
+def soft_conditional_intervention(self, node, distribution_object):
+    former_distrib = self.node_theoretical_distribution.get(node)
+    former_function = self.node_function.get(node)
+    self.node_theoretical_distribution[node] = distribution_object
+    self.node_function[node] = lambda d: distribution_object.ppf(d, np.random.uniform(0, 1))
+    return former_distrib, former_function
 
     def set_soft_intervention(self, node, distribution_object):
         former_distrib = self.node_theoretical_distribution[node]
