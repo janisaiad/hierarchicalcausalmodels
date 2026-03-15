@@ -898,3 +898,70 @@ def clean_data(self):
             del self.data[key]
 
     return missing, extra
+
+
+# estimates P(Y|do(T)) via frontdoor adjustment through a mediator
+# uses pyAgrum BayesNet for inference on the frontdoor formula:
+# P(Y|do(T)) = sum_m P(m|T) * sum_t P(Y|m,t) * P(t)
+def frontdoor_adjustment(self, treatment, outcome, mediator, n_samples=1000):
+    try:
+        import pyAgrum as gum
+    except ImportError:
+        print("pyAgrum not installed. Run: pip install pyAgrum")
+        return None
+
+    # sample data to fit the BayesNet
+    sample = self.sample_data()
+    t = treatment if treatment in self.unit_nodes else '_' + treatment
+    o = outcome if outcome in self.unit_nodes else '_' + outcome
+    m = mediator if mediator in self.unit_nodes else '_' + mediator
+
+    # discretize samples into bins for pyAgrum
+    t_vals = np.array([sample[t + str(i)] for i in range(len(self.sizes))])
+    o_vals = np.array([sample[o + str(i)] for i in range(len(self.sizes))])
+    m_vals = np.array([sample[m + str(i)] for i in range(len(self.sizes))])
+
+    def discretize(arr, n_bins=5):
+        bins = np.linspace(arr.min(), arr.max(), n_bins + 1)
+        return np.digitize(arr, bins[:-1]) - 1, bins
+
+    t_disc, t_bins = discretize(t_vals)
+    o_disc, o_bins = discretize(o_vals)
+    m_disc, m_bins = discretize(m_vals)
+
+    n_t = len(np.unique(t_disc))
+    n_o = len(np.unique(o_disc))
+    n_m = len(np.unique(m_disc))
+
+    # build pyAgrum BayesNet: T -> M -> Y, T -> Y
+    bn = gum.BayesNet('frontdoor')
+    T = bn.add(gum.LabelizedVariable(treatment, treatment, n_t))
+    M = bn.add(gum.LabelizedVariable(mediator, mediator, n_m))
+    O = bn.add(gum.LabelizedVariable(outcome, outcome, n_o))
+    bn.addArc(treatment, mediator)
+    bn.addArc(mediator, outcome)
+    bn.addArc(treatment, outcome)
+
+    # fill CPTs from sampled data
+    learner = gum.BNLearner(
+        gum.NDArray(np.column_stack([t_disc, m_disc, o_disc])),
+        bn
+    )
+    learner.useSmoothingPrior()
+    bn = learner.learnParameters(bn)
+
+    # frontdoor formula via pyAgrum inference
+    ie = gum.LazyPropagation(bn)
+
+    results = {}
+    for t_val in range(n_t):
+        ie.setEvidence({treatment: t_val})
+        ie.makeInference()
+        p_y_do_t = ie.posterior(outcome)
+        results[t_val] = np.array([p_y_do_t[{outcome: k}] for k in range(n_o)])
+
+    # ATE: E[Y|do(T=max)] - E[Y|do(T=min)]
+    y_centers = (o_bins[:-1] + o_bins[1:]) / 2
+    e_y1 = np.dot(results[n_t - 1], y_centers[:n_o])
+    e_y0 = np.dot(results[0], y_centers[:n_o])
+    return e_y1 - e_y0
