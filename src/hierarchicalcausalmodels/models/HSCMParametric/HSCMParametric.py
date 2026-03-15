@@ -717,3 +717,45 @@ def marginalize(self, variables=None):
     graph = CausalGraphicalModel(nodes=nodes, edges=edges)
     self.marginalized = graph
     return graph
+
+def ate(self, treatment, outcome, n_samples=1000):
+    # check identifiability first
+    identifiable, adj_sets = self.is_identifiable(treatment, outcome)
+    if not identifiable:
+        print("Effect is not identifiable, no valid adjustment set found.")
+        return None
+
+    # pick the smallest adjustment set
+    adjustment_set = min(adj_sets, key=len)
+
+    # internal names
+    t = treatment if treatment in self.unit_nodes else '_' + treatment
+    o = outcome if outcome in self.unit_nodes else '_' + outcome
+
+    # estimate E[Y | do(T=1)] - E[Y | do(T=0)] by backdoor adjustment
+    results = {0: [], 1: []}
+
+    for t_val in [0, 1]:
+        for _ in range(n_samples):
+            # sample the adjustment variables from the model
+            sample = self.sample_data()
+
+            # collect adjustment variable values across units
+            adj_values = {}
+            for adj in adjustment_set:
+                adj_int = adj if adj in self.unit_nodes else '_' + adj
+                adj_values[adj_int] = [sample[adj_int + str(i)] for i in range(len(self.sizes))]
+
+            # intervene on treatment for each unit
+            y_vals = []
+            for i in range(len(self.sizes)):
+                parent_samples = {t: t_val}
+                for adj in adjustment_set:
+                    adj_int = adj if adj in self.unit_nodes else '_' + adj
+                    parent_samples[adj_int] = adj_values[adj_int][i]
+                y_vals.append(self.node_function[o](parent_samples))
+
+            results[t_val].append(np.mean(y_vals))
+
+    ate_value = np.mean(results[1]) - np.mean(results[0])
+    return ate_value
