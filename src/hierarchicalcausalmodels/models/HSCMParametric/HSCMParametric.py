@@ -834,4 +834,13 @@ def plot_causal_graph(self, which='full'):
     plt.title(title)
     plt.show()
 
-    
+
+# interventional distribution
+q = model.estimate_q('T', 'Y', t_val=1, n_samples=500)
+
+# conditional ATE for units where X ≈ 0.5
+cate_val = model.cate('T', 'Y', condition_node='X', condition_value=0.5, n_samples=1000, tol=0.05)
+
+# plot the full graph, or 'collapsed' / 'marginalized'
+model.plot_causal_graph(which='full')
+model.plot_causal_graph(which='collapsed')
