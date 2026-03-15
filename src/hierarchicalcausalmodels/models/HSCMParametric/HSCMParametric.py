@@ -874,3 +874,27 @@ def regression_estimate(self, treatment, outcome, n_samples=500):
 
 
 
+# validates and normalizes self.data keys to match internal naming convention
+# checks that all expected unit and subunit keys are present
+# removes any keys that don't match the expected format
+def clean_data(self):
+    expected_keys = set()
+    for node in self.unit_nodes:
+        for i in range(len(self.sizes)):
+            expected_keys.add(node + str(i))
+    for node in self.subunit_nodes:
+        for i in range(len(self.sizes)):
+            for j in range(self.sizes[i]):
+                expected_keys.add(node + str(i) + '_' + str(j))
+
+    missing = expected_keys - set(self.data.keys())
+    extra = set(self.data.keys()) - expected_keys
+
+    if missing:
+        print("Missing keys in data:", missing)
+    if extra:
+        print("Removing unexpected keys:", extra)
+        for key in extra:
+            del self.data[key]
+
+    return missing, extra
