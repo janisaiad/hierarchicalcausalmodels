@@ -1,6 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
+#     formats: ipynb,py:percent
 #     text_representation:
 #       extension: .py
 #       format_name: percent
@@ -504,7 +505,7 @@ class InstrumentModel:
         Y_est0 = gpc.predict_proba(scaler.transform(logit(np.array([[qAs[0]]]))))
         Y_est1 = gpc.predict_proba(scaler.transform(logit(np.array([[qAs[1]]])))) 
         return Y_est1[0, 1] - Y_est0[0, 1]
-        
+
 
 # %% [markdown]
 # #### Run simulations
