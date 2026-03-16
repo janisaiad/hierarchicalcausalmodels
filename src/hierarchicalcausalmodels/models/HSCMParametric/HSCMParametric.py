@@ -1003,3 +1003,4 @@ def sensitivity_analysis(self, treatment, outcome, max_gamma=2.0, steps=20, n_sa
     plt.show()
 
     return {'base_ate': base_ate, 'crossover_gamma': crossover, 'adjusted_ates': list(zip(gammas, adjusted_ates))}
+
