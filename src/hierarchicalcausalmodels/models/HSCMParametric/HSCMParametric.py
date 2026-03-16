@@ -261,11 +261,15 @@ class HSCMParametric:
         self.node_function[node] = distribution_object.ppf()
         return
 
-    def soft_conditional_intervention(self, node, distribution_object):
-        # conditioning on its parent ! a_i_j follow q_star(a|parents(a_i_j)) -> parents are subunits z_i_j or units x_i
-
-
-        return
+# intervenes on a node by replacing its mechanism with a new distribution
+# conditioned on its parents, i.e. node follows q*(node | parents(node))
+# distribution_object is a callable taking a dict of parent values and returning a sample
+def soft_conditional_intervention(self, node, distribution_object):
+    former_distrib = self.node_theoretical_distribution.get(node)
+    former_function = self.node_function.get(node)
+    self.node_theoretical_distribution[node] = distribution_object
+    self.node_function[node] = lambda d: distribution_object.ppf(d, np.random.uniform(0, 1))
+    return former_distrib, former_function
 
     def set_soft_intervention(self, node, distribution_object):
         former_distrib = self.node_theoretical_distribution[node]
@@ -599,5 +603,316 @@ class HSCMParametric:
 
 
     def augment(self, augmentation_variable, mechanism):
-        return
+        level = mechanism['level']
+        parents = mechanism.get('parents', [])
+        children = mechanism.get('children', [])
+        function = mechanism.get('function', lambda d: 0.0)
 
+        is_subunit = (level == 'subunit')
+        internal_name = '_' + augmentation_variable if is_subunit else augmentation_variable
+
+        self.nodes.add(internal_name)
+        if is_subunit:
+            self.subunit_nodes.add(internal_name)
+            self.subunit_nodes_names.add(augmentation_variable)
+        else:
+            self.unit_nodes.add(augmentation_variable)
+            self.aggregator_functions[augmentation_variable] = {}
+
+        def _int(name):
+            return '_' + name if name in self.subunit_nodes_names else name
+
+        for p in parents:
+            self.edges.add((_int(p), internal_name))
+        for c in children:
+            self.edges.add((internal_name, _int(c)))
+
+        if is_subunit:
+            for i in range(len(self.sizes)):
+                for j in range(self.sizes[i]):
+                    key = internal_name + str(i) + '_' + str(j)
+                    self.predecessors[key] = set()
+                    for p in parents:
+                        if p in self.subunit_nodes_names:
+                            self.predecessors[key].add(_int(p) + str(i) + '_' + str(j))
+                        else:
+                            self.predecessors[key].add(p + str(i))
+        else:
+            for i in range(len(self.sizes)):
+                key = augmentation_variable + str(i)
+                self.predecessors[key] = set()
+                for p in parents:
+                    if p in self.subunit_nodes_names:
+                        self.predecessors[key].add(frozenset(_int(p) + str(i) + '_' + str(j) for j in range(self.sizes[i])))
+                    else:
+                        self.predecessors[key].add(p + str(i))
+
+        for c in children:
+            if c in self.subunit_nodes_names:
+                for i in range(len(self.sizes)):
+                    for j in range(self.sizes[i]):
+                        c_key = _int(c) + str(i) + '_' + str(j)
+                        if is_subunit:
+                            self.predecessors[c_key].add(internal_name + str(i) + '_' + str(j))
+                        else:
+                            self.predecessors[c_key].add(augmentation_variable + str(i))
+            else:
+                for i in range(len(self.sizes)):
+                    if is_subunit:
+                        self.predecessors[c + str(i)].add(frozenset(internal_name + str(i) + '_' + str(j) for j in range(self.sizes[i])))
+                    else:
+                        self.predecessors[c + str(i)].add(augmentation_variable + str(i))
+
+        if is_subunit:
+            for c in children:
+                if c in self.unit_nodes:
+                    self.aggregator_functions[c][internal_name] = lambda d: np.mean(np.array(list(d)))
+
+        self.node_function[internal_name] = function
+        self.cgm = CausalGraphicalModel(nodes=self.nodes, edges=self.edges)
+
+
+
+def is_identifiable(self, treatment, outcome):
+    import pyAgrum as gum
+    import pyAgrum.causal as csl
+
+    # build pyAgrum CausalModel from your graph
+    cm = csl.CausalModel(self._to_pyagrum_bn())
+
+    # automatic backdoor
+    backdoor = csl.backdoor_generator(cm, treatment, outcome)
+
+    # automatic frontdoor
+    frontdoor = csl.frontDoor(cm, treatment, outcome)
+
+    if backdoor:
+        return True, {'type': 'backdoor', 'sets': list(backdoor)}
+    elif frontdoor:
+        return True, {'type': 'frontdoor', 'sets': list(frontdoor)}
+    else:
+        # fall back to full ID algorithm
+        try:
+            formula = csl.causalImpact(cm, on=outcome, doing=treatment)
+            return True, {'type': 'id_algorithm', 'formula': formula}
+        except:
+            return False, {}
+
+
+def marginalize(self, variables=None):
+    return
+# Estimates the Average Treatment Effect (ATE) of treatment on outcome.
+# Uses backdoor adjustment: check identifiability, pick the smallest valid
+# adjustment set, then estimate E[Y|do(T=1)] - E[Y|do(T=0)] by sampling
+# adjustment variables from the observational distribution and intervening
+# on treatment directly via node_function. Adapted to the unit-level structure.
+def ate(self, treatment, outcome, n_samples=1000):
+    # check identifiability first
+    identifiable, adj_sets = self.is_identifiable(treatment, outcome)
+    if not identifiable:
+        print("Effect is not identifiable, no valid adjustment set found.")
+        return None
+
+    # pick the smallest adjustment set
+    adjustment_set = min(adj_sets, key=len)
+
+    # internal names
+    t = treatment if treatment in self.unit_nodes else '_' + treatment
+    o = outcome if outcome in self.unit_nodes else '_' + outcome
+
+    # estimate E[Y | do(T=1)] - E[Y | do(T=0)] by backdoor adjustment
+    results = {0: [], 1: []}
+
+    for t_val in [0, 1]:
+        for _ in range(n_samples):
+            # sample the adjustment variables from the model
+            sample = self.sample_data()
+
+            # collect adjustment variable values across units
+            adj_values = {}
+            for adj in adjustment_set:
+                adj_int = adj if adj in self.unit_nodes else '_' + adj
+                adj_values[adj_int] = [sample[adj_int + str(i)] for i in range(len(self.sizes))]
+
+            # intervene on treatment for each unit
+            y_vals = []
+            for i in range(len(self.sizes)):
+                parent_samples = {t: t_val}
+                for adj in adjustment_set:
+                    adj_int = adj if adj in self.unit_nodes else '_' + adj
+                    parent_samples[adj_int] = adj_values[adj_int][i]
+                y_vals.append(self.node_function[o](parent_samples))
+
+            results[t_val].append(np.mean(y_vals))
+
+    ate_value = np.mean(results[1]) - np.mean(results[0])
+    return ate_value
+
+# Estimates the interventional distribution Q = P(Y|do(T=t)) by intervening
+# on treatment and sampling outcome values across all units.
+def estimate_q(self, treatment, outcome, t_val, n_samples=1000):
+    t = treatment if treatment in self.unit_nodes else '_' + treatment
+    o = outcome if outcome in self.unit_nodes else '_' + outcome
+
+    y_samples = []
+    for _ in range(n_samples):
+        sample = self.sample_data()
+        for i in range(len(self.sizes)):
+            parent_samples = {parent: sample[parent] for parent in self.predecessors[o + str(i)]}
+            parent_samples[t + str(i)] = t_val
+            y_samples.append(self.node_function[o](parent_samples))
+
+    return np.array(y_samples)
+
+
+# Estimates the Conditional ATE E[Y|do(T=1),C=c] - E[Y|do(T=0),C=c]
+# for a given conditioning variable and value.
+# Builds on estimate_q, filtering samples where the condition holds.
+def cate(self, treatment, outcome, condition_node, condition_value, n_samples=1000, tol=0.1):
+    c = condition_node if condition_node in self.unit_nodes else '_' + condition_node
+    t = treatment if treatment in self.unit_nodes else '_' + treatment
+    o = outcome if outcome in self.unit_nodes else '_' + outcome
+
+    results = {0: [], 1: []}
+    for t_val in [0, 1]:
+        for _ in range(n_samples):
+            sample = self.sample_data()
+            for i in range(len(self.sizes)):
+                # only keep samples where condition is satisfied
+                if abs(sample[c + str(i)] - condition_value) > tol:
+                    continue
+                parent_samples = {parent: sample[parent] for parent in self.predecessors[o + str(i)]}
+                parent_samples[t + str(i)] = t_val
+                results[t_val].append(self.node_function[o](parent_samples))
+
+    if not results[0] or not results[1]:
+        print("Not enough samples satisfying the condition, try increasing n_samples or tol.")
+        return None
+
+    return np.mean(results[1]) - np.mean(results[0])
+
+# uses pyAgrum BayesNet for inference on the frontdoor formula:
+# P(Y|do(T)) = sum_m P(m|T) * sum_t P(Y|m,t) * P(t)
+def frontdoor_adjustment(self, treatment, outcome, mediator, n_samples=1000):
+    try:
+        import pyAgrum as gum
+    except ImportError:
+        print("pyAgrum not installed. Run: pip install pyAgrum")
+        return None
+
+    # sample data to fit the BayesNet
+    sample = self.sample_data()
+    t = treatment if treatment in self.unit_nodes else '_' + treatment
+    o = outcome if outcome in self.unit_nodes else '_' + outcome
+    m = mediator if mediator in self.unit_nodes else '_' + mediator
+
+    # discretize samples into bins for pyAgrum
+    t_vals = np.array([sample[t + str(i)] for i in range(len(self.sizes))])
+    o_vals = np.array([sample[o + str(i)] for i in range(len(self.sizes))])
+    m_vals = np.array([sample[m + str(i)] for i in range(len(self.sizes))])
+
+    def discretize(arr, n_bins=5):
+        bins = np.linspace(arr.min(), arr.max(), n_bins + 1)
+        return np.digitize(arr, bins[:-1]) - 1, bins
+
+    t_disc, t_bins = discretize(t_vals)
+    o_disc, o_bins = discretize(o_vals)
+    m_disc, m_bins = discretize(m_vals)
+
+    n_t = len(np.unique(t_disc))
+    n_o = len(np.unique(o_disc))
+    n_m = len(np.unique(m_disc))
+
+    # build pyAgrum BayesNet: T -> M -> Y, T -> Y
+    bn = gum.BayesNet('frontdoor')
+    T = bn.add(gum.LabelizedVariable(treatment, treatment, n_t))
+    M = bn.add(gum.LabelizedVariable(mediator, mediator, n_m))
+    O = bn.add(gum.LabelizedVariable(outcome, outcome, n_o))
+    bn.addArc(treatment, mediator)
+    bn.addArc(mediator, outcome)
+    bn.addArc(treatment, outcome)
+
+    # fill CPTs from sampled data
+    learner = gum.BNLearner(
+        gum.NDArray(np.column_stack([t_disc, m_disc, o_disc])),
+        bn
+    )
+    learner.useSmoothingPrior()
+    bn = learner.learnParameters(bn)
+
+    # frontdoor formula via pyAgrum inference
+    ie = gum.LazyPropagation(bn)
+
+    results = {}
+    for t_val in range(n_t):
+        ie.setEvidence({treatment: t_val})
+        ie.makeInference()
+        p_y_do_t = ie.posterior(outcome)
+        results[t_val] = np.array([p_y_do_t[{outcome: k}] for k in range(n_o)])
+
+    # ATE: E[Y|do(T=max)] - E[Y|do(T=min)]
+    y_centers = (o_bins[:-1] + o_bins[1:]) / 2
+    e_y1 = np.dot(results[n_t - 1], y_centers[:n_o])
+    e_y0 = np.dot(results[0], y_centers[:n_o])
+    return e_y1 - e_y0
+
+
+# tests robustness of the ATE estimate to unobserved confounding
+# varies a hypothetical confounder strength gamma from 0 to max_gamma
+# and reports at what point the ATE estimate crosses zero (i.e. becomes non-significant)
+def sensitivity_analysis(self, treatment, outcome, max_gamma=2.0, steps=20, n_samples=500):
+    base_ate = self.ate(treatment, outcome, n_samples=n_samples)
+    if base_ate is None:
+        return None
+
+    gammas = np.linspace(0, max_gamma, steps)
+    adjusted_ates = []
+
+    for gamma in gammas:
+        # Rosenbaum-style: bias bound = gamma * std(Y)
+        o = outcome if outcome in self.unit_nodes else '_' + outcome
+        y_vals = [self.data[o + str(i)] for i in range(len(self.sizes))]
+        bias = gamma * np.std(y_vals)
+        adjusted_ates.append(base_ate - bias)
+
+    # find where ATE crosses zero
+    crossover = None
+    for i, val in enumerate(adjusted_ates):
+        if val <= 0:
+            crossover = gammas[i]
+            break
+
+    plt.plot(gammas, adjusted_ates, color='steelblue')
+    plt.axhline(0, color='salmon', linestyle='--')
+    plt.xlabel('Confounder strength (gamma)')
+    plt.ylabel('Adjusted ATE')
+    plt.title('Sensitivity analysis')
+    if crossover:
+        plt.axvline(crossover, color='gray', linestyle=':', label=f'ATE=0 at gamma={crossover:.2f}')
+        plt.legend()
+    plt.show()
+
+    return {'base_ate': base_ate, 'crossover_gamma': crossover, 'adjusted_ates': list(zip(gammas, adjusted_ates))}
+
+def _to_pyagrum_bn(self):
+    import pyAgrum as gum
+    import pyAgrum.causal as csl
+
+    bn = gum.BayesNet()
+    for node in self.unit_nodes:
+        bn.add(gum.LabelizedVariable(node, node, 2))
+    for node in self.subunit_nodes_names:
+        bn.add(gum.LabelizedVariable(node, node, 2))
+
+    for parent, child in self.edges:
+        p = parent.lstrip('_')
+        c = child.lstrip('_')
+        if p in bn.names() and c in bn.names():
+            bn.addArc(p, c)
+
+    # add latent variables as bidirected arcs
+    latents = getattr(self, 'latent_variables', {})
+    cm = csl.CausalModel(bn, 
+        latentVarsDescriptor=[(name, children) for name, children in latents.items()]
+    )
+    return cm
