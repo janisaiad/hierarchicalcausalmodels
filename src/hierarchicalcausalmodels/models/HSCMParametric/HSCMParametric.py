@@ -674,20 +674,29 @@ def soft_conditional_intervention(self, node, distribution_object):
 
 
 def is_identifiable(self, treatment, outcome):
-    collapsed_graph = self.collapse()
+    import pyAgrum as gum
+    import pyAgrum.causal as csl
 
-    # treatment and outcome in collapsed graph use unit names directly
-    # Q_ prefix for collapsed subunit nodes
-    t = treatment if treatment in self.unit_nodes else 'Q__' + treatment
-    o = outcome if outcome in self.unit_nodes else 'Q__' + outcome
+    # build pyAgrum CausalModel from your graph
+    cm = csl.CausalModel(self._to_pyagrum_bn())
 
-    # check if a valid backdoor adjustment set exists
-    adjustment_sets = collapsed_graph.get_all_backdoor_adjustment_sets(t, o)
+    # automatic backdoor
+    backdoor = csl.backdoor_generator(cm, treatment, outcome)
 
-    if adjustment_sets:
-        return True, adjustment_sets
+    # automatic frontdoor
+    frontdoor = csl.frontDoor(cm, treatment, outcome)
+
+    if backdoor:
+        return True, {'type': 'backdoor', 'sets': list(backdoor)}
+    elif frontdoor:
+        return True, {'type': 'frontdoor', 'sets': list(frontdoor)}
     else:
-        return False, set()
+        # fall back to full ID algorithm
+        try:
+            formula = csl.causalImpact(cm, on=outcome, doing=treatment)
+            return True, {'type': 'id_algorithm', 'formula': formula}
+        except:
+            return False, {}
 
 
 def marginalize(self, variables=None):
