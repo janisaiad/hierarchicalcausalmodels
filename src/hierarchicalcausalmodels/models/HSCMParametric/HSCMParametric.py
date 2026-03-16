@@ -700,36 +700,7 @@ def is_identifiable(self, treatment, outcome):
 
 
 def marginalize(self, variables=None):
-    # if no variables specified, marginalize all subunit nodes
-    if variables is None:
-        variables = set(self.subunit_nodes_names)
-
-    nodes = set(self.unit_nodes)
-    edges = set()
-
-    # only keep unit-level edges, rewiring through marginalized subunit nodes
-    for node in self.unit_nodes:
-        for parent, child in self.edges:
-            # unit -> unit edges, keep as is
-            if parent in self.unit_nodes and child in self.unit_nodes:
-                edges.add((parent, child))
-            # subunit -> unit: connect subunit's unit parents directly to the unit child
-            if '_' + parent in self.subunit_nodes and child in self.unit_nodes and parent in variables:
-                for grandparent, p in self.edges:
-                    if p == '_' + parent and grandparent in self.unit_nodes:
-                        edges.add((grandparent, child))
-            # unit -> subunit -> unit chain
-            if parent in self.unit_nodes and '_' + child in self.subunit_nodes and child in variables:
-                for p2, c2 in self.edges:
-                    if p2 == '_' + child and c2 in self.unit_nodes:
-                        edges.add((parent, c2))
-
-    # deduplicate and remove self-loops
-    edges = {(p, c) for p, c in edges if p != c}
-
-    graph = CausalGraphicalModel(nodes=nodes, edges=edges)
-    self.marginalized = graph
-    return graph
+    return
 # Estimates the Average Treatment Effect (ATE) of treatment on outcome.
 # Uses backdoor adjustment: check identifiability, pick the smallest valid
 # adjustment set, then estimate E[Y|do(T=1)] - E[Y|do(T=0)] by sampling
@@ -820,96 +791,6 @@ def cate(self, treatment, outcome, condition_node, condition_value, n_samples=10
 
     return np.mean(results[1]) - np.mean(results[0])
 
-# Plots the causal DAG with unit nodes in blue and subunit nodes in red.
-# Optionally plots the collapsed or marginalized graph instead.
-def plot_causal_graph(self, which='full'):
-    if which == 'collapsed':
-        graph = self.collapsed.dag
-        title = 'Collapsed graph'
-    elif which == 'marginalized':
-        graph = self.marginalized.dag
-        title = 'Marginalized graph'
-    else:
-        graph = self.cgm.dag
-        title = 'Full causal graph'
-
-    color_map = []
-    for node in graph.nodes():
-        if node in self.unit_nodes:
-            color_map.append('steelblue')
-        else:
-            color_map.append('salmon')
-
-    pos = nx.spring_layout(graph, seed=42)
-    nx.draw(graph, pos, with_labels=True, node_color=color_map,
-            node_size=1500, font_size=10, font_color='white',
-            arrows=True, arrowsize=20)
-    plt.title(title)
-    plt.show()
-
-
-
-# estimates causal effect of treatment on outcome using regression adjustment
-# fits a linear model on sampled data: outcome ~ treatment + adjustment variables
-# returns the coefficient of treatment as the effect estimate
-def regression_estimate(self, treatment, outcome, n_samples=500):
-    identifiable, adj_sets = self.is_identifiable(treatment, outcome)
-    if not identifiable:
-        print("Effect is not identifiable.")
-        return None
-
-    adjustment_set = min(adj_sets, key=len)
-    t = treatment if treatment in self.unit_nodes else '_' + treatment
-    o = outcome if outcome in self.unit_nodes else '_' + outcome
-
-    X, Y = [], []
-    for _ in range(n_samples):
-        sample = self.sample_data()
-        for i in range(len(self.sizes)):
-            row = [sample[t + str(i)]]
-            for adj in adjustment_set:
-                adj_int = adj if adj in self.unit_nodes else '_' + adj
-                row.append(sample[adj_int + str(i)])
-            X.append(row)
-            Y.append(sample[o + str(i)])
-
-    X, Y = np.array(X), np.array(Y)
-    # add intercept
-    X = np.hstack([np.ones((X.shape[0], 1)), X])
-    # OLS: beta = (X'X)^-1 X'Y
-    beta = np.linalg.lstsq(X, Y, rcond=None)[0]
-    # coefficient at index 1 is the treatment effect
-    return beta[1]
-
-
-
-# validates and normalizes self.data keys to match internal naming convention
-# checks that all expected unit and subunit keys are present
-# removes any keys that don't match the expected format
-def clean_data(self):
-    expected_keys = set()
-    for node in self.unit_nodes:
-        for i in range(len(self.sizes)):
-            expected_keys.add(node + str(i))
-    for node in self.subunit_nodes:
-        for i in range(len(self.sizes)):
-            for j in range(self.sizes[i]):
-                expected_keys.add(node + str(i) + '_' + str(j))
-
-    missing = expected_keys - set(self.data.keys())
-    extra = set(self.data.keys()) - expected_keys
-
-    if missing:
-        print("Missing keys in data:", missing)
-    if extra:
-        print("Removing unexpected keys:", extra)
-        for key in extra:
-            del self.data[key]
-
-    return missing, extra
-
-
-# estimates P(Y|do(T)) via frontdoor adjustment through a mediator
 # uses pyAgrum BayesNet for inference on the frontdoor formula:
 # P(Y|do(T)) = sum_m P(m|T) * sum_t P(Y|m,t) * P(t)
 def frontdoor_adjustment(self, treatment, outcome, mediator, n_samples=1000):
@@ -1013,3 +894,25 @@ def sensitivity_analysis(self, treatment, outcome, max_gamma=2.0, steps=20, n_sa
 
     return {'base_ate': base_ate, 'crossover_gamma': crossover, 'adjusted_ates': list(zip(gammas, adjusted_ates))}
 
+def _to_pyagrum_bn(self):
+    import pyAgrum as gum
+    import pyAgrum.causal as csl
+
+    bn = gum.BayesNet()
+    for node in self.unit_nodes:
+        bn.add(gum.LabelizedVariable(node, node, 2))
+    for node in self.subunit_nodes_names:
+        bn.add(gum.LabelizedVariable(node, node, 2))
+
+    for parent, child in self.edges:
+        p = parent.lstrip('_')
+        c = child.lstrip('_')
+        if p in bn.names() and c in bn.names():
+            bn.addArc(p, c)
+
+    # add latent variables as bidirected arcs
+    latents = getattr(self, 'latent_variables', {})
+    cm = csl.CausalModel(bn, 
+        latentVarsDescriptor=[(name, children) for name, children in latents.items()]
+    )
+    return cm
