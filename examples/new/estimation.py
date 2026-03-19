@@ -1526,24 +1526,36 @@ def _eval_formula(
                 # No data → evaluate without marginalisation
                 total += _eval_formula(node.formula, context, fitted, data, resolve, n_mc, rng)
                 continue
-            sv_arr = np.asarray(sv_data_arr, dtype=float).ravel()
-            unique_vals = np.unique(sv_arr)
-            is_discrete = np.all(sv_arr == sv_arr.astype(int)) and len(unique_vals) <= 30
-
-            if is_discrete:
-                for val in unique_vals:
-                    new_ctx = {**context, sv_paper: float(val), sv: float(val)}
-                    total += _eval_formula(node.formula, new_ctx, fitted, data, resolve, n_mc, rng)
-            else:
-                # Monte Carlo: sample u_k ~ empirical p(sv), compute mean of body(u_k).
-                # This correctly estimates ∫ body(u) p(u) du  =  E_{u~p}[body(u)].
-                # We must NOT multiply by p(u_k) again inside the body; pass sv_paper as the
-                # "marginal being cancelled" so _eval_formula_vec skips the P(sv) factor.
-                mc_idx = rng.integers(0, len(sv_arr), size=n_mc)
-                mc_samples = sv_arr[mc_idx]
-                batch_result = _eval_formula_vec(node.formula, context, sv_paper, mc_samples,
-                                                 fitted, data, resolve, cancel_marginal=sv_paper)
+            sv_np = np.asarray(sv_data_arr, dtype=float)
+            if sv_np.ndim == 2:
+                # 2D: each row is one unit's full conditional profile
+                # (e.g. Q^{a|z} evaluated at each unique z value).
+                # Sample rows to preserve the joint profile per unit.
+                mc_idx = rng.integers(0, sv_np.shape[0], size=n_mc)
+                mc_samples_nd = sv_np[mc_idx]  # shape (n_mc, n_cols)
+                batch_result = _eval_formula_vec(node.formula, context, sv_paper,
+                                                 mc_samples_nd, fitted, data, resolve,
+                                                 cancel_marginal=sv_paper)
                 total += float(np.mean(batch_result))
+            else:
+                sv_arr = sv_np.ravel()
+                unique_vals = np.unique(sv_arr)
+                is_discrete = np.all(sv_arr == sv_arr.astype(int)) and len(unique_vals) <= 30
+
+                if is_discrete:
+                    for val in unique_vals:
+                        new_ctx = {**context, sv_paper: float(val), sv: float(val)}
+                        total += _eval_formula(node.formula, new_ctx, fitted, data, resolve, n_mc, rng)
+                else:
+                    # Monte Carlo: sample u_k ~ empirical p(sv), compute mean of body(u_k).
+                    # This correctly estimates ∫ body(u) p(u) du  =  E_{u~p}[body(u)].
+                    # We must NOT multiply by p(u_k) again inside the body; pass sv_paper as the
+                    # "marginal being cancelled" so _eval_formula_vec skips the P(sv) factor.
+                    mc_idx = rng.integers(0, len(sv_arr), size=n_mc)
+                    mc_samples = sv_arr[mc_idx]
+                    batch_result = _eval_formula_vec(node.formula, context, sv_paper, mc_samples,
+                                                     fitted, data, resolve, cancel_marginal=sv_paper)
+                    total += float(np.mean(batch_result))
 
         return total
 
@@ -1682,7 +1694,12 @@ def _eval_formula_vec(
         for cv in node.cond_vars:
             cv_paper = resolve(cv) or cv
             if cv_paper == sv_name or cv == sv_name:
-                x_cols.append(sv_values)  # the batch variable
+                if hasattr(sv_values, 'ndim') and sv_values.ndim == 2:
+                    # 2D profile: use only the last column (highest conditioning value).
+                    # Must match the fitting step, which also uses only col[:, -1].
+                    x_cols.append(sv_values[:, -1])
+                else:
+                    x_cols.append(sv_values)  # the batch variable
             else:
                 val = context.get(cv_paper, context.get(cv))
                 if val is None:
@@ -1753,6 +1770,20 @@ def _collect_all_formula_vars(formula: _ASTFormula) -> List[str]:
     return []
 
 
+def _collect_sum_vars(formula: _ASTFormula) -> set:
+    """Collect only variables that appear as explicit summation variables in the formula."""
+    if isinstance(formula, _ASTSum):
+        result = set(formula.sum_vars)
+        result.update(_collect_sum_vars(formula.formula))
+        return result
+    if isinstance(formula, _ASTProduct):
+        result = set()
+        for child in formula.children:
+            result.update(_collect_sum_vars(child))
+        return result
+    return set()
+
+
 def _precompute_conditional_q_vars(
     data: Dict[str, np.ndarray],
     formula: _ASTFormula,
@@ -1776,12 +1807,17 @@ def _precompute_conditional_q_vars(
     Returns a dict of new entries to add to enriched data.
     """
     all_vars = _collect_all_formula_vars(formula)
+    # Variables that are explicit summation targets get a full 2D conditional profile
+    # (evaluated at all unique conditioning values).  Variables that only appear as
+    # outcomes or conditioning terms get a scalar (1D) estimate evaluated at iv_val.
+    formula_sum_vars = _collect_sum_vars(formula)
+
     # Use a set to avoid redundant work
     seen: set = set()
-    sum_vars = [v for v in all_vars if v not in seen and not seen.add(v)]  # type: ignore
+    deduped_vars = [v for v in all_vars if v not in seen and not seen.add(v)]  # type: ignore
     new_entries: Dict[str, np.ndarray] = {}
 
-    for sv in sum_vars:  # actually all formula vars now
+    for sv in deduped_vars:
         m = re.match(r'^Q([a-zA-Z]+)_([a-zA-Z]+)$', sv)
         if not m:
             continue
@@ -1820,16 +1856,35 @@ def _precompute_conditional_q_vars(
 
         n_units = outcome_arr.shape[0]
         family_outcome = families.get(outcome_key, 'bernoulli')
-        per_unit_means = np.zeros(n_units)
+
+        # Decide whether to build a full 2D conditional profile or a scalar per unit.
+        # Only variables that the formula sums over (Σ_{sv}) need a multi-value profile:
+        # each row stores E[outcome | cond = c_k] for every unique conditioning value c_k.
+        # Variables that appear only as outcomes or conditioning args get a single scalar
+        # per unit (evaluated at iv_val), keeping them 1D and compatible with
+        # ConditionalDensityEstimator downstream.
+        is_sum_var = sv in formula_sum_vars or paper_key in formula_sum_vars
+
+        if is_sum_var:
+            eval_vals = np.unique(cond_arr.ravel())
+        else:
+            eval_vals = np.array([iv_val])
+
+        n_eval = len(eval_vals)
+        per_unit_arr = np.zeros((n_units, n_eval))
         for i in range(n_units):
             Y_i = outcome_arr[i]
             A_i = cond_arr[i]
             est = ConditionalDensityEstimator(family=family_outcome)
             est.fit(Y_i, A_i.reshape(-1, 1))
-            per_unit_means[i] = est.expectation(np.array([[iv_val]]))
+            for k, cval in enumerate(eval_vals):
+                per_unit_arr[i, k] = est.expectation(np.array([[cval]]))
 
-        new_entries[paper_key] = per_unit_means
-        new_entries[sanitized_key] = per_unit_means
+        # Always collapse to 1D when there is only one evaluation point.
+        result_arr: np.ndarray = per_unit_arr[:, 0] if n_eval == 1 else per_unit_arr
+
+        new_entries[paper_key] = result_arr
+        new_entries[sanitized_key] = result_arr
 
     return new_entries
 
@@ -2025,9 +2080,13 @@ def ast_to_estimator(
                 if col_data.ndim == 1:
                     X_cols.append(col_data)
                 else:
-                    # Multi-dim Q-param: add each parameter as its own column
-                    for j in range(col_data.shape[1]):
-                        X_cols.append(col_data[:, j])
+                    # 2D conditional profile (e.g. Q^{a|z} at multiple z values).
+                    # Use only the last column (highest conditioning value = z_max),
+                    # which is the strongest IV proxy for the unobserved confounder U.
+                    # Using all columns simultaneously causes collinearity: for binary Z,
+                    # Q^{a|z=0} and Q^{a|z=1} differ by a near-constant gap, so the
+                    # regression cannot distinguish them.
+                    X_cols.append(col_data[:, -1])
         X_arr = np.column_stack(X_cols) if X_cols else None
 
         if Y_data.ndim == 2:
@@ -2214,7 +2273,11 @@ def estimate_causal_effect(
             )
         ast = getattr(result, "ast", None)
         formula_latex = getattr(result, "formula_latex", None)
-        if ast is None and formula_latex:
+        if formula_latex:
+            # Always prefer latex parsing: it reliably reconstructs the full
+            # formula including sum wrappers.  Direct pyAgrum AST introspection
+            # can inadvertently strip the outer ASTSum (returning only its body),
+            # which causes the MC marginalisation loop to be skipped entirely.
             class _LatexAST:
                 def toLatex(self): return formula_latex
             ast = _LatexAST()
