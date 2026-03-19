@@ -1737,20 +1737,6 @@ def _eval_formula_vec(
 # Conditional Q-variable precomputation
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _collect_sum_vars(formula: _ASTFormula) -> List[str]:
-    """Recursively collect all sum variable names from _ASTSum nodes."""
-    if isinstance(formula, _ASTSum):
-        result = list(formula.sum_vars)
-        result.extend(_collect_sum_vars(formula.formula))
-        return result
-    if isinstance(formula, _ASTProduct):
-        result = []
-        for child in formula.children:
-            result.extend(_collect_sum_vars(child))
-        return result
-    return []
-
-
 def _collect_all_formula_vars(formula: _ASTFormula) -> List[str]:
     """Collect all variable names referenced anywhere in the formula."""
     if isinstance(formula, _ASTConditional):
@@ -2254,27 +2240,5 @@ def estimate_causal_effect(
 # ─────────────────────────────────────────────────────────────────────────────
 # Backward-compatible alias
 # ─────────────────────────────────────────────────────────────────────────────
-
-def estimate_from_do_calculus(
-    result: Any,
-    data: Dict[str, np.ndarray],
-    intervention_value: Union[float, Dict[str, float]],
-    distribution_families: Optional[Dict[str, str]] = None,
-    n_mc_samples: int = 1000,
-    random_seed: Optional[int] = 0,
-) -> float:
-    """
-    Backward-compatible alias for :func:`estimate_causal_effect`.
-
-    Prefer ``estimate_causal_effect`` for new code.
-    """
-    return estimate_causal_effect(
-        result=result,
-        data=data,
-        intervention=intervention_value,
-        distribution_families=distribution_families,
-        n_mc_samples=n_mc_samples,
-        random_seed=random_seed,
-    )
 
 
