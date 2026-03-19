@@ -2321,9 +2321,11 @@ def _formula_aware_estimate(
             return None
         family_out = families.get(y_key, families.get('Y', 'bernoulli'))
         family_med = families.get(z_key, families.get('Z', 'bernoulli'))
+        family_trt = families.get(a_key, families.get('A', 'bernoulli'))
         return estimate_confounder_interference_ate(
             arrays_2d[y_key], arrays_2d[a_key], arrays_1d[z_key], iv_val,
             family_outcome=family_out, family_mediator=family_med,
+            family_treatment=family_trt,
         )
 
     return None
@@ -2561,6 +2563,7 @@ def estimate_confounder_interference_ate(
     intervention_value: float,
     family_outcome: str = "bernoulli",
     family_mediator: str = "bernoulli",
+    family_treatment: str = "bernoulli",
     n_mc: int = 500,
     random_seed: Optional[int] = 0,
 ) -> float:
@@ -2589,6 +2592,12 @@ def estimate_confounder_interference_ate(
         Family for Y | (A, Z) estimated from pooled subunit data.
     family_mediator : str, default "bernoulli"
         Family for Z | Q^a estimated from unit-level data.
+    family_treatment : str, default "bernoulli"
+        Distribution family for A_ij within each unit.  Used by
+        :class:`SubunitParamEstimator` to compute Q^a_i: for scalar families
+        (Bernoulli, Poisson) this is a single number per unit; for multi-parameter
+        families (Gaussian → (μ, σ²); Beta → (α, β); …) it is a vector, and all
+        components are used as predictors in the P(Z | Q^a) regression.
     n_mc : int, default 500
         Monte Carlo samples used when Z is continuous.
     random_seed : int or None, default 0
@@ -2604,12 +2613,30 @@ def estimate_confounder_interference_ate(
     Z_u = np.asarray(Z_unit, dtype=float).ravel()
     n_units, n_sub = Y_sub.shape
 
-    # Q^a_i = within-unit mean of A (sufficient summary of U_i for the treatment)
-    Q_a = A_sub.mean(axis=1)
+    # Q^a_i = distribution parameter of A_ij within unit i.
+    # SubunitParamEstimator fits the specified family to {A_ij}_{j=1..m} for each
+    # unit i independently, yielding a sample from the empirical distribution of
+    # Q^a.  For scalar families (Bernoulli → p_i; Poisson → λ_i) the result is
+    # (n_units,); for multi-parameter families (Gaussian → (μ_i, σ²_i);
+    # Beta → (α_i, β_i); …) it is (n_units, k).
+    spe_a = SubunitParamEstimator(family=family_treatment)
+    Q_a = spe_a.fit(A_sub)                         # (n_units,) or (n_units, k)
+    Q_a_cond = Q_a if Q_a.ndim == 2 else Q_a.reshape(-1, 1)
 
-    # Fit P(Z_i | Q^a_i) from unit-level data
+    # Build the Q^a query vector for the intervention value a*.
+    # For a scalar family: q* = [a*].
+    # For a vector family: fix the first (mean) component to a* and use the
+    # empirical average of the remaining components (e.g. average variance for
+    # Gaussian), representing a do-intervention on the mean parameter only.
+    if Q_a_cond.shape[1] == 1:
+        q_iv = np.array([float(intervention_value)])
+    else:
+        q_iv = Q_a_cond.mean(axis=0).copy()
+        q_iv[0] = float(intervention_value)
+
+    # Fit P(Z_i | Q^a_i) from unit-level data using the full Q^a parameter vector
     z_est = ConditionalDensityEstimator(family=family_mediator)
-    z_est.fit(Z_u, Q_a.reshape(-1, 1))
+    z_est.fit(Z_u, Q_a_cond)
 
     # Fit E[Y_ij | A_ij, Z_i] from pooled (flattened) subunit data
     Y_flat = Y_sub.ravel()
@@ -2633,23 +2660,17 @@ def estimate_confounder_interference_ate(
         z_vals = np.unique(Z_u)
         result = 0.0
         for z_v in z_vals:
-            p_z = z_est.prob(float(z_v), np.array([intervention_value]))
+            p_z = z_est.prob(float(z_v), q_iv)
             ey = y_est.expectation(np.array([intervention_value, float(z_v)]))
             result += p_z * ey
         return result
     else:
         # Continuous Z: approximate Σ_z P(Z=z|Q^a=a*)·E[Y|A=a*,Z=z] via
         # importance-reweighted Monte Carlo.  Draw z from the empirical marginal
-        # and reweight by p(Z=z | Q^a=a*) / p_marginal(z).  When the z_est
-        # family is Gaussian, p(Z=z | Q^a=a*) is the predicted conditional density.
-        # Fallback: use the empirical marginal directly (unweighted MC) — this
-        # underestimates the intervention effect but is numerically stable.
+        # and reweight by p(Z=z | Q^a=a*) / p_marginal(z).
         mc_z = rng.choice(Z_u, size=n_mc)
-        p_z_given_iv = np.array([
-            z_est.prob(float(z_v), np.array([intervention_value])) for z_v in mc_z
-        ])
+        p_z_given_iv = np.array([z_est.prob(float(z_v), q_iv) for z_v in mc_z])
         p_z_given_iv = np.clip(p_z_given_iv, 1e-9, None)
-        # Normalise weights (self-normalised IS)
         weights = p_z_given_iv / p_z_given_iv.sum()
         x_queries = np.column_stack([
             np.full(n_mc, intervention_value),
