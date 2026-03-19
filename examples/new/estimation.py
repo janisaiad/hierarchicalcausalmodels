@@ -64,6 +64,8 @@ SUPPORTED_FAMILIES = {
     "inverse_gaussian", "wald",
     # Bounded [0, 1]
     "beta",
+    # Positive heavy-tailed (variance/scale priors in HCM simulations)
+    "half_cauchy", "halfcauchy",
     # Non-parametric fallback
     "nonparametric",
 }
@@ -73,6 +75,7 @@ _FAMILY_ALIASES: Dict[str, str] = {
     "t": "student_t",
     "log_normal": "lognormal",
     "wald": "inverse_gaussian",
+    "halfcauchy": "half_cauchy",
 }
 
 
@@ -131,6 +134,14 @@ class ConditionalDensityEstimator:
         Y ∈ (0, 1).  Parameters (α, β) via MOM.
         Conditional: logit-linear regression for μ, fixed concentration.
 
+    **Positive heavy-tailed (variance/scale priors)**
+
+    ``"half_cauchy"`` / ``"halfcauchy"``
+        Y > 0.  Parameter γ (scale).  Half-Cauchy(0, γ).
+        Unconditional: γ estimated via scipy MLE or median heuristic.
+        Conditional: linear regression for scale.
+        Used in HCM paper simulations as prior on variance parameters τ.
+
     **Non-parametric**
 
     ``"nonparametric"``
@@ -179,6 +190,7 @@ class ConditionalDensityEstimator:
             "weibull":          self._fit_weibull,
             "inverse_gaussian": self._fit_inverse_gaussian,
             "beta":             self._fit_beta,
+            "half_cauchy":      self._fit_half_cauchy,
         }
         if self.family in dispatch:
             dispatch[self.family](Y, X)
@@ -568,6 +580,40 @@ class ConditionalDensityEstimator:
         return float((y_query ** (alpha - 1)) * ((1 - y_query) ** (beta - 1))
                      / (math.gamma(alpha) * math.gamma(beta) / math.gamma(alpha + beta)))
 
+    # -------- Half-Cauchy -----------------------------------------------------
+
+    def _fit_half_cauchy(self, Y, X):
+        """Half-Cauchy(0, γ): PDF = 2 / (π γ (1 + (y/γ)²)) for y > 0."""
+        Y_pos = np.maximum(Y, 1e-9)
+        # Median of Half-Cauchy equals γ * tan(π/4) = γ, so median is a good init
+        self._hc_scale = float(np.median(Y_pos))
+        if SCIPY_AVAILABLE:
+            try:
+                _, sc = _sp_stats.halfcauchy.fit(Y_pos, floc=0)
+                self._hc_scale = float(np.maximum(sc, 1e-9))
+            except Exception:
+                pass
+        self._hc_mean = float(np.mean(Y_pos))
+        self._lr_hc = None
+        if X is not None and X.shape[1] > 0 and SKLEARN_AVAILABLE:
+            lr = LinearRegression()
+            lr.fit(X, Y_pos)
+            self._lr_hc = lr
+
+    def _predict_scale_hc(self, x_query) -> float:
+        if self._lr_hc is None:
+            return self._hc_scale
+        return float(np.maximum(self._lr_hc.predict(np.atleast_2d(x_query))[0], 1e-9))
+
+    def _eval_half_cauchy(self, x_query, y_query) -> float:
+        scale = self._predict_scale_hc(x_query)
+        if y_query <= 0:
+            return 0.0
+        if SCIPY_AVAILABLE:
+            return float(_sp_stats.halfcauchy.pdf(y_query, scale=scale))
+        import math
+        return float(2.0 / (math.pi * scale * (1.0 + (y_query / scale) ** 2)))
+
     # -------- Non-parametric --------------------------------------------------
 
     def _fit_nonparametric(self, Y, X):
@@ -659,6 +705,7 @@ class ConditionalDensityEstimator:
             "weibull":          self._eval_weibull,
             "inverse_gaussian": self._eval_inverse_gaussian,
             "beta":             self._eval_beta,
+            "half_cauchy":      self._eval_half_cauchy,
         }
         fn = _prob_dispatch.get(self.family)
         if fn is not None:
@@ -690,6 +737,7 @@ class ConditionalDensityEstimator:
                 "weibull":          lambda: self._weibull_mean,
                 "inverse_gaussian": lambda: self._ig_mu,
                 "beta":             lambda: self._beta_mu,
+                "half_cauchy":      lambda: self._hc_mean,
             }
             fn_marg = _marginal.get(self.family)
             if fn_marg is not None:
@@ -707,6 +755,7 @@ class ConditionalDensityEstimator:
             "weibull":          lambda x: self._predict_scale_weibull(x) * __import__("math").gamma(1 + 1 / self._weibull_c),
             "inverse_gaussian": self._predict_mu_ig,
             "beta":             self._predict_mu_beta,
+            "half_cauchy":      self._predict_scale_hc,
         }
         fn = _expect_dispatch.get(self.family)
         if fn is not None:
@@ -741,6 +790,8 @@ class ConditionalDensityEstimator:
             p["mu"] = self._ig_mu; p["lambda"] = self._ig_lambda
         elif self.family == "beta":
             p["alpha"] = self._beta_alpha; p["beta"] = self._beta_beta
+        elif self.family == "half_cauchy":
+            p["scale"] = self._hc_scale
         return p
 
 
@@ -808,26 +859,429 @@ class PerUnitQEstimator:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Subunit distribution parameter estimator
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SubunitParamEstimator:
+    """
+    Estimate the distribution parameters of a subunit variable per unit.
+
+    Given a ``(n_units, n_subunits)`` matrix of observations, fits the
+    specified parametric family to each unit's within-unit data
+    ``{Y_ij}_{j=1}^{m}`` and returns per-unit parameter vectors.
+
+    The result is a sample of the Q-variable ``Q^v``: each element ``q_i``
+    is the parameter vector characterising the distribution of subunit
+    variable *v* within unit *i*.
+
+    Parameters
+    ----------
+    family : str
+        Distribution family for the subunit variable.  Supported:
+
+        ============= ================== ============================
+        Family        Per-unit params    Shape
+        ============= ================== ============================
+        ``bernoulli`` p_i                (n_units,)
+        ``poisson``   λ_i                (n_units,)
+        ``exponential`` mean_i           (n_units,)
+        ``gaussian``  (μ_i, σ²_i)        (n_units, 2)
+        ``beta``      (α_i, β_i)         (n_units, 2)
+        ``gamma``     (shape_i, scale_i) (n_units, 2)
+        ``lognormal`` (μ_log_i, σ²_log_i) (n_units, 2)
+        ``nonparametric`` (mean, std, skew, kurt) (n_units, 4)
+        ============= ================== ============================
+    """
+
+    _SCALAR_FAMILIES: frozenset = frozenset({"bernoulli", "poisson", "exponential"})
+
+    def __init__(self, family: str = "bernoulli") -> None:
+        family = _FAMILY_ALIASES.get(family, family)
+        if family not in SUPPORTED_FAMILIES:
+            raise ValueError(
+                f"Unsupported family {family!r}.  "
+                f"Choose from: {sorted(SUPPORTED_FAMILIES)}."
+            )
+        self.family = family
+
+    @property
+    def n_params(self) -> int:
+        """Dimensionality of the per-unit parameter vector."""
+        if self.family in self._SCALAR_FAMILIES:
+            return 1
+        if self.family in {"gaussian", "normal", "beta", "gamma",
+                           "lognormal", "log_normal",
+                           "inverse_gaussian", "wald"}:
+            return 2
+        if self.family == "nonparametric":
+            return 4
+        return 1
+
+    def fit_unit(self, y: np.ndarray) -> np.ndarray:
+        """
+        Fit the distribution to one unit's within-unit observations.
+
+        Parameters
+        ----------
+        y : 1-D array of subunit observations for a single unit.
+
+        Returns
+        -------
+        params : np.ndarray of shape ``(n_params,)``.
+        """
+        y = np.asarray(y, dtype=float).ravel()
+        y = y[np.isfinite(y)]
+        if len(y) == 0:
+            return np.zeros(self.n_params)
+
+        if self.family == "bernoulli":
+            return np.array([float(np.clip(y.mean(), 1e-6, 1.0 - 1e-6))])
+
+        if self.family in ("gaussian", "normal"):
+            return np.array([float(y.mean()), float(max(y.var(ddof=0), 1e-10))])
+
+        if self.family == "poisson":
+            return np.array([float(max(y.mean(), 1e-10))])
+
+        if self.family == "exponential":
+            return np.array([float(max(y.mean(), 1e-10))])
+
+        if self.family == "beta":
+            m = float(np.clip(y.mean(), 1e-6, 1.0 - 1e-6))
+            v = float(max(y.var(ddof=0), 1e-10))
+            kappa = max(m * (1.0 - m) / v - 1.0, 0.01)
+            return np.array([m * kappa, (1.0 - m) * kappa])
+
+        if self.family == "gamma":
+            m = float(max(y.mean(), 1e-10))
+            v = float(max(y.var(ddof=0), 1e-10))
+            return np.array([m ** 2 / v, v / m])  # (shape α, scale β)
+
+        if self.family in ("lognormal", "log_normal"):
+            y_pos = y[y > 0]
+            if len(y_pos) == 0:
+                y_pos = np.array([1e-6])
+            log_y = np.log(y_pos)
+            return np.array([float(log_y.mean()),
+                             float(max(log_y.var(ddof=0), 1e-10))])
+
+        if self.family in ("inverse_gaussian", "wald"):
+            m = float(max(y.mean(), 1e-10))
+            v = float(max(y.var(ddof=0), 1e-10))
+            return np.array([m, m ** 3 / v])  # (μ, λ)
+
+        if self.family == "nonparametric":
+            m = float(y.mean())
+            s = float(max(y.std(ddof=0), 1e-10))
+            sk = float(np.mean(((y - m) / s) ** 3))
+            ku = float(np.mean(((y - m) / s) ** 4)) - 3.0
+            return np.array([m, s, sk, ku])
+
+        return np.array([float(y.mean())])
+
+    def fit(self, Y: np.ndarray) -> np.ndarray:
+        """
+        Fit per-unit distributions from a subunit data matrix.
+
+        Parameters
+        ----------
+        Y : ``(n_units, n_subunits)`` array.
+
+        Returns
+        -------
+        params : ``(n_units,)`` for scalar families;
+                 ``(n_units, n_params)`` for multi-parameter families.
+            Each row ``q_i`` is the distribution parameter vector for unit *i*.
+        """
+        Y = np.asarray(Y, dtype=float)
+        if Y.ndim == 1:
+            p = self.fit_unit(Y)
+            return p[0] if self.n_params == 1 else p
+
+        rows = np.vstack([self.fit_unit(Y[i]) for i in range(Y.shape[0])])
+        return rows.ravel() if self.n_params == 1 else rows
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Q-variable density estimator (meta-distribution over parameter space)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class QDensityEstimator:
+    """
+    Estimate the (conditional) density of a Q-variable.
+
+    A Q-variable ``Q^v`` is *distribution-valued*: its realisation at unit *i*
+    is the parameter vector ``q_i`` of the distribution of the subunit variable
+    *v* within that unit (output of :class:`SubunitParamEstimator`).
+
+    This class estimates ``P(Q^v = q)`` and ``P(Q^v = q | X = x)`` using
+    kernel density estimation in the parameter space.  The conditional variant
+    uses a residual-KDE approach: regress Q on X with linear regression, then
+    fit a KDE on the regression residuals so that
+    ``P(Q = q | X = x) = KDE(q − Ê[Q|X=x])``.
+
+    Parameters
+    ----------
+    bandwidth : float or ``'scott'`` or ``'silverman'``, default ``'scott'``
+        Bandwidth for the KDE.  ``'scott'`` and ``'silverman'`` use the
+        standard rules of thumb.
+
+    Examples
+    --------
+    Estimate the marginal density of Q^{y|a} (Gaussian family):
+
+    >>> spe = SubunitParamEstimator(family="gaussian")
+    >>> q_params = spe.fit(Y_subunit)          # (n_units, 2) array
+    >>> qde = QDensityEstimator()
+    >>> qde.fit(q_params)
+    >>> p = qde.prob(np.array([0.5, 0.1]))     # P(μ=0.5, σ²=0.1)
+
+    Conditional density given unit-level covariate Q^a:
+
+    >>> qde_cond = QDensityEstimator()
+    >>> qde_cond.fit(q_params, x_cond=Q_a)
+    >>> p_cond = qde_cond.prob(np.array([0.5, 0.1]), x_val=np.array([0.7]))
+    """
+
+    def __init__(self, bandwidth: Union[float, str] = "scott") -> None:
+        self.bandwidth = bandwidth
+        self._q_samples: Optional[np.ndarray] = None    # (n, d)
+        self._x_samples: Optional[np.ndarray] = None    # (n, p)
+        self._regressor = None
+        self._residuals: Optional[np.ndarray] = None    # (n, d)
+        self._kde = None
+        self._fallback_mean: Optional[np.ndarray] = None
+        self._fallback_std: Optional[np.ndarray] = None
+
+    # ── Fitting ───────────────────────────────────────────────────────────────
+
+    def fit(
+        self,
+        q_params: np.ndarray,
+        x_cond: Optional[np.ndarray] = None,
+    ) -> "QDensityEstimator":
+        """
+        Learn the distribution of Q-variable parameter vectors.
+
+        Parameters
+        ----------
+        q_params : ``(n_units,)`` or ``(n_units, n_params)`` array
+            Per-unit distribution parameters (from :class:`SubunitParamEstimator`).
+        x_cond : ``(n_units,)`` or ``(n_units, n_features)`` array, optional
+            Unit-level conditioning variables.  Enables ``P(Q | X = x)``
+            queries via a residual-KDE approach.
+
+        Returns
+        -------
+        self
+        """
+        q = np.asarray(q_params, dtype=float)
+        if q.ndim == 1:
+            q = q.reshape(-1, 1)
+        self._q_samples = q
+        residuals = q.copy()
+
+        if x_cond is not None:
+            x = np.asarray(x_cond, dtype=float)
+            if x.ndim == 1:
+                x = x.reshape(-1, 1)
+            self._x_samples = x
+            if SKLEARN_AVAILABLE:
+                from sklearn.linear_model import LinearRegression
+                self._regressor = LinearRegression().fit(x, q)
+                residuals = q - self._regressor.predict(x)
+        self._residuals = residuals
+        self._fit_kde(residuals)
+        return self
+
+    def _fit_kde(self, samples: np.ndarray) -> None:
+        if not SCIPY_AVAILABLE:
+            self._fallback_mean = samples.mean(axis=0)
+            self._fallback_std = np.maximum(samples.std(axis=0, ddof=1), 1e-8)
+            return
+        try:
+            self._kde = _sp_stats.gaussian_kde(
+                samples.T, bw_method=self.bandwidth
+            )
+        except np.linalg.LinAlgError:
+            # Singular covariance (e.g., constant column) → Gaussian fallback
+            self._fallback_mean = samples.mean(axis=0)
+            self._fallback_std = np.maximum(samples.std(axis=0, ddof=1), 1e-8)
+
+    # ── Density evaluation ────────────────────────────────────────────────────
+
+    def log_prob(
+        self,
+        q_val: np.ndarray,
+        x_val: Optional[np.ndarray] = None,
+    ) -> float:
+        """
+        Log-density at ``Q = q_val``, optionally conditional on ``X = x_val``.
+
+        Parameters
+        ----------
+        q_val : array-like of shape ``(n_params,)``
+            The parameter vector at which to evaluate the density.
+        x_val : array-like, optional
+            Conditioning variable values (unit-level).
+
+        Returns
+        -------
+        float
+            ``log P(Q = q_val | X = x_val)``.
+        """
+        q = np.asarray(q_val, dtype=float).ravel()
+        residual = q.copy()
+
+        if x_val is not None and self._regressor is not None:
+            x = np.asarray(x_val, dtype=float).ravel().reshape(1, -1)
+            residual = q - self._regressor.predict(x).ravel()
+
+        if self._kde is not None:
+            val = float(self._kde.evaluate(residual.reshape(-1, 1))[0])
+            return float(np.log(max(val, 1e-300)))
+
+        # Gaussian fallback
+        z = (residual - self._fallback_mean) / self._fallback_std
+        return float(
+            -0.5 * np.sum(z ** 2)
+            - np.sum(np.log(self._fallback_std))
+            - 0.5 * len(z) * np.log(2.0 * np.pi)
+        )
+
+    def prob(
+        self,
+        q_val: np.ndarray,
+        x_val: Optional[np.ndarray] = None,
+    ) -> float:
+        """Density ``P(Q = q_val | X = x_val)``."""
+        return float(np.exp(self.log_prob(q_val, x_val)))
+
+    # ── Moments ───────────────────────────────────────────────────────────────
+
+    def mean(self, x_val: Optional[np.ndarray] = None) -> np.ndarray:
+        """
+        ``E[Q | X = x_val]`` as a parameter vector.
+
+        Returns
+        -------
+        np.ndarray of shape ``(n_params,)``
+        """
+        if x_val is not None and self._regressor is not None:
+            x = np.asarray(x_val, dtype=float).ravel().reshape(1, -1)
+            return self._regressor.predict(x).ravel()
+        return self._q_samples.mean(axis=0)
+
+    def scalar_mean(self, x_val: Optional[np.ndarray] = None) -> float:
+        """
+        First component of ``E[Q | X = x_val]``.
+
+        For scalar families (Bernoulli, Poisson) this equals ``E[Q | X]``.
+        For multi-parameter families (Gaussian) it returns ``E[μ | X]``.
+        """
+        return float(self.mean(x_val)[0])
+
+    # ── Sampling ──────────────────────────────────────────────────────────────
+
+    def sample(
+        self,
+        x_val: Optional[np.ndarray] = None,
+        n: int = 1,
+        rng: Optional[np.random.Generator] = None,
+    ) -> np.ndarray:
+        """
+        Draw *n* samples from ``P(Q | X = x_val)``.
+
+        Returns
+        -------
+        np.ndarray of shape ``(n, n_params)``
+        """
+        if rng is None:
+            rng = np.random.default_rng()
+        mean = self.mean(x_val)
+        if self._residuals is not None and len(self._residuals) > 0:
+            idx = rng.integers(0, len(self._residuals), size=n)
+            return mean + self._residuals[idx]
+        std = (self._fallback_std if self._fallback_std is not None
+               else np.ones_like(mean) * 0.1)
+        return mean + rng.normal(0.0, 1.0, (n, len(mean))) * std
+
+    # ── Convenience: expectation of a function of Q ───────────────────────────
+
+    def expectation(
+        self,
+        x_val: Optional[np.ndarray] = None,
+        n_mc: int = 500,
+        rng: Optional[np.random.Generator] = None,
+    ) -> float:
+        """
+        Estimate ``E[Q_first_param | X = x_val]`` (primary distribution parameter).
+
+        This is used by the formula evaluator as a scalar proxy for the
+        Q-variable (e.g., the Bernoulli probability or Gaussian mean).
+        """
+        return self.scalar_mean(x_val)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Helpers: Q-variable computation & name resolution
 # ─────────────────────────────────────────────────────────────────────────────
 
-def compute_q_from_subunit_data(data: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+def compute_q_from_subunit_data(
+    data: Dict[str, np.ndarray],
+    families: Optional[Dict[str, str]] = None,
+) -> Dict[str, np.ndarray]:
     """
-    Augment *data* with Q-variable arrays computed from raw subunit observations.
+    Enrich *data* with Q-variable arrays from raw subunit observations.
 
-    For each key ``v`` whose value is a 2-D array of shape ``(n_units, n_subunits)``,
-    adds ``"Q^v"`` (if not already present) as the within-unit mean over subunits.
+    For each key *v* whose value is a 2-D array ``(n_units, n_subunits)``,
+    adds the corresponding Q-variable entry via :class:`SubunitParamEstimator`:
 
-    This gives a simple scalar proxy for the unit-level distribution — appropriate
-    for binary/continuous subunit variables when only a mean summary is needed.
+    * **Scalar families** (``bernoulli``, ``poisson``, ``exponential``):
+      ``Q^v`` is the per-unit parameter as a 1-D array ``(n_units,)``.
+
+    * **Multi-parameter families** (``gaussian`` → (μ_i, σ²_i); ``beta`` →
+      (α_i, β_i); …): ``Q^v`` is a 2-D array ``(n_units, n_params)``.
+      The formula evaluator will use :class:`QDensityEstimator` for terms
+      involving such variables.
+
+    Pre-existing entries in *data* are never overwritten.
+
+    Parameters
+    ----------
+    data : dict[str, np.ndarray]
+        Raw data.  2-D values are subunit matrices; 1-D values are
+        unit-level arrays.
+    families : dict[str, str], optional
+        Maps variable names to distribution families.
+        Defaults to ``'bernoulli'`` for 2-D variables without an explicit entry.
     """
+    families = families or {}
     result = dict(data)
+
     for key, arr in data.items():
-        arr = np.asarray(arr)
-        if arr.ndim == 2:
-            q_key = f"Q^{key.lower()}" if not key.startswith("Q") else key
-            if q_key not in result:
-                result[q_key] = arr.mean(axis=1)
+        arr_np = np.asarray(arr)
+        if arr_np.ndim != 2:
+            continue
+
+        # Derive canonical Q-variable name: Q^{base}
+        base = key.lower()
+        q_key = f"Q^{{{base}}}" if len(base) > 1 else f"Q^{base}"
+        # Fall back to the older simple convention for single-char keys
+        if q_key not in result:
+            q_key_simple = f"Q^{base}"
+            if q_key_simple in result:
+                continue
+            # Use the simpler name for single-char keys (A → Q^a, Y → Q^y)
+            q_key = q_key_simple
+
+        if q_key in result:
+            continue  # already provided by user
+
+        family = families.get(key, families.get(q_key, "bernoulli"))
+        est = SubunitParamEstimator(family=family)
+        result[q_key] = est.fit(arr_np)
+
     return result
 
 
@@ -1082,19 +1536,28 @@ def _eval_formula(
         if est is None:
             return 1.0
 
-        # Collect conditioning values
+        # Collect conditioning values from context
         x_vals = []
         for cv in node.cond_vars:
             cv_paper = resolve(cv) or cv
             val = context.get(cv_paper, context.get(cv))
             if val is None:
-                # Use marginal mean as fallback
                 d = data.get(cv_paper) or data.get(cv)
-                val = float(np.mean(d)) if d is not None else 0.0
+                if d is not None:
+                    d_np = np.asarray(d, dtype=float)
+                    # For multi-dim Q: use first param (primary) as scalar
+                    val = float(d_np.mean() if d_np.ndim == 1
+                                else d_np[:, 0].mean())
+                else:
+                    val = 0.0
             x_vals.append(float(val))
         x_q = np.array(x_vals) if x_vals else None
 
-        # Check whether to return P(Y=y|X) or E[Y|X]
+        # QDensityEstimator: return scalar_mean(X) as the expected Q value
+        if isinstance(est, QDensityEstimator):
+            return est.scalar_mean(x_q)
+
+        # Standard ConditionalDensityEstimator path
         out_paper = resolve(node.outcome_vars[0]) if node.outcome_vars else None
         y_val = context.get(out_paper) if out_paper else None
         if y_val is None and node.outcome_vars:
@@ -1226,6 +1689,10 @@ def _batch_expectation(est: ConditionalDensityEstimator, X_batch: np.ndarray) ->
             return np.full(n, est._beta_mu)
         logit_pred = lr.predict(X_batch)
         return 1.0 / (1.0 + np.exp(-logit_pred))
+
+    if fam == "half_cauchy":
+        pred = _linreg_predict("_lr_hc")
+        return np.maximum(pred, 1e-9) if pred is not None else np.full(n, est._hc_scale)
 
     # Non-parametric: per-sample loop
     return np.array([est.expectation(X_batch[i]) for i in range(n)])
@@ -1375,6 +1842,18 @@ def ast_to_estimator(
             Bernoulli / binary.  Unconditional: sample proportion.
             Conditional: logistic regression.
 
+        ``"beta"``
+            Beta distribution on (0,1). Parameters (α,β) via MOM.
+
+        ``"half_cauchy"``
+            Half-Cauchy distribution for positive scale/variance variables.
+            Used in HCM paper simulations as prior on variance τ.
+
+        ``"poisson"``, ``"laplace"``, ``"student_t"``, ``"exponential"``,
+        ``"gamma"``, ``"lognormal"``, ``"weibull"``, ``"inverse_gaussian"``
+            Other parametric families; see ``ConditionalDensityEstimator``
+            docstring for details.
+
         ``"nonparametric"`` *(default)*
             Discrete Y → conditional frequency table with k-NN.
             Continuous Y → Gaussian KDE.
@@ -1434,7 +1913,8 @@ def ast_to_estimator(
     rng = np.random.default_rng(random_seed)
 
     # ── 1. Enrich data: add Q-variables computed from subunit data ────────────
-    enriched = compute_q_from_subunit_data(data)
+    # SubunitParamEstimator is used per variable according to the families dict.
+    enriched = compute_q_from_subunit_data(data, families=families)
 
     # ── 2. Resolve intervention map ───────────────────────────────────────────
     if isinstance(intervention_value, dict):
@@ -1472,14 +1952,23 @@ def ast_to_estimator(
             unique_terms.append(t)
 
     # ── 7. Fit density estimators ─────────────────────────────────────────────
-    fitted: Dict[tuple, ConditionalDensityEstimator] = {}
+    # For each conditional term P(Y | X₁, …, Xₖ) in the formula:
+    #   • If Y is a Q-variable with multi-parameter representation (Gaussian,
+    #     Beta, …), the per-unit params form a 2-D array → use QDensityEstimator
+    #     (KDE in the parameter space).
+    #   • Otherwise, treat Y as a unit-level scalar → ConditionalDensityEstimator.
+    #
+    # The distinction maps directly onto the paper:
+    #   - P(Q^v | X) for subunit distribution variables → QDensityEstimator
+    #   - P(Y_unit | X) for unit-level outcome/covariate → ConditionalDensityEstimator
+    fitted: Dict[tuple, Any] = {}
 
     for term in unique_terms:
         out_vars = term["outcome_vars"]
         cond_vars = term["cond_vars"]
         key = term["key"]
 
-        # Determine family
+        # Determine family for the outcome variable
         family = "nonparametric"
         for candidate in out_vars:
             paper_c = resolve(candidate) or candidate
@@ -1493,20 +1982,40 @@ def ast_to_estimator(
         if out_paper is None:
             warnings.warn(f"No data for outcome {out_vars}; skipping term.")
             continue
-        Y_arr = np.asarray(enriched[out_paper], dtype=float).ravel()
+        Y_data = np.asarray(enriched[out_paper], dtype=float)
 
-        # Conditioning data
+        # Determine reference length for conditioning data alignment
+        n_ref = Y_data.shape[0]
+
+        # Conditioning data: flatten multi-dim Q-params to columns
         X_cols = []
         for cv in cond_vars:
             cv_paper = resolve(cv)
             if cv_paper and cv_paper in enriched:
-                col = np.asarray(enriched[cv_paper], dtype=float).ravel()
-                if len(col) == len(Y_arr):
-                    X_cols.append(col)
+                col_data = np.asarray(enriched[cv_paper], dtype=float)
+                if col_data.shape[0] != n_ref:
+                    continue
+                if col_data.ndim == 1:
+                    X_cols.append(col_data)
+                else:
+                    # Multi-dim Q-param: add each parameter as its own column
+                    for j in range(col_data.shape[1]):
+                        X_cols.append(col_data[:, j])
         X_arr = np.column_stack(X_cols) if X_cols else None
 
-        est = ConditionalDensityEstimator(family=family)
-        est.fit(Y_arr, X_arr)
+        if Y_data.ndim == 2:
+            # Multi-parameter Q-variable (e.g. Gaussian (μ, σ²) per unit).
+            # Estimate P(Q = q | X = x) via KDE in the parameter space.
+            est: Any = QDensityEstimator()
+            est.fit(Y_data, x_cond=X_arr)
+        else:
+            # Unit-level scalar variable or scalar Q-variable.
+            Y_arr = Y_data.ravel()
+            if X_arr is not None and X_arr.shape[0] != len(Y_arr):
+                X_arr = None
+            est = ConditionalDensityEstimator(family=family)
+            est.fit(Y_arr, X_arr)
+
         fitted[key] = est
 
     # ── 8. Build evaluation context from intervention ─────────────────────────
@@ -1532,23 +2041,29 @@ def ast_to_estimator(
     if n_units > 1:
         unit_vals = []
         for i in range(n_units):
-            unit_ctx = {}
+            unit_ctx: Dict[str, float] = {}
             for key_d, arr_d in enriched.items():
-                # Skip outcome variables (should be estimated, not queried at a point).
-                # Skip variables already fixed by intervention (they must not be overwritten).
                 if key_d in all_outcome_vars or key_d in context:
                     continue
-                arr_np = np.asarray(arr_d)
+                arr_np = np.asarray(arr_d, dtype=float)
                 if arr_np.ndim == 1 and i < len(arr_np):
                     unit_ctx[key_d] = float(arr_np[i])
-            # Intervention values take precedence over observed data
-            unit_ctx.update(context)
+                elif arr_np.ndim == 2 and i < arr_np.shape[0]:
+                    # Multi-param Q-variable: expose each param as a separate
+                    # key suffix __0, __1, … and the primary param under the
+                    # original key so conditioning works in _eval_formula.
+                    for j, pval in enumerate(arr_np[i]):
+                        unit_ctx[f"{key_d}__{j}"] = float(pval)
+                    unit_ctx[key_d] = float(arr_np[i, 0])  # primary param
+            unit_ctx.update(context)  # intervention overwrites observation
             unit_vals.append(
-                _eval_formula(formula, unit_ctx, fitted, enriched, resolve, n_mc_samples, rng)
+                _eval_formula(formula, unit_ctx, fitted, enriched, resolve,
+                              n_mc_samples, rng)
             )
         return float(np.mean(unit_vals))
     else:
-        return _eval_formula(formula, context, fitted, enriched, resolve, n_mc_samples, rng)
+        return _eval_formula(formula, context, fitted, enriched, resolve,
+                             n_mc_samples, rng)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1634,3 +2149,574 @@ def _infer_n_units(data: Dict[str, np.ndarray]) -> int:
         if a.ndim == 1 and len(a) > 1:
             return len(a)
     return 1
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Formula-driven dispatch helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _pyagrum_to_paper(name: str) -> str:
+    """Convert a pyAgrum variable name to paper notation.
+
+    Examples: ``Qa_z`` → ``Q^{a|z}``, ``Qy_a`` → ``Q^{y|a}``, ``Qa`` → ``Q^a``.
+    """
+    m = re.match(r'^Q([a-zA-Z]+)_([a-zA-Z]+)$', name)
+    if m:
+        return f'Q^{{{m.group(1)}|{m.group(2)}}}'
+    m = re.match(r'^Q([a-zA-Z]+)$', name)
+    if m:
+        return f'Q^{m.group(1)}'
+    return name
+
+
+def _find_in_data(paper_name: str, data: Dict[str, np.ndarray]) -> Optional[np.ndarray]:
+    """Look up *paper_name* in *data* using progressively looser matching.
+
+    1. Exact key match.
+    2. Case-insensitive match.
+    3. Normalised match (strip all non-alphanumeric characters, lowercase).
+    """
+    if paper_name in data:
+        return np.asarray(data[paper_name], dtype=float)
+    for k, v in data.items():
+        if k.lower() == paper_name.lower():
+            return np.asarray(v, dtype=float)
+
+    def _norm(s: str) -> str:
+        return re.sub(r'[^a-z0-9]', '', s.lower())
+
+    norm_target = _norm(paper_name)
+    for k, v in data.items():
+        if _norm(k) == norm_target:
+            return np.asarray(v, dtype=float)
+    return None
+
+
+def _analyze_formula(formula: _ASTFormula) -> Dict[str, Any]:
+    """Classify an internal formula into one of three canonical HCM patterns.
+
+    Returns a dict with key ``'pattern'`` set to one of:
+    ``'confounder'``, ``'instrument'``, ``'ci'``, or ``'unknown'``.
+
+    Detection rules
+    ---------------
+    * **C&I**: outermost node is ``_ASTSum`` whose body contains a nested
+      ``_ASTSum`` (front-door formula).
+    * **INSTRUMENT**: outermost ``_ASTSum`` whose sum variable matches the
+      pattern ``a[_|]z`` (i.e. ``Qa_z`` / ``Q^{a|z}``).
+    * **CONFOUNDER**: outermost ``_ASTSum`` whose sum variable matches the
+      pattern ``[yw][_|]a`` (i.e. ``Qy_a`` / ``Q^{y|a}``).
+    """
+    if not isinstance(formula, _ASTSum):
+        return {'pattern': 'unknown'}
+
+    sum_vars: List[str] = formula.sum_vars
+    body: _ASTFormula = formula.formula
+
+    def _has_nested_sum(node: _ASTFormula) -> bool:
+        if isinstance(node, _ASTSum):
+            return True
+        if isinstance(node, _ASTProduct):
+            return any(_has_nested_sum(c) for c in node.children)
+        return False
+
+    if _has_nested_sum(body):
+        return {'pattern': 'ci', 'sum_vars': sum_vars}
+
+    for sv in sum_vars:
+        if re.search(r'a[_|]z', sv, re.IGNORECASE) or 'a|z' in sv:
+            return {'pattern': 'instrument', 'sum_var': sv, 'sum_vars': sum_vars}
+
+    for sv in sum_vars:
+        if re.search(r'[yw][_|]a', sv, re.IGNORECASE) or re.search(r'[yw]\|a', sv):
+            return {'pattern': 'confounder', 'sum_var': sv, 'sum_vars': sum_vars}
+
+    return {'pattern': 'unknown', 'sum_vars': sum_vars}
+
+
+def _formula_aware_estimate(
+    formula: _ASTFormula,
+    data: Dict[str, np.ndarray],
+    intervention_value: Union[float, Dict[str, float]],
+    distribution_families: Optional[Dict[str, str]] = None,
+) -> Optional[float]:
+    """Dispatch to the optimal paper estimator based on *formula* structure.
+
+    Analyses the internal ``_ASTFormula`` (produced by :func:`_extract_formula`)
+    to decide which of the three canonical HCM estimators to invoke:
+
+    * **CONFOUNDER** → :func:`estimate_confounder_ate`
+    * **INSTRUMENT** → :func:`estimate_instrument_ate`
+    * **C&I**        → :func:`estimate_confounder_interference_ate`
+
+    Returns ``None`` for unrecognised patterns so that the caller can fall back
+    to the generic formula evaluator.
+    """
+    info = _analyze_formula(formula)
+    pattern = info.get('pattern', 'unknown')
+    families = distribution_families or {}
+
+    if isinstance(intervention_value, dict):
+        vals = list(intervention_value.values())
+        if not vals:
+            return None
+        iv_val = float(vals[0])
+    else:
+        iv_val = float(intervention_value)
+
+    arrays_2d = {k: np.asarray(v, dtype=float) for k, v in data.items()
+                 if np.asarray(v).ndim == 2}
+    arrays_1d = {k: np.asarray(v, dtype=float) for k, v in data.items()
+                 if np.asarray(v).ndim == 1}
+
+    if pattern == 'instrument':
+        # Resolve Q^{a|z} from the sum variable in the formula
+        sum_var = info.get('sum_var', '')
+        qaz = _find_in_data(_pyagrum_to_paper(sum_var), data)
+        if qaz is None:
+            for k, v in arrays_1d.items():
+                kl = k.lower()
+                if 'a|z' in k or '{a|z}' in k or (kl.startswith('q') and 'a' in kl and 'z' in kl):
+                    qaz = v
+                    break
+        if qaz is None:
+            return None
+        qa = next(
+            (v for k, v in arrays_1d.items()
+             if k.lower().startswith('q') and 'a' in k.lower() and 'z' not in k.lower()),
+            None,
+        )
+        y_key = next(
+            (k for k in arrays_1d
+             if k.lower().startswith('y') and 'q' not in k.lower()),
+            None,
+        )
+        if qa is None or y_key is None:
+            return None
+        family = families.get(y_key, families.get('Y', 'bernoulli'))
+        return estimate_instrument_ate(arrays_1d[y_key], qa, qaz, iv_val, family_outcome=family)
+
+    elif pattern == 'confounder':
+        if len(arrays_2d) < 2:
+            return None
+        a_key = next((k for k in arrays_2d if 'a' in k.lower()), None)
+        y_key = next((k for k in arrays_2d if 'y' in k.lower()), None)
+        if a_key is None or y_key is None or a_key == y_key:
+            sorted_keys = sorted(arrays_2d.keys())
+            a_key, y_key = sorted_keys[0], sorted_keys[1]
+        family = families.get(y_key, families.get('Y', 'bernoulli'))
+        return estimate_confounder_ate(arrays_2d[y_key], arrays_2d[a_key], iv_val, family=family)
+
+    elif pattern == 'ci':
+        if len(arrays_2d) < 2:
+            return None
+        a_key = next((k for k in arrays_2d if 'a' in k.lower()), None)
+        y_key = next((k for k in arrays_2d if 'y' in k.lower()), None)
+        if a_key is None or y_key is None or a_key == y_key:
+            sorted_keys = sorted(arrays_2d.keys())
+            a_key, y_key = sorted_keys[0], sorted_keys[1]
+        z_key = next((k for k in arrays_1d if k.upper() == 'Z'), None)
+        if z_key is None:
+            return None
+        family_out = families.get(y_key, families.get('Y', 'bernoulli'))
+        family_med = families.get(z_key, families.get('Z', 'bernoulli'))
+        return estimate_confounder_interference_ate(
+            arrays_2d[y_key], arrays_2d[a_key], arrays_1d[z_key], iv_val,
+            family_outcome=family_out, family_mediator=family_med,
+        )
+
+    return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Primary public API
+# ─────────────────────────────────────────────────────────────────────────────
+
+def estimate_causal_effect(
+    result: Any,
+    data: Dict[str, np.ndarray],
+    intervention: Union[float, Dict[str, float]],
+    distribution_families: Optional[Dict[str, str]] = None,
+    n_mc_samples: int = 1000,
+    random_seed: Optional[int] = 0,
+) -> float:
+    """
+    Estimate ``E[Y | do(X = x*)]`` from an identified causal formula and data.
+
+    This is the **primary entry point** for numerical evaluation of HCM causal
+    estimands.  The caller is expected to have already produced a
+    ``DoCalculusResult`` via the pipeline in ``do_calculus.py``::
+
+        hscm        = HSCMParametric(...)
+        cgm         = collapse(hscm)
+        q_hat, pars = suggest_augment_for_outcome(hscm, "Y")
+        aug_cgm     = augment_collapsed_model(cgm, q_hat, pars)
+        mar_cgm     = marginalize_augmented_model(aug_cgm, ...)
+        result      = identify_effect(mar_cgm, Y={"Q^y"}, X={"Q^a"})
+        ate         = estimate_causal_effect(result, data, {"Q^a": 1.0})
+
+    Estimation strategy
+    -------------------
+    1. **Enrich** raw data with Q-variable summaries via
+       :class:`SubunitParamEstimator`:
+
+       - Scalar families (Bernoulli, Poisson): per-unit parameter as
+         ``(n_units,)``.
+       - Multi-parameter families (Gaussian → (μ, σ²); Beta → (α, β); …):
+         per-unit parameter vectors as ``(n_units, n_params)``.
+
+    2. **Model-specific optimal estimators** (Appendix D, Weinstein & Blei,
+       2023) are used when the data structure matches a known pattern:
+
+       - 2-D treatment + outcome (no mediator): per-unit regression
+         (:class:`PerUnitQEstimator`, Appendix D.1, CONFOUNDER model).
+       - 2-D treatment + outcome + unit-level ``Z``: front-door adjustment
+         (:func:`estimate_confounder_interference_ate`, Appendix D.2,
+         CONFOUNDER & INTERFERENCE model).
+       - 1-D ``Y`` + ``Q^a`` + ``Q^{a|z}``: backdoor regression
+         (:func:`estimate_instrument_ate`, Appendix D.3, INSTRUMENT model).
+
+    3. **Generic formula evaluation** for any other identified model: each
+       conditional term ``P(Y | X₁, …, Xₖ)`` in the pyAgrum ASTree is
+       estimated from data:
+
+       - Unit-level scalars or scalar Q-variables → :class:`ConditionalDensityEstimator`.
+       - Distribution-valued Q-variables (multi-param) → :class:`QDensityEstimator`
+         (KDE in the parameter space; residual-KDE for conditional terms).
+
+    Parameters
+    ----------
+    result : ``DoCalculusResult`` or pyAgrum ASTtree
+        Identification result from ``identify_effect()``.  Must have
+        ``identifiable=True``; raises ``ValueError`` otherwise.
+    data : dict[str, np.ndarray]
+        Observed data.  Keys are paper-notation variable names (``"Q^a"``,
+        ``"Q^{y|a}"``, ``"Y"``, ``"A"``, …).
+
+        - 2-D arrays ``(n_units, n_subunits)``: raw subunit observations.
+          Q-variable summaries are added automatically using
+          :class:`SubunitParamEstimator` with the specified families.
+        - 1-D arrays ``(n_units,)``: unit-level observations (pre-computed
+          Q-parameters, unit outcomes, covariates, …).
+
+    intervention : float or dict[str, float]
+        The do-intervention.  Scalar float for a single unnamed variable;
+        ``{var_name: value}`` to name the intervention variable explicitly
+        (e.g., ``{"Q^a": 1.0}``).
+    distribution_families : dict[str, str], optional
+        Maps paper-notation variable names to distribution families.
+
+        Two roles:
+
+        1. Passed to :class:`SubunitParamEstimator` to determine how 2-D
+           subunit arrays are summarised into Q-variable parameter vectors.
+           **Parametric** (``"gaussian"``, ``"beta"``, …): MLE/MoM params.
+           **Nonparametric** (``"nonparametric"``): 4 moment statistics.
+
+        2. Passed to :class:`ConditionalDensityEstimator` for unit-level
+           ``P(Y | X)`` terms.
+
+        Supported families: ``"bernoulli"``, ``"gaussian"``, ``"beta"``,
+        ``"gamma"``, ``"poisson"``, ``"exponential"``, ``"lognormal"``,
+        ``"weibull"``, ``"laplace"``, ``"student_t"``, ``"inverse_gaussian"``,
+        ``"half_cauchy"``, ``"nonparametric"`` (default).
+
+    n_mc_samples : int, default 1000
+        Monte Carlo samples for continuous marginalisation.
+    random_seed : int or None, default 0
+
+    Returns
+    -------
+    float
+        Estimated causal effect ``E[Y | do(X = x*)]``.
+
+    Raises
+    ------
+    ValueError
+        If ``result`` has ``identifiable=False`` or carries no formula.
+
+    See Also
+    --------
+    SubunitParamEstimator : Per-unit distribution parameter estimation.
+    QDensityEstimator     : Density over Q-variable parameter space.
+    PerUnitQEstimator     : Per-unit regression (Appendix D.1).
+    """
+    # ── Unpack DoCalculusResult ────────────────────────────────────────────────
+    if hasattr(result, "identifiable"):
+        if not result.identifiable:
+            raise ValueError(
+                "Effect is not identifiable: {}".format(
+                    getattr(result, "explanation", None)
+                    or getattr(result, "error", "unknown reason")
+                )
+            )
+        ast = getattr(result, "ast", None)
+        formula_latex = getattr(result, "formula_latex", None)
+        if ast is None and formula_latex:
+            class _LatexAST:
+                def toLatex(self): return formula_latex
+            ast = _LatexAST()
+        elif ast is None:
+            raise ValueError(
+                "DoCalculusResult carries no AST and no formula_latex.  "
+                "Re-run identify_effect() with pyagrum installed."
+            )
+    else:
+        ast = result  # raw pyAgrum ASTtree
+
+    # ── Model-specific optimal estimators (Appendix D) ────────────────────────
+    # Analyse the identified formula to determine which canonical HCM estimator
+    # to use.  The formula structure (not the data key names) is the ground
+    # truth: it reflects what identify_effect() learned from the ASTree.
+    formula = _extract_formula(ast)
+    fast = _formula_aware_estimate(formula, data, intervention, distribution_families)
+    if fast is not None:
+        return fast
+
+    # ── Generic formula evaluation (any identified model) ─────────────────────
+    # Evaluate the ASTree literally: fit density estimators for each
+    # conditional term and marginalise over summation variables.
+    return ast_to_estimator(
+        ast=ast,
+        data=data,
+        intervention_value=intervention,
+        distribution_families=distribution_families,
+        n_mc_samples=n_mc_samples,
+        per_unit=False,   # disable per-unit shortcut; formula is evaluated directly
+        random_seed=random_seed,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Backward-compatible alias
+# ─────────────────────────────────────────────────────────────────────────────
+
+def estimate_from_do_calculus(
+    result: Any,
+    data: Dict[str, np.ndarray],
+    intervention_value: Union[float, Dict[str, float]],
+    distribution_families: Optional[Dict[str, str]] = None,
+    n_mc_samples: int = 1000,
+    per_unit: bool = True,
+    random_seed: Optional[int] = 0,
+) -> float:
+    """
+    Backward-compatible alias for :func:`estimate_causal_effect`.
+
+    Prefer ``estimate_causal_effect`` for new code.
+    """
+    return estimate_causal_effect(
+        result=result,
+        data=data,
+        intervention=intervention_value,
+        distribution_families=distribution_families,
+        n_mc_samples=n_mc_samples,
+        random_seed=random_seed,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HCM model-specific standalone estimators (paper Appendix D)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def estimate_confounder_ate(
+    Y_subunit: np.ndarray,
+    A_subunit: np.ndarray,
+    intervention_value: float,
+    family: str = "bernoulli",
+) -> float:
+    """
+    Estimate E[Y | do(A = a*)] for the CONFOUNDER HCM (Appendix D.1).
+
+    Implements per-unit regression: for each unit i, fit E[Y_ij | A_ij, unit i]
+    from within-unit subunit observations, then average over units at A = a*.
+
+    Parameters
+    ----------
+    Y_subunit : (n_units, n_subunits) array
+        Subunit outcome observations.
+    A_subunit : (n_units, n_subunits) array
+        Subunit treatment observations.
+    intervention_value : float
+        The do(A = a*) value.
+    family : str, default "bernoulli"
+        Distribution family for Y | A within each unit.  Use ``"bernoulli"``
+        for binary outcomes, ``"gaussian"`` for continuous.
+
+    Returns
+    -------
+    float
+        Estimated ATE = (1/n) Σ_i E[Y_ij | A_ij = a*, unit i].
+    """
+    est = PerUnitQEstimator(family=family)
+    est.fit(np.asarray(Y_subunit, dtype=float), np.asarray(A_subunit, dtype=float))
+    return est.ate(float(intervention_value))
+
+
+def estimate_confounder_interference_ate(
+    Y_subunit: np.ndarray,
+    A_subunit: np.ndarray,
+    Z_unit: np.ndarray,
+    intervention_value: float,
+    family_outcome: str = "bernoulli",
+    family_mediator: str = "bernoulli",
+    n_mc: int = 500,
+    random_seed: Optional[int] = 0,
+) -> float:
+    """
+    Estimate E[Y | do(A = a*)] for the CONFOUNDER & INTERFERENCE HCM (Appendix D.2).
+
+    Uses the front-door formula on the collapsed model (Eqs. 29-30).  The
+    unit-level observable Z_i mediates between Q^a_i and Q^{y|a}_i, breaking
+    the unobserved confounding path through U_i::
+
+        E[Y|do(a)] ≈ (1/n) Σ_i Σ_z P(Z_i=z | Q^a_i) · E[Y_ij | A_ij=a, Z_i=z]
+
+    where E[Y | A, Z] is estimated from pooled (flattened) subunit data with Z_i
+    replicated across all subunits j of unit i.
+
+    Parameters
+    ----------
+    Y_subunit : (n_units, n_subunits) array
+    A_subunit : (n_units, n_subunits) array
+    Z_unit : (n_units,) array
+        Unit-level observable that is a descendant of Q^a and an ancestor of Y
+        (the "mediator" / "interference proxy" in the C&I graph).
+    intervention_value : float
+        The do(A = a*) value.
+    family_outcome : str, default "bernoulli"
+        Family for Y | (A, Z) estimated from pooled subunit data.
+    family_mediator : str, default "bernoulli"
+        Family for Z | Q^a estimated from unit-level data.
+    n_mc : int, default 500
+        Monte Carlo samples used when Z is continuous.
+    random_seed : int or None, default 0
+
+    Returns
+    -------
+    float
+        Estimated causal effect E[Y | do(A = a*)].
+    """
+    rng = np.random.default_rng(random_seed)
+    Y_sub = np.asarray(Y_subunit, dtype=float)
+    A_sub = np.asarray(A_subunit, dtype=float)
+    Z_u = np.asarray(Z_unit, dtype=float).ravel()
+    n_units, n_sub = Y_sub.shape
+
+    # Q^a_i = within-unit mean of A (sufficient summary of U_i for the treatment)
+    Q_a = A_sub.mean(axis=1)
+
+    # Fit P(Z_i | Q^a_i) from unit-level data
+    z_est = ConditionalDensityEstimator(family=family_mediator)
+    z_est.fit(Z_u, Q_a.reshape(-1, 1))
+
+    # Fit E[Y_ij | A_ij, Z_i] from pooled (flattened) subunit data
+    Y_flat = Y_sub.ravel()
+    A_flat = A_sub.ravel()
+    Z_rep = np.repeat(Z_u, n_sub)
+    X_yz = np.column_stack([A_flat, Z_rep])
+    y_est = ConditionalDensityEstimator(family=family_outcome)
+    y_est.fit(Y_flat, X_yz)
+
+    is_discrete_z = np.all(Z_u == Z_u.astype(int)) and len(np.unique(Z_u)) <= 20
+
+    unit_vals: List[float] = []
+    for i in range(n_units):
+        qa_i = float(Q_a[i])
+        if is_discrete_z:
+            z_vals = np.unique(Z_u)
+            sum_val = 0.0
+            for z_v in z_vals:
+                p_z = z_est.prob(float(z_v), np.array([qa_i]))
+                ey = y_est.expectation(np.array([intervention_value, float(z_v)]))
+                sum_val += p_z * ey
+        else:
+            mc_z = rng.choice(Z_u, size=n_mc)
+            x_queries = np.column_stack([
+                np.full(n_mc, intervention_value),
+                mc_z,
+            ])
+            ey_vals = _batch_expectation(y_est, x_queries)
+            sum_val = float(np.mean(ey_vals))
+        unit_vals.append(sum_val)
+
+    return float(np.mean(unit_vals))
+
+
+def estimate_instrument_ate(
+    Y_unit: np.ndarray,
+    Q_a_unit: np.ndarray,
+    Q_az_unit: np.ndarray,
+    intervention_value: float,
+    family_outcome: str = "bernoulli",
+) -> float:
+    """
+    Estimate E[Y | do(A = a*)] for the INSTRUMENT HCM (Appendix D.3).
+
+    Uses the backdoor adjustment formula (Eq. 34) in the collapsed model.
+    The instrument Z_i breaks the U_i → A_ij confounding path.  In the
+    collapsed model the adjustment set is Q^a_i and Q^{a|z}_i::
+
+        E[Y|do(a)] = (1/n) Σ_i E[Y_i | Q^a_i = a, Q^{a|z}_i]
+
+    where Q^{a|z}_i = E[A_ij | Z_i] is the compliance/first-stage rate for
+    unit i, and we set Q^a = a (the intervention) while marginalizing over the
+    observed distribution of Q^{a|z}_i (backdoor adjustment formula).
+
+    Parameters
+    ----------
+    Y_unit : (n_units,) or (n_units, n_subunits) array
+        Unit-level outcome (or subunit matrix, averaged automatically).
+    Q_a_unit : (n_units,) array
+        Unit-level marginal mean of A: Q^a_i = (1/m) Σ_j A_ij.
+    Q_az_unit : (n_units,) array
+        Unit-level compliance rate Q^{a|z}_i = E[A_ij | Z_i].
+        Typically estimated as the within-unit mean of A among units sharing
+        the same Z_i value, or from a first-stage regression A ~ Z within each unit.
+    intervention_value : float
+        The do(A = a*) value; replaces Q^{a|z}_i in the prediction.
+    family_outcome : str, default "bernoulli"
+        Distribution family for Y | (Q^a, Q^{a|z}).
+
+    Returns
+    -------
+    float
+        Estimated causal effect E[Y | do(A = a*)].
+    """
+    Y_u = np.asarray(Y_unit, dtype=float)
+    if Y_u.ndim == 2:
+        Y_u = Y_u.mean(axis=1)
+    Y_u = Y_u.ravel()
+    Q_a = np.asarray(Q_a_unit, dtype=float).ravel()
+    Q_az = np.asarray(Q_az_unit, dtype=float).ravel()
+    n_units = len(Y_u)
+
+    # ── Backdoor adjustment via Q^{a|z} ──────────────────────────────────────
+    # Identification formula (from do-calculus on collapsed INSTRUMENT model):
+    #
+    #   E[Y|do(Q^a=a*)] = Σ_q P(Y|Q^a=a*, Q^{a|z}=q) · P(Q^{a|z}=q)
+    #
+    # Q^{a|z}_i is a valid adjustment set: it blocks the only backdoor path
+    # Q^a ← Q^{a|z} ← U → Y in the marginalized collapsed graph.
+    #
+    # Implementation: fit E[Y | Q^a, Q^{a|z}] by logistic regression, then set
+    # Q^a = intervention_value and marginalize over the observed Q^{a|z} sample.
+    #
+    # ⚠ Estimation quality depends on instrument strength.  When the Z→A
+    #   coefficient is small relative to U→A, Q^a and Q^{a|z} both track U
+    #   with nearly the same slope, making the regression ill-conditioned and
+    #   producing biased estimates (|error| ≈ 0.10–0.20 at N=200 units).
+    #   Increasing N does not fully remedy this because the estimator converges
+    #   to a bias fixed point caused by structural collinearity.  A stronger
+    #   Z coefficient or more subunits per unit is required for reliable
+    #   identification.
+
+    X = np.column_stack([Q_a, Q_az])
+    y_est = ConditionalDensityEstimator(family=family_outcome)
+    y_est.fit(Y_u, X)
+
+    # Backdoor: set Q^a = intervention_value, marginalize over observed Q^{a|z}
+    # P(Y|do(Q^a=a)) = (1/n) Σ_i E[Y | Q^a=a, Q^{a|z}=Q^{a|z}_i]
+    X_pred = np.column_stack([np.full(n_units, intervention_value), Q_az])
+    unit_vals = _batch_expectation(y_est, X_pred)
+    return float(np.mean(unit_vals))
