@@ -22,7 +22,6 @@ from typing import Any, Optional
 from hierarchicalcausalmodels.models import HSCMParametric
 from causalgraphicalmodels import CausalGraphicalModel
 import copy
-import re
 
 try:
     import pyagrum as gum
@@ -418,39 +417,30 @@ def suggest_augment_for_outcome(hscm: HSCMParametric, outcome_subunit: str) -> t
 
 def augment_collapsed_model(hscm_collapsed, q_hat, q_hat_parents) -> CausalGraphicalModel:
     """
-    Augment a collapsed causal graphical model with a new node representing a subunit variable.
+    Augment a collapsed causal graphical model with a new node (paper Step 2).
 
-    This function adds a new node to the collapsed model, representing a subunit variable
-    conditioned on its parents. It also updates the edges and mechanisms accordingly.
+    we add ``q_hat`` as a deterministic function of ``q_hat_parents`` only: we add edges
+    parent -> q_hat for each parent in ``q_hat_parents``. we do **not** remove or replace
+    other outgoing edges from those parents (paper fig. augment_interfere keeps e.g. Q^a -> Z).
 
     Parameters
     ----------
-    CausalGraphicalModel : collapsed_model
+    hscm_collapsed : CausalGraphicalModel
         The collapsed causal graphical model to be augmented.
-    str : q_hat
+    q_hat : str
         The name of the new node (format: Q^{v} or Q^{v|p1|p2|...} per _q_node_name_paper).
-    set : q_hat_parents
+    q_hat_parents : set
         The set of parent nodes for the new node.
-    function : q_hat_expr
-        The functional expression defining the new node.
-    dict : mechanisms
-        A dictionary of mechanisms for the nodes in the model.
 
     Returns
     -------
     CausalGraphicalModel
         The augmented causal graphical model.
     """
-    
-    collapsed_model=copy.deepcopy(hscm_collapsed)
+
+    collapsed_model = copy.deepcopy(hscm_collapsed)
     node = q_hat
     collapsed_model.add_node(node)
-    
-    # we suppose we already have the parents of q_hat that are q_variables
-    
-    # we extract the subunit variable from q_hat (format Q^{v} or Q^{v|p1|p2|...})
-    match = re.search(r"\^\{?([a-zA-Z0-9_]+)(?:\||\})?", q_hat)
-    variable = match.group(1) if match else None
 
     # checking if f(q_hat) can be computed from the data
     can_be_computed = True
@@ -459,22 +449,14 @@ def augment_collapsed_model(hscm_collapsed, q_hat, q_hat_parents) -> CausalGraph
             can_be_computed = False
             break
     if can_be_computed:
-        collapsed_model.observed_variables.add(q_hat) # mark q as observed
-        
-        
-    for parent in q_hat_parents: # double arrow
+        collapsed_model.observed_variables.add(q_hat)  # mark q as observed
+
+    for parent in q_hat_parents:  # deterministic q_hat = m(parents); paper double-arrow
         collapsed_model.add_edge(parent, node)
-    # we redirect edges from q_hat_parents to their non-q_hat children: parent->child becomes q_hat->child
-    # we skip edges parent->q_hat (the ones we just added) to avoid self-loops
-    for parent, child in list(collapsed_model.dag.edges):
-        if parent in q_hat_parents and child != q_hat:
-            collapsed_model.remove_edge(parent, child)
-            collapsed_model.add_edge(q_hat, child)
-                    
+
     return collapsed_model
 
-    
-    
+
 
 # %% [markdown]
 # Testing the augmented model
@@ -784,7 +766,10 @@ assert ("Q^{y|a}", "Q^y") in _edges(augmented_confounder_cgm)
 
 # instrument: collapse + augment + marginalize
 assert "Q^a" in _nodes(augmented_instrument_cgm)
-assert ("Q^a", "Y") in _edges(augmented_instrument_cgm)
+assert ("Q^z", "Q^a") in _edges(augmented_instrument_cgm)
+assert ("Q^{a|z}", "Q^a") in _edges(augmented_instrument_cgm)
+assert ("Q^{a|z}", "Y") in _edges(augmented_instrument_cgm)
+assert ("Q^z", "Y") in _edges(augmented_instrument_cgm)
 assert "Q^z" not in _nodes(instrument_cgm)
 assert ("Q^{a|z}", "Q^a") in _edges(instrument_cgm)
 
