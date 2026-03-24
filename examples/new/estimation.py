@@ -657,7 +657,10 @@ class ConditionalDensityEstimator:
     def _knn_conditional(self, x_query, y_query) -> float:
         if self._np_X is None:
             return float(np.mean(self._np_Y == y_query))
-        x_arr = np.atleast_1d(np.asarray(x_query, dtype=float))
+        x_arr = np.atleast_1d(np.asarray(x_query, dtype=float)).ravel()
+        nf = int(self._np_X.shape[1])
+        if x_arr.size != nf:
+            return float(np.mean(self._np_Y == y_query))
         dists = np.linalg.norm(self._np_X - x_arr, axis=1)
         k = max(5, int(0.1 * len(self._np_Y)))
         idx = np.argsort(dists)[:k]
@@ -675,7 +678,10 @@ class ConditionalDensityEstimator:
     def _expect_nonparametric(self, x_query) -> float:
         if self._np_X is None:
             return float(np.mean(self._np_Y))
-        x_arr = np.atleast_1d(np.asarray(x_query, dtype=float))
+        x_arr = np.atleast_1d(np.asarray(x_query, dtype=float)).ravel()
+        nf = int(self._np_X.shape[1])
+        if x_arr.size != nf:
+            return float(np.mean(self._np_Y))
         dists = np.linalg.norm(self._np_X - x_arr, axis=1)
         k = max(5, int(0.1 * len(self._np_Y)))
         idx = np.argsort(dists)[:k]
@@ -983,6 +989,7 @@ class QDensityEstimator:
 
     def __init__(self, bandwidth: Union[float, str] = "scott") -> None:
         self.bandwidth = bandwidth
+        self.family = "q_density"  # we tag meta-estimator; vector path uses isinstance(QDensityEstimator)
         self._q_samples: Optional[np.ndarray] = None    # (n, d)
         self._x_samples: Optional[np.ndarray] = None    # (n, p)
         self._regressor = None
@@ -1319,7 +1326,11 @@ def _walk_pyagrum_node(node) -> _ASTFormula:
         raw_vars = _get(node, "_varnames", "vars", "variables", default=[])
         if isinstance(raw_vars, str):
             raw_vars = [raw_vars]
-        sum_vars = list(raw_vars)
+        elif raw_vars is None:
+            raw_vars = []
+        elif hasattr(raw_vars, "tolist") and not isinstance(raw_vars, (list, tuple)):
+            raw_vars = raw_vars.tolist()
+        sum_vars = [str(v) for v in raw_vars]
         term_node = _get(node, "_term", "term", "child", "expr", "formula")
         inner = _walk_pyagrum_node(term_node) if term_node is not None else _ASTLeaf(1.0)
         return _ASTSum(sum_vars, inner)
@@ -1450,6 +1461,38 @@ def _extract_formula(ast) -> _ASTFormula:
 # Formula evaluator
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _data_first_lookup(data: Dict[str, Any], k1: Optional[str], k2: Optional[str]) -> Any:
+    """we fetch data[k1] or data[k2] without ``a or b`` (ndarray truthiness is undefined)."""
+    if k1 is not None and k1 in data:
+        return data[k1]
+    if k2 is not None and k2 in data:
+        return data[k2]
+    return None
+
+
+def _formula_scalar_y(y_val: Any) -> Optional[float]:
+    """we map context outcome value to a scalar point mass, or None to use E[Y|X]."""
+    if y_val is None:
+        return None
+    a = np.asarray(y_val, dtype=float).ravel()
+    if a.size != 1:
+        return None
+    return float(a[0])
+
+
+def _batch_arr_length_n(
+    arr: Any,
+    n: int,
+    est: "ConditionalDensityEstimator",
+    X_batch: np.ndarray,
+) -> np.ndarray:
+    """we coerce batch outputs to shape (n,); on mismatch we fall back to per-row expectation."""
+    a = np.asarray(arr, dtype=float).reshape(-1)
+    if a.shape == (n,):
+        return a
+    return np.array([float(est.expectation(X_batch[i])) for i in range(n)])
+
+
 def _eval_formula(
     node: _ASTFormula,
     context: Dict[str, float],
@@ -1458,6 +1501,7 @@ def _eval_formula(
     resolve: Callable[[str], Optional[str]],
     n_mc: int,
     rng: np.random.Generator,
+    unit_n: Optional[int] = None,
 ) -> float:
     """
     Recursively evaluate a formula node given a ``context`` of variable values.
@@ -1481,7 +1525,7 @@ def _eval_formula(
             cv_paper = resolve(cv) or cv
             val = context.get(cv_paper, context.get(cv))
             if val is None:
-                d = data.get(cv_paper) or data.get(cv)
+                d = _data_first_lookup(data, cv_paper, cv)
                 if d is not None:
                     d_np = np.asarray(d, dtype=float)
                     # For multi-dim Q: use first param (primary) as scalar
@@ -1502,29 +1546,29 @@ def _eval_formula(
         if y_val is None and node.outcome_vars:
             y_val = context.get(node.outcome_vars[0])
 
-        if y_val is not None:
-            return est.prob(float(y_val), x_q)
-        else:
-            return est.expectation(x_q, n_mc=n_mc)
+        y_pt = _formula_scalar_y(y_val)
+        if y_pt is not None:
+            return est.prob(y_pt, x_q)
+        return est.expectation(x_q, n_mc=n_mc)
 
     if isinstance(node, _ASTProduct):
         result = 1.0
         for child in node.children:
-            result *= _eval_formula(child, context, fitted, data, resolve, n_mc, rng)
+            result *= _eval_formula(child, context, fitted, data, resolve, n_mc, rng, unit_n)
         return result
 
     if isinstance(node, _ASTSum):
         total = 0.0
         # If no explicit summation variables, just evaluate body
-        if not node.sum_vars:
-            return _eval_formula(node.formula, context, fitted, data, resolve, n_mc, rng)
+        if len(node.sum_vars) == 0:
+            return _eval_formula(node.formula, context, fitted, data, resolve, n_mc, rng, unit_n)
         # Evaluate by marginalising over each summation variable
         for sv in node.sum_vars:
             sv_paper = resolve(sv) or sv
-            sv_data_arr = data.get(sv_paper) if data.get(sv_paper) is not None else data.get(sv)
+            sv_data_arr = _data_first_lookup(data, sv_paper, sv)
             if sv_data_arr is None:
                 # No data → evaluate without marginalisation
-                total += _eval_formula(node.formula, context, fitted, data, resolve, n_mc, rng)
+                total += _eval_formula(node.formula, context, fitted, data, resolve, n_mc, rng, unit_n)
                 continue
             sv_np = np.asarray(sv_data_arr, dtype=float)
             if sv_np.ndim == 2:
@@ -1535,7 +1579,7 @@ def _eval_formula(
                 mc_samples_nd = sv_np[mc_idx]  # shape (n_mc, n_cols)
                 batch_result = _eval_formula_vec(node.formula, context, sv_paper,
                                                  mc_samples_nd, fitted, data, resolve,
-                                                 cancel_marginal=sv_paper)
+                                                 cancel_marginal=sv_paper, unit_n=unit_n)
                 total += float(np.mean(batch_result))
             else:
                 sv_arr = sv_np.ravel()
@@ -1545,7 +1589,7 @@ def _eval_formula(
                 if is_discrete:
                     for val in unique_vals:
                         new_ctx = {**context, sv_paper: float(val), sv: float(val)}
-                        total += _eval_formula(node.formula, new_ctx, fitted, data, resolve, n_mc, rng)
+                        total += _eval_formula(node.formula, new_ctx, fitted, data, resolve, n_mc, rng, unit_n)
                 else:
                     # Monte Carlo: sample u_k ~ empirical p(sv), compute mean of body(u_k).
                     # This correctly estimates ∫ body(u) p(u) du  =  E_{u~p}[body(u)].
@@ -1554,7 +1598,8 @@ def _eval_formula(
                     mc_idx = rng.integers(0, len(sv_arr), size=n_mc)
                     mc_samples = sv_arr[mc_idx]
                     batch_result = _eval_formula_vec(node.formula, context, sv_paper, mc_samples,
-                                                     fitted, data, resolve, cancel_marginal=sv_paper)
+                                                     fitted, data, resolve, cancel_marginal=sv_paper,
+                                                     unit_n=unit_n)
                     total += float(np.mean(batch_result))
 
         return total
@@ -1580,71 +1625,80 @@ def _batch_expectation(est: ConditionalDensityEstimator, X_batch: np.ndarray) ->
 
     if fam == "gaussian":
         pred = _linreg_predict("_lr_gauss")
-        return pred if pred is not None else np.full(n, est._mu_marginal)
+        arr = pred if pred is not None else np.full(n, est._mu_marginal)
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "bernoulli":
         if est._lr_model is None:
-            return np.full(n, est._p_marginal)
-        if hasattr(est._lr_model, "predict_proba"):
-            return est._lr_model.predict_proba(X_batch)[:, 1]
-        return np.clip(est._lr_model.predict(X_batch), 0.0, 1.0)
+            arr = np.full(n, est._p_marginal)
+        elif hasattr(est._lr_model, "predict_proba"):
+            arr = est._lr_model.predict_proba(X_batch)[:, 1]
+        else:
+            arr = np.clip(est._lr_model.predict(X_batch), 0.0, 1.0)
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "poisson":
         lr = getattr(est, "_lr_poisson", None)
         if lr is None:
-            return np.full(n, est._lambda_marginal)
-        if isinstance(lr, tuple):  # log-linear fallback
-            return np.exp(np.clip(lr[1].predict(X_batch), -10, 10))
-        return np.maximum(lr.predict(X_batch), 1e-9)
+            arr = np.full(n, est._lambda_marginal)
+        elif isinstance(lr, tuple):  # log-linear fallback
+            arr = np.exp(np.clip(lr[1].predict(X_batch), -10, 10))
+        else:
+            arr = np.maximum(lr.predict(X_batch), 1e-9)
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "laplace":
         pred = _linreg_predict("_lr_laplace")
-        return pred if pred is not None else np.full(n, est._laplace_loc)
+        arr = pred if pred is not None else np.full(n, est._laplace_loc)
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "student_t":
         pred = _linreg_predict("_lr_t")
-        return pred if pred is not None else np.full(n, est._t_loc)
+        arr = pred if pred is not None else np.full(n, est._t_loc)
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "exponential":
         pred = _linreg_predict("_lr_exp")
-        return np.maximum(pred, 1e-9) if pred is not None else np.full(n, 1.0 / (est._exp_lambda + 1e-9))
+        arr = np.maximum(pred, 1e-9) if pred is not None else np.full(n, 1.0 / (est._exp_lambda + 1e-9))
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "gamma":
         pred = _linreg_predict("_lr_gamma")
-        return np.maximum(pred, 1e-9) if pred is not None else np.full(n, est._gamma_mean)
+        arr = np.maximum(pred, 1e-9) if pred is not None else np.full(n, est._gamma_mean)
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "lognormal":
         pred = _linreg_predict("_lr_lognormal")
         log_mu = pred if pred is not None else np.full(n, est._logn_mu)
-        return np.exp(log_mu + 0.5 * est._logn_sigma ** 2)
+        arr = np.exp(log_mu + 0.5 * est._logn_sigma ** 2)
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "weibull":
-        import math
         pred = _linreg_predict("_lr_weibull")
-        mu = np.maximum(pred, 1e-9) if pred is not None else np.full(n, est._weibull_mean)
-        try:
-            gf = math.gamma(1.0 + 1.0 / est._weibull_c)
-        except Exception:
-            gf = 1.0
-        return mu  # scale * gamma_factor = mu by construction
+        arr = np.maximum(pred, 1e-9) if pred is not None else np.full(n, est._weibull_mean)
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "inverse_gaussian":
         pred = _linreg_predict("_lr_ig")
-        return np.maximum(pred, 1e-9) if pred is not None else np.full(n, est._ig_mu)
+        arr = np.maximum(pred, 1e-9) if pred is not None else np.full(n, est._ig_mu)
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "beta":
         lr = getattr(est, "_lr_beta", None)
         if lr is None:
-            return np.full(n, est._beta_mu)
-        logit_pred = lr.predict(X_batch)
-        return 1.0 / (1.0 + np.exp(-logit_pred))
+            arr = np.full(n, est._beta_mu)
+        else:
+            logit_pred = lr.predict(X_batch)
+            arr = 1.0 / (1.0 + np.exp(-logit_pred))
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "half_cauchy":
         pred = _linreg_predict("_lr_hc")
-        return np.maximum(pred, 1e-9) if pred is not None else np.full(n, est._hc_scale)
+        arr = np.maximum(pred, 1e-9) if pred is not None else np.full(n, est._hc_scale)
+        return _batch_arr_length_n(arr, n, est, X_batch)
 
     # Non-parametric: per-sample loop
-    return np.array([est.expectation(X_batch[i]) for i in range(n)])
+    return np.array([float(est.expectation(X_batch[i])) for i in range(n)])
 
 
 def _eval_formula_vec(
@@ -1656,6 +1710,7 @@ def _eval_formula_vec(
     data: Dict[str, np.ndarray],
     resolve: Callable[[str], Optional[str]],
     cancel_marginal: Optional[str] = None,
+    unit_n: Optional[int] = None,
 ) -> np.ndarray:
     """
     Vectorised formula evaluator for a batch of summation variable values.
@@ -1703,8 +1758,14 @@ def _eval_formula_vec(
             else:
                 val = context.get(cv_paper, context.get(cv))
                 if val is None:
-                    d = data.get(cv_paper) if data.get(cv_paper) is not None else data.get(cv)
-                    val = float(np.mean(d)) if d is not None else 0.0
+                    d = _data_first_lookup(data, cv_paper, cv)
+                    if d is not None:
+                        d_np = np.asarray(d, dtype=float)
+                        if unit_n is not None and d_np.shape[0] != unit_n:
+                            continue
+                        val = float(np.mean(d_np))
+                    else:
+                        val = 0.0
                 x_cols.append(np.full(n, float(val)))
         X_batch = np.column_stack(x_cols) if x_cols else None
 
@@ -1713,37 +1774,57 @@ def _eval_formula_vec(
         y_val = context.get(out_paper) if out_paper else None
         if y_val is None and node.outcome_vars:
             y_val = context.get(node.outcome_vars[0])
+        y_f = _formula_scalar_y(y_val)
 
-        if y_val is not None:
-            y_f = float(y_val)
+        # we mirror _eval_formula: Q-variable KDE terms contribute E[Q|X] only (no P(Q=q) in vec path)
+        if isinstance(est, QDensityEstimator):
+            if X_batch is not None:
+                return np.array([float(est.scalar_mean(X_batch[i])) for i in range(n)])
+            return np.full(n, float(est.scalar_mean(None)))
+
+        if y_f is not None:
             if est.family == "bernoulli":
                 p = _batch_expectation(est, X_batch) if X_batch is not None else np.full(n, est._p_marginal)
                 return p if int(round(y_f)) == 1 else (1.0 - p)
-            elif est.family == "gaussian":
+            if est.family == "gaussian":
                 mu = _batch_expectation(est, X_batch) if X_batch is not None else np.full(n, est._mu_marginal)
                 if SCIPY_AVAILABLE:
                     return _sp_stats.norm.pdf(y_f, loc=mu, scale=est._sigma)
                 z = (y_f - mu) / est._sigma
                 return np.exp(-0.5 * z * z) / (est._sigma * np.sqrt(2 * np.pi))
-            else:
-                return np.array([est.prob(y_f, X_batch[i] if X_batch is not None else None) for i in range(n)])
-        else:
-            if X_batch is not None:
-                return _batch_expectation(est, X_batch)
-            return np.full(n, est.expectation(None))
+            return np.array([est.prob(y_f, X_batch[i] if X_batch is not None else None) for i in range(n)])
+        if X_batch is not None:
+            return _batch_expectation(est, X_batch)
+        return np.full(n, est.expectation(None))
 
     if isinstance(node, _ASTProduct):
         result = np.ones(n)
         for child in node.children:
             result = result * _eval_formula_vec(child, context, sv_name, sv_values,
-                                                fitted, data, resolve, cancel_marginal)
+                                                fitted, data, resolve, cancel_marginal, unit_n)
         return result
 
     if isinstance(node, _ASTSum):
-        # Nested sum: scalar fallback per sv_value
+        # Nested sum: scalar fallback per sv_value (2D batch → one scalar per row, last column)
+        if getattr(sv_values, "ndim", 0) == 2:
+            return np.array([
+                _eval_formula(
+                    node,
+                    {**context, sv_name: float(np.asarray(row, dtype=float).ravel()[-1])},
+                    fitted,
+                    data,
+                    resolve,
+                    50,
+                    np.random.default_rng(
+                        int(abs(float(np.asarray(row, dtype=float).ravel()[-1])) * 1e6) % (2**31)
+                    ),
+                    unit_n,
+                )
+                for row in sv_values
+            ])
         return np.array([
             _eval_formula(node, {**context, sv_name: float(v)}, fitted, data,
-                          resolve, 50, np.random.default_rng(int(abs(v) * 1e6) % (2**31)))
+                          resolve, 50, np.random.default_rng(int(abs(v) * 1e6) % (2**31)), unit_n)
             for v in sv_values
         ])
 
@@ -2019,7 +2100,7 @@ def ast_to_estimator(
         if name in enriched:
             return name
         candidate = san_to_paper.get(name)
-        if candidate and candidate in enriched:
+        if candidate is not None and candidate in enriched:
             return candidate
         return None
 
@@ -2054,8 +2135,10 @@ def ast_to_estimator(
         family = "nonparametric"
         for candidate in out_vars:
             paper_c = resolve(candidate) or candidate
-            f = families.get(paper_c) or families.get(candidate)
-            if f:
+            f = families.get(paper_c)
+            if f is None:
+                f = families.get(candidate)
+            if isinstance(f, str) and len(f) > 0:
                 family = f
                 break
 
@@ -2073,7 +2156,7 @@ def ast_to_estimator(
         X_cols = []
         for cv in cond_vars:
             cv_paper = resolve(cv)
-            if cv_paper and cv_paper in enriched:
+            if cv_paper is not None and cv_paper in enriched:
                 col_data = np.asarray(enriched[cv_paper], dtype=float)
                 if col_data.shape[0] != n_ref:
                     continue
@@ -2144,20 +2227,24 @@ def ast_to_estimator(
             unit_ctx.update(context)  # intervention overwrites observation
             unit_vals.append(
                 _eval_formula(formula, unit_ctx, fitted, enriched, resolve,
-                              n_mc_samples, rng)
+                              n_mc_samples, rng, n_units)
             )
         return float(np.mean(unit_vals))
     else:
         return _eval_formula(formula, context, fitted, enriched, resolve,
-                             n_mc_samples, rng)
+                             n_mc_samples, rng, n_units)
 
 
 def _infer_n_units(data: Dict[str, np.ndarray]) -> int:
+    """we infer the unit count from the largest leading axis among 1D/2D arrays."""
+    nmax = 1
     for arr in data.values():
         a = np.asarray(arr)
-        if a.ndim == 1 and len(a) > 1:
-            return len(a)
-    return 1
+        if a.ndim == 1:
+            nmax = max(nmax, len(a))
+        elif a.ndim == 2:
+            nmax = max(nmax, a.shape[0])
+    return nmax if nmax > 1 else 1
 
 
 # ─────────────────────────────────────────────────────────────────────────────

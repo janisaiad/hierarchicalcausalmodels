@@ -47,3 +47,8 @@ packages = ["hierarchicalcausalmodels"] # same, smth like ["Model1", "Model2"]
 [tool.setuptools.package-data]
 "*" = ["*.py", "*.pyi", "*.c", "*.h", "*.cpp", "*.hpp"]
 
+[tool.pytest.ini_options]
+markers = [
+    "slow: optional tests that call estimate_causal_effect or large loops",
+]
+
