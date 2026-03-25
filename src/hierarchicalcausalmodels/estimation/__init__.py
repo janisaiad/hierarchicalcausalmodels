@@ -1,17 +1,19 @@
-"""Per-unit estimators and ATE aggregation for confounder-style HCMs."""
+"""HCM causal estimation: formula-driven dispatch from identified do-calculus expressions."""
 
-from .per_unit import (
-    fit_per_unit_estimators,
-    aggregate_per_unit_outputs,
-    fit_regressors_per_unit,
-    estimate_ate_confounder,
-    device_kwargs_for_workers,
+from .causal_estimators import (
+    ConditionalDensityEstimator,
+    SubunitParamEstimator,
+    QDensityEstimator,
+    ast_to_estimator,
+    estimate_causal_effect,
+    SUPPORTED_FAMILIES,
 )
 
 __all__ = [
-    "fit_per_unit_estimators",
-    "aggregate_per_unit_outputs",
-    "fit_regressors_per_unit",
-    "estimate_ate_confounder",
-    "device_kwargs_for_workers",
+    "ConditionalDensityEstimator",
+    "SubunitParamEstimator",
+    "QDensityEstimator",
+    "ast_to_estimator",
+    "estimate_causal_effect",
+    "SUPPORTED_FAMILIES",
 ]

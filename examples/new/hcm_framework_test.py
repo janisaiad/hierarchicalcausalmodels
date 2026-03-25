@@ -61,6 +61,22 @@ import networkx as nx
 
 from hierarchicalcausalmodels.models import (
     HSCMParametric,
+)
+from hierarchicalcausalmodels.do_calculus import (
+    collapse,
+    augment_collapsed_model,
+    marginalize_augmented_model,
+    suggest_augment_for_outcome,
+    identify_effect,
+    PYAGNUM_AVAILABLE,
+)
+from hierarchicalcausalmodels.estimation import (
+    estimate_causal_effect,
+    SubunitParamEstimator,
+    QDensityEstimator,
+)
+
+from gallery_pipeline import (
     COLLAPSED_DO_CALCULUS_CASES,
     bern_families,
     build_cgm_for_case,
@@ -70,21 +86,6 @@ from hierarchicalcausalmodels.models import (
     gallery_x_for_case,
     simulate_binary_hscm,
 )
-from do_calculus import (
-    collapse,
-    augment_collapsed_model,
-    marginalize_augmented_model,
-    suggest_augment_for_outcome,
-    identify_effect,
-    PYAGNUM_AVAILABLE,
-)
-from estimation import (
-    estimate_causal_effect,  # single unified estimation function
-    SubunitParamEstimator,
-    QDensityEstimator,
-)
-
-import do_calculus as dc_pkg
 
 rng = np.random.default_rng(42)
 
@@ -578,7 +579,7 @@ print('True ATE on Y       = {:.4f}'.format(true_ate_inst))
 #   Step 2: q^a_i = mean(A_ij) → 1D array (n_units,)
 #   Step 3: p(y | q^a, q^{a|z=0}, q^{a|z=1}) — logistic regression with 3 features
 #   Step 4: sum over Q^{a|z} — MC samples ROWS of the 2D array (not individual scalars)
-from estimation import ConditionalDensityEstimator
+from hierarchicalcausalmodels.estimation import ConditionalDensityEstimator
 
 data_inst = {
     'Y': Y_inst,   # (200,)    unit-level binary outcome
@@ -723,7 +724,7 @@ for idx, case in enumerate(cases):
     case_sim_nu, case_sim_ns, case_n_mc = _gallery_case_knobs(cname)
     y_node = case[7]
     expected_id = case[10]
-    cgm, _u_default, _y_def, _x_def, _exp = build_cgm_for_case(dc_pkg, case)
+    cgm, _u_default, _y_def, _x_def, _exp = build_cgm_for_case(case)
     x_node = _gallery_x_for_case(case)
     unobs = _gallery_unobserved_set(case, cgm, GALLERY_UNOBSERVED_MODE, y_node, x_node)
 

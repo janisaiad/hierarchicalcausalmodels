@@ -14,7 +14,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import do_calculus as dc  # noqa: E402
+import hierarchicalcausalmodels.do_calculus as dc  # noqa: E402
 from collapsed_cases import COLLAPSED_DO_CALCULUS_CASES, _make_hscm, build_cgm_for_case  # noqa: E402
 
 
@@ -22,7 +22,7 @@ def main() -> int:
     ok = True
     for case in COLLAPSED_DO_CALCULUS_CASES:
         name = case[0]
-        cgm_full, _u, _y, _x, _e = build_cgm_for_case(dc, case)
+        cgm_full, _u, _y, _x, _e = build_cgm_for_case(case)
         dag_ok = nx.is_directed_acyclic_graph(cgm_full.dag)
         print("{} pipeline DAG: {}".format(name, "ok" if dag_ok else "CYCLE"))
         if not dag_ok:

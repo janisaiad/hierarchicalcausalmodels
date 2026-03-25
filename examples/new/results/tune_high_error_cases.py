@@ -18,9 +18,9 @@ import numpy as np
 _EX = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_EX))
 
-import do_calculus as dc_pkg  # noqa: E402
+import hierarchicalcausalmodels.do_calculus as dc_pkg  # noqa: E402
 from collapsed_cases import COLLAPSED_DO_CALCULUS_CASES, build_cgm_for_case  # noqa: E402
-from estimation import estimate_causal_effect  # noqa: E402
+from hierarchicalcausalmodels.estimation import estimate_causal_effect  # noqa: E402
 from hierarchicalcausalmodels.models import HSCMParametric  # noqa: E402
 
 
@@ -125,7 +125,7 @@ def main():
         cname = case[0]
         if cname not in targets:
             continue
-        cgm, _u, y_node, x_node, _exp = build_cgm_for_case(dc_pkg, case)
+        cgm, _u, y_node, x_node, _exp = build_cgm_for_case(case)
         unobs = set(case[9]) & set(cgm.dag.nodes)
         res = dc_pkg.identify_effect(cgm, Y=y_node, X=x_node, unobserved=unobs)
         if not res.identifiable:

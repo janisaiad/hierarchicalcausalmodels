@@ -6,7 +6,12 @@ import networkx as nx
 import numpy as np
 from causalgraphicalmodels import CausalGraphicalModel
 
-from .HSCMParametric import HSCMParametric
+from hierarchicalcausalmodels.models import HSCMParametric
+from hierarchicalcausalmodels.do_calculus import (
+    collapse,
+    augment_collapsed_model,
+    marginalize_augmented_model,
+)
 
 
 def _empty_fun(*args, **kwargs):
@@ -29,8 +34,6 @@ def _make_hscm(nodes, edges, unit_nodes, subunit_nodes):
     )
 
 
-# (name, nodes, edges, unit_nodes, subunit_nodes, augment: (q_hat, parents) or None,
-#  marginalize: (q_hat, special_parents) or None, Y, X, unobserved, expected_identifiable)
 COLLAPSED_DO_CALCULUS_CASES = [
     ("confounder_aug", {"U", "A", "Y"}, {("U", "A"), ("U", "Y"), ("A", "Y")}, {"U"}, {"A", "Y"}, ("Q^y", {"Q^{y|a}", "Q^a"}), None, "Q^y", "Q^a", {"U"}, True),
     ("confounder_interferer_aug", {"U", "Z", "A", "Y"}, {("U", "A"), ("U", "Y"), ("A", "Y"), ("A", "Z"), ("Z", "Y")}, {"U", "Z"}, {"A", "Y"}, ("Q^y", {"Q^{y|a}", "Q^a"}), None, "Q^y", "Q^a", {"U"}, True),
@@ -60,16 +63,16 @@ def _ensure_treatment_edge_to_outcome(cgm, y_node: str, x_node: str, apply: bool
     return CausalGraphicalModel(nodes=nodes, edges=edges + [(x_node, y_node)])
 
 
-def build_cgm_for_case(dc, case):
+def build_cgm_for_case(case):
     (name, nodes, edges, unit_nodes, subunit_nodes, augment, marginalize, Y, X, unobserved, expected_id) = case
     hscm = _make_hscm(nodes, edges, unit_nodes, subunit_nodes)
-    cgm = dc.collapse(hscm)
+    cgm = collapse(hscm)
     if augment is not None:
         q_hat, parents = augment
-        cgm = dc.augment_collapsed_model(cgm, q_hat, parents)
+        cgm = augment_collapsed_model(cgm, q_hat, parents)
     if marginalize is not None:
         q_hat, special_parents = marginalize
-        cgm = dc.marginalize_augmented_model(cgm, q_hat, special_parents)
+        cgm = marginalize_augmented_model(cgm, q_hat, special_parents)
     _patch_xy = {
         "instrument_mar": ("Q^a", "Y"),
         "ID_ex2_aug": ("Q^a", "Q^y"),
@@ -157,20 +160,14 @@ def curated_gallery_data_large(cname, n_units, n_sub, rng):
     if cname == "confounder_aug":
         u = rng.beta(2, 2, n_units)
         a = np.array([rng.binomial(1, np.clip(u[i], 0, 1), n_sub) for i in range(n_units)], dtype=float)
-        y = np.array(
-            [rng.binomial(1, np.clip(sigmoid(1.5 * a[i] + u[i] - 0.5), 0, 1)) for i in range(n_units)],
-            dtype=float,
-        )
+        y = np.array([rng.binomial(1, np.clip(sigmoid(1.5 * a[i] + u[i] - 0.5), 0, 1)) for i in range(n_units)], dtype=float)
         return {"A": a, "Y": y}
     if cname == "confounder_interferer_aug":
         u = rng.beta(2, 2, n_units)
         a = np.array([rng.binomial(1, np.clip(u[i], 0, 1), n_sub) for i in range(n_units)], dtype=float)
         q_a = a.mean(axis=1)
         z = rng.binomial(1, np.clip(sigmoid(2 * q_a - 1), 0, 1)).astype(float)
-        y = np.array(
-            [rng.binomial(1, np.clip(sigmoid(1.5 * a[i] + z[i] + 0.3 * u[i] - 0.5), 0, 1)) for i in range(n_units)],
-            dtype=float,
-        )
+        y = np.array([rng.binomial(1, np.clip(sigmoid(1.5 * a[i] + z[i] + 0.3 * u[i] - 0.5), 0, 1)) for i in range(n_units)], dtype=float)
         return {"A": a, "Y": y, "Z": z}
     if cname == "instrument_mar":
         u = rng.beta(2, 2, n_units)
@@ -204,20 +201,6 @@ def gallery_aligned_truth_ate(case, cgm, y_node, x_node, n_units, n_sub, n_mc, r
         )
         data_obs = simulate_binary_hscm(hscm_sim, n_units, n_sub, rng)
     fam = bern_families(data_obs)
-    e1 = estimate_causal_effect(
-        res_paper,
-        data=data_obs,
-        intervention={x_node: 1.0},
-        distribution_families=fam,
-        random_seed=101,
-        n_mc_samples=n_mc,
-    )
-    e0 = estimate_causal_effect(
-        res_paper,
-        data=data_obs,
-        intervention={x_node: 0.0},
-        distribution_families=fam,
-        random_seed=202,
-        n_mc_samples=n_mc,
-    )
+    e1 = estimate_causal_effect(res_paper, data=data_obs, intervention={x_node: 1.0}, distribution_families=fam, random_seed=101, n_mc_samples=n_mc)
+    e0 = estimate_causal_effect(res_paper, data=data_obs, intervention={x_node: 0.0}, distribution_families=fam, random_seed=202, n_mc_samples=n_mc)
     return float(e1 - e0)

@@ -18,7 +18,7 @@ from scipy.stats import beta as beta_dist
 from hierarchicalcausalmodels.models import HSCMParametric
 from causalgraphicalmodels import CausalGraphicalModel
 
-from do_calculus import collapse, augment_collapsed_model, _sanitize_node_name
+from hierarchicalcausalmodels.do_calculus import collapse, augment_collapsed_model, _sanitize_node_name
 
 try:
     import pyagrum as gum

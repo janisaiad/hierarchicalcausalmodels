@@ -14,9 +14,9 @@ sys.path.insert(0, str(_EX))
 import networkx as nx
 import numpy as np
 
-import do_calculus as dc_pkg
+import hierarchicalcausalmodels.do_calculus as dc_pkg
 from collapsed_cases import COLLAPSED_DO_CALCULUS_CASES, build_cgm_for_case
-from estimation import estimate_causal_effect
+from hierarchicalcausalmodels.estimation import estimate_causal_effect
 from hierarchicalcausalmodels.models import HSCMParametric
 
 
@@ -88,7 +88,7 @@ def main() -> int:
         name = case[0]
         y_n = case[7]
         x_n = case[8]
-        cgm, _u, _y, _x, _exp = build_cgm_for_case(dc_pkg, case)
+        cgm, _u, _y, _x, _exp = build_cgm_for_case(case)
         unobs_paper = set(case[9]) & set(cgm.dag.nodes)
         res = dc_pkg.identify_effect(cgm, Y=y_n, X=x_n, unobserved=unobs_paper)
         if not res.identifiable:

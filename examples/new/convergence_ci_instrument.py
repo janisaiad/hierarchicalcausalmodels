@@ -16,8 +16,8 @@ from causalgraphicalmodels import CausalGraphicalModel
 
 from hierarchicalcausalmodels.models import HSCMParametric
 
-import do_calculus as dc
-from estimation import estimate_causal_effect
+import hierarchicalcausalmodels.do_calculus as dc
+from hierarchicalcausalmodels.estimation import estimate_causal_effect
 
 
 def _noop(_d=None):

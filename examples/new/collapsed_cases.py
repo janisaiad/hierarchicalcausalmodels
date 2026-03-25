@@ -1,12 +1,17 @@
 """
-Collapsed do-calculus graph cases from do_calculus.py.
-Shared by collapsed_do_calculus_graphs_demo. build_cgm_for_case(dc, case) needs do_calculus module.
+Collapsed do-calculus graph cases.
+Shared by collapsed_do_calculus_graphs_demo and gallery pipelines.
 """
 from __future__ import annotations
 
 from causalgraphicalmodels import CausalGraphicalModel
 
 from hierarchicalcausalmodels.models import HSCMParametric
+from hierarchicalcausalmodels.do_calculus import (
+    collapse,
+    augment_collapsed_model,
+    marginalize_augmented_model,
+)
 
 
 def _empty_fun(*args, **kwargs):
@@ -63,17 +68,17 @@ def _ensure_treatment_edge_to_outcome(cgm, y_node: str, x_node: str, apply: bool
     return CausalGraphicalModel(nodes=nodes, edges=edges + [(x_node, y_node)])
 
 
-def build_cgm_for_case(dc, case):
+def build_cgm_for_case(case):
     """Build CGM for one case: HSCM -> collapse -> optional augment -> optional marginalize."""
     (name, nodes, edges, unit_nodes, subunit_nodes, augment, marginalize, Y, X, unobserved, expected_id) = case
     hscm = _make_hscm(nodes, edges, unit_nodes, subunit_nodes)
-    cgm = dc.collapse(hscm)
+    cgm = collapse(hscm)
     if augment is not None:
         q_hat, parents = augment
-        cgm = dc.augment_collapsed_model(cgm, q_hat, parents)
+        cgm = augment_collapsed_model(cgm, q_hat, parents)
     if marginalize is not None:
         q_hat, special_parents = marginalize
-        cgm = dc.marginalize_augmented_model(cgm, q_hat, special_parents)
+        cgm = marginalize_augmented_model(cgm, q_hat, special_parents)
     # we add X->Y when pyAgrum would otherwise return degenerate P(outcome) for do(X) (see docstring).
     # we skip graphs where an extra edge breaks sklearn conditional fits (e.g. ID_ex1_mar, ID_ex5_mar).
     _patch_xy = {

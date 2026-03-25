@@ -20,7 +20,7 @@
 # identify_effect for each case and show a summary table. Software tests are in `tests/`.
 
 # %%
-import do_calculus as dc
+import hierarchicalcausalmodels.do_calculus as dc
 from collapsed_cases import COLLAPSED_DO_CALCULUS_CASES, build_cgm_for_case
 
 # %%
@@ -31,7 +31,7 @@ else:
     for case in COLLAPSED_DO_CALCULUS_CASES:
         name = case[0]
         expected_id = case[10]
-        cgm, unobserved, Y, X, _ = build_cgm_for_case(dc, case)
+        cgm, unobserved, Y, X, _ = build_cgm_for_case(case)
         res = dc.identify_effect(cgm, Y=Y, X=X, unobserved=unobserved)
         ok = res.identifiable == expected_id
         results.append((name, expected_id, res.identifiable, ok, res.formula_latex or res.error or ""))

@@ -20,7 +20,7 @@
 # examples. Software tests are in `tests/`.
 
 # %%
-import do_calculus as dc
+import hierarchicalcausalmodels.do_calculus as dc
 from hierarchicalcausalmodels.models import HSCMParametric
 
 def _empty_fun(*args, **kwargs):
@@ -57,7 +57,7 @@ def _latex_for_katex(s):
 if dc.PYAGNUM_AVAILABLE:
     for case in COLLAPSED_DO_CALCULUS_CASES:
         name = case[0]
-        cgm, unobs, Y_var, X_var, _ = build_cgm_for_case(dc, case)
+        cgm, unobs, Y_var, X_var, _ = build_cgm_for_case(case)
         display(Markdown("---\n### **{}**  \nOutcome \\(Y\\): {}, Intervention \\(X\\): {}".format(name, Y_var, X_var)))
         cgm.unobserved_variables = unobs
         res = dc.identify_effect(cgm, Y=Y_var, X=X_var, unobserved=unobs)
