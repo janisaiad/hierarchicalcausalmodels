@@ -10,11 +10,12 @@ from pathlib import Path
 import networkx as nx
 import pytest
 
-_EXAMPLES_NEW = Path(__file__).resolve().parents[1] / "examples" / "new"
+_REPO = Path(__file__).resolve().parents[2]
+_EXAMPLES_NEW = _REPO / "examples" / "new"
 if str(_EXAMPLES_NEW) not in sys.path:
     sys.path.insert(0, str(_EXAMPLES_NEW))
 
-import do_calculus as dc  # noqa: E402
+import hierarchicalcausalmodels.do_calculus as dc  # noqa: E402
 from collapsed_cases import COLLAPSED_DO_CALCULUS_CASES, _make_hscm, build_cgm_for_case  # noqa: E402
 
 
@@ -29,7 +30,7 @@ def _assert_dag(name: str, cgm) -> None:
 @pytest.mark.parametrize("case", COLLAPSED_DO_CALCULUS_CASES, ids=lambda c: c[0])
 def test_pipeline_collapsed_augment_marginalize_is_dag(case):
     """full build_cgm_for_case graph must stay acyclic."""
-    cgm, _u, _y, _x, _exp = build_cgm_for_case(dc, case)
+    cgm, _u, _y, _x, _exp = build_cgm_for_case(case)
     _assert_dag(case[0], cgm)
 
 

@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES_NEW = ROOT / "examples" / "new"
 if str(EXAMPLES_NEW) not in sys.path:
     sys.path.insert(0, str(EXAMPLES_NEW))

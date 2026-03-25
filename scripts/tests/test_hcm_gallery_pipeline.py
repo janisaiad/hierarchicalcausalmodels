@@ -11,10 +11,11 @@ import networkx as nx
 import numpy as np
 import pytest
 
-_EX = Path(__file__).resolve().parents[1] / "examples" / "new"
+_ROOT = Path(__file__).resolve().parents[2]
+_EX = _ROOT / "examples" / "new"
 sys.path.insert(0, str(_EX))
 
-import do_calculus as dc_pkg  # noqa: E402
+import hierarchicalcausalmodels.do_calculus as dc_pkg  # noqa: E402
 from collapsed_cases import COLLAPSED_DO_CALCULUS_CASES, build_cgm_for_case  # noqa: E402
 from hierarchicalcausalmodels.models import HSCMParametric  # noqa: E402
 
@@ -68,7 +69,7 @@ def simulate_binary_hscm(hscm, n_units, n_sub, rng):
 
 @pytest.mark.parametrize("case", COLLAPSED_DO_CALCULUS_CASES, ids=lambda c: c[0])
 def test_collapsed_case_is_dag(case):
-    cgm, *_rest = build_cgm_for_case(dc_pkg, case)
+    cgm, *_rest = build_cgm_for_case(case)
     assert nx.is_directed_acyclic_graph(cgm.dag)
 
 
@@ -76,7 +77,7 @@ def test_collapsed_case_is_dag(case):
 def test_paper_latent_identify_matches_table(case):
     if not dc_pkg.PYAGNUM_AVAILABLE:
         pytest.skip("pyagrum not installed")
-    cgm, _u, y_n, x_n, expected_id = build_cgm_for_case(dc_pkg, case)
+    cgm, _u, y_n, x_n, expected_id = build_cgm_for_case(case)
     unobs_paper = set(case[9]) & set(cgm.dag.nodes)
     res = dc_pkg.identify_effect(cgm, Y=y_n, X=x_n, unobserved=unobs_paper)
     assert res.identifiable == expected_id
@@ -103,10 +104,10 @@ def test_generic_sim_runs_for_non_curated_case():
 def test_estimate_runs_when_paper_identifiable_confounder_aug():
     if not dc_pkg.PYAGNUM_AVAILABLE:
         pytest.skip("pyagrum not installed")
-    from estimation import estimate_causal_effect  # noqa: E402
+    from hierarchicalcausalmodels.estimation import estimate_causal_effect  # noqa: E402
 
     case = next(c for c in COLLAPSED_DO_CALCULUS_CASES if c[0] == "confounder_aug")
-    cgm, _u, y_n, x_n, _e = build_cgm_for_case(dc_pkg, case)
+    cgm, _u, y_n, x_n, _e = build_cgm_for_case(case)
     unobs_paper = set(case[9]) & set(cgm.dag.nodes)
     res = dc_pkg.identify_effect(cgm, Y=y_n, X=x_n, unobserved=unobs_paper)
     assert res.identifiable

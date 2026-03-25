@@ -17,12 +17,13 @@ import networkx as nx
 import numpy as np
 import pytest
 
-_EX = Path(__file__).resolve().parents[1] / "examples" / "new"
+_ROOT = Path(__file__).resolve().parents[2]
+_EX = _ROOT / "examples" / "new"
 sys.path.insert(0, str(_EX))
 
-import do_calculus as dc_pkg  # noqa: E402
+import hierarchicalcausalmodels.do_calculus as dc_pkg  # noqa: E402
 from collapsed_cases import COLLAPSED_DO_CALCULUS_CASES, build_cgm_for_case  # noqa: E402
-from estimation import estimate_causal_effect  # noqa: E402
+from hierarchicalcausalmodels.estimation import estimate_causal_effect  # noqa: E402
 from hierarchicalcausalmodels.models import HSCMParametric  # noqa: E402
 
 
@@ -106,7 +107,7 @@ def test_internal_mc_stabilises_ate_for_identifiable_gallery_cases(case):
     expected_id = case[10]
     if not expected_id:
         pytest.skip("non-identifiable case")
-    cgm, _u, y_node, x_node, _exp = build_cgm_for_case(dc_pkg, case)
+    cgm, _u, y_node, x_node, _exp = build_cgm_for_case(case)
     unobs_paper = set(case[9]) & set(cgm.dag.nodes)
     res = dc_pkg.identify_effect(cgm, Y=y_node, X=x_node, unobserved=unobs_paper)
     if not res.identifiable:
@@ -138,7 +139,7 @@ def test_same_seed_reproduces_ate_confounder_aug():
     if not dc_pkg.PYAGNUM_AVAILABLE:
         pytest.skip("pyagrum not installed")
     case = next(c for c in COLLAPSED_DO_CALCULUS_CASES if c[0] == "confounder_aug")
-    cgm, _u, y_node, x_node, _e = build_cgm_for_case(dc_pkg, case)
+    cgm, _u, y_node, x_node, _e = build_cgm_for_case(case)
     unobs_paper = set(case[9]) & set(cgm.dag.nodes)
     res = dc_pkg.identify_effect(cgm, Y=y_node, X=x_node, unobserved=unobs_paper)
     assert res.identifiable

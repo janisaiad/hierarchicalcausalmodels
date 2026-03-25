@@ -1,0 +1,51 @@
+interfaces = []
+exclude = [
+    "**/*__pycache__",
+    "**/*egg-info",
+    "**/docs",
+    "**/tests",
+    "**/venv",
+]
+source_roots = [
+    ".",
+]
+
+[[modules ]]
+path = "src.hierarchicalcausalmodels.estimation"
+depends_on = []
+
+[[modules ]]
+path = "setup"
+depends_on = []
+
+[[modules ]]
+path = "scripts"
+depends_on = []
+
+[[modules ]]
+path = "logs"
+depends_on = []
+
+[[modules ]]
+path = "src.hierarchicalcausalmodels.utils"
+depends_on = []
+
+[[modules ]]
+path = "src.hierarchicalcausalmodels.do_calculus"
+depends_on = []
+
+[[modules ]]
+path = "docs"
+depends_on = []
+
+[[modules ]]
+path = "src.hierarchicalcausalmodels.models.HSCMParametric"
+depends_on = []
+
+[[modules ]]
+path = "tests"
+depends_on = []
+
+[[modules ]]
+path = "data"
+depends_on = []
