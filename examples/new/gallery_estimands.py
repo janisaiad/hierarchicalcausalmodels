@@ -2,16 +2,16 @@
 One estimand definition per collapsed-case gallery row (hcm_framework_test §4).
 
 The plug-in estimator targets P(Y_outcome | do(X_intervention)) expressed on the collapsed CGM
-(nodes Y, X from the case tuple). Reference truth is either the §1–3 curated DGP Monte Carlo
-expectations or the structural binary-plate do() difference from the same plate HSCM as
-simulate_binary_hscm / mc_truth_ate_binary_plate — see truth_reference on each record.
+(nodes Y, X from the case tuple). The §4 reference **`true_ATE`** is always the same operational
+target as the estimate: `identify_effect` + `estimate_causal_effect` evaluated on a large
+observational sample from the row DGP (`aligned_plugin_large_n` in truth_reference).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
 
-TruthReference = Literal["curated_dgp_mc", "structural_binary_plate_do"]
+TruthReference = Literal["aligned_plugin_large_n"]
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,7 @@ GALLERY_ESTIMANDS: dict[str, GalleryEstimand] = {
             "plate model; identified via back-door adjustment on the collapsed CGM using "
             "observable Q^{y|a}."
         ),
-        truth_reference="curated_dgp_mc",
+        truth_reference="aligned_plugin_large_n",
     ),
     "confounder_interferer_aug": GalleryEstimand(
         case_name="confounder_interferer_aug",
@@ -47,7 +47,7 @@ GALLERY_ESTIMANDS: dict[str, GalleryEstimand] = {
             "and interference edges; the identified interventional distribution uses the front-door "
             "route through Z on the augmented collapsed CGM."
         ),
-        truth_reference="curated_dgp_mc",
+        truth_reference="aligned_plugin_large_n",
     ),
     "instrument_mar": GalleryEstimand(
         case_name="instrument_mar",
@@ -58,7 +58,7 @@ GALLERY_ESTIMANDS: dict[str, GalleryEstimand] = {
             "identification uses the IV structure through Q^{a|z} and Q^z; estimand is "
             "E[Y | do(Q^a=1)] − E[Y | do(Q^a=0)] for that collapsed model."
         ),
-        truth_reference="curated_dgp_mc",
+        truth_reference="aligned_plugin_large_n",
     ),
     "ID_ex3_collapse": GalleryEstimand(
         case_name="ID_ex3_collapse",
@@ -66,10 +66,9 @@ GALLERY_ESTIMANDS: dict[str, GalleryEstimand] = {
         intervention_node="Q^a",
         description=(
             "ATE of Q^a on unit-level Y in the collapsed four-node CGM (U, Q^a, Q^{w|a}, Y); "
-            "reference truth is the binary-plate structural do difference with all subunit A "
-            "set to 0 vs 1 and Y aggregated as the unit node."
+            "§4 truth is the aligned identified plug-in at large n (same as estimate_causal_effect)."
         ),
-        truth_reference="structural_binary_plate_do",
+        truth_reference="aligned_plugin_large_n",
     ),
     "ID_ex2_aug": GalleryEstimand(
         case_name="ID_ex2_aug",
@@ -77,9 +76,9 @@ GALLERY_ESTIMANDS: dict[str, GalleryEstimand] = {
         intervention_node="Q^a",
         description=(
             "ATE on augmented unit outcome Q^y w.r.t. Q^a with latent plate structure "
-            "(Q^{z|a}, Q^{y|a|z}); reference truth pins subunit A to 0/1 and takes mean Q^y per unit."
+            "(Q^{z|a}, Q^{y|a|z}); §4 truth is the aligned plug-in on the binary-plate simulator."
         ),
-        truth_reference="structural_binary_plate_do",
+        truth_reference="aligned_plugin_large_n",
     ),
     "ID_ex6_collapse": GalleryEstimand(
         case_name="ID_ex6_collapse",
@@ -87,19 +86,19 @@ GALLERY_ESTIMANDS: dict[str, GalleryEstimand] = {
         intervention_node="Q^a",
         description=(
             "ATE of Q^a on unit-level Y in the multi-confounder collapse (U, Up, W, Z plates); "
-            "reference truth from binary-plate do on A with Y as unit outcome."
+            "§4 truth is the aligned plug-in on the binary-plate simulator."
         ),
-        truth_reference="structural_binary_plate_do",
+        truth_reference="aligned_plugin_large_n",
     ),
     "ID_ex4_aug": GalleryEstimand(
         case_name="ID_ex4_aug",
         outcome_node="W",
         intervention_node="Q^a",
         description=(
-            "Effect of Q^a on unit-level W (not Y) after augment/marginalize; reference truth uses "
-            "the same plate do on A and reads W as the outcome aggregate."
+            "Effect of Q^a on unit-level W (not Y) after augment/marginalize; §4 truth is the aligned "
+            "plug-in with W as the outcome node."
         ),
-        truth_reference="structural_binary_plate_do",
+        truth_reference="aligned_plugin_large_n",
     ),
     "ID_ex1_mar": GalleryEstimand(
         case_name="ID_ex1_mar",
@@ -107,29 +106,28 @@ GALLERY_ESTIMANDS: dict[str, GalleryEstimand] = {
         intervention_node="Q^w",
         description=(
             "ATE of Q^w (augmented summary over W plate) on Y after marginalizing Q^z; "
-            "structural reference pins subunit W to 0/1 when the mapping Q^w -> W exists."
+            "§4 truth is the aligned plug-in on the binary-plate simulator."
         ),
-        truth_reference="structural_binary_plate_do",
+        truth_reference="aligned_plugin_large_n",
     ),
     "ID_ex5_mar": GalleryEstimand(
         case_name="ID_ex5_mar",
         outcome_node="Y",
         intervention_node="Q^{a|x}",
         description=(
-            "ATE of Q^{a|x} on Y after marginalizing Q^z; reference do holds A and X subunit plates "
-            "to common values 0 vs 1 when both are forced."
+            "ATE of Q^{a|x} on Y after marginalizing Q^z; §4 truth is the aligned plug-in on the "
+            "binary-plate simulator."
         ),
-        truth_reference="structural_binary_plate_do",
+        truth_reference="aligned_plugin_large_n",
     ),
     "ID_targeted_aug": GalleryEstimand(
         case_name="ID_targeted_aug",
         outcome_node="Q^y",
         intervention_node="Q^{a|x}",
         description=(
-            "ATE on Q^y w.r.t. Q^{a|x} in the targeted-augment graph; reference truth uses do on "
-            "subunits A and X together for the binary-plate simulator."
+            "ATE on Q^y w.r.t. Q^{a|x} in the targeted-augment graph; §4 truth is the aligned plug-in."
         ),
-        truth_reference="structural_binary_plate_do",
+        truth_reference="aligned_plugin_large_n",
     ),
     "nonID_ex5_aug": GalleryEstimand(
         case_name="nonID_ex5_aug",
@@ -138,29 +136,29 @@ GALLERY_ESTIMANDS: dict[str, GalleryEstimand] = {
         description=(
             "Causal contrast E[Q^y | do(Q^a=1)] − E[Q^y | do(Q^a=0)] on the stated SCM is the "
             "quantity of interest; the do-calculus row may still report non-identifiability while "
-            "the structural MC reference is computed for comparison only."
+            "§4 truth is still the aligned plug-in for comparison when computable."
         ),
-        truth_reference="structural_binary_plate_do",
+        truth_reference="aligned_plugin_large_n",
     ),
     "nonID_ex4_aug": GalleryEstimand(
         case_name="nonID_ex4_aug",
         outcome_node="Y",
         intervention_node="Q^a",
         description=(
-            "ATE of Q^a on Y with extra latent Up; same structural reference rule as other Q^a→Y "
-            "plate cases; identification may fail even though the MC contrast is defined."
+            "ATE of Q^a on Y with extra latent Up; same aligned plug-in reference as other Q^a→Y "
+            "plate cases; identification may fail even though the plug-in contrast is defined."
         ),
-        truth_reference="structural_binary_plate_do",
+        truth_reference="aligned_plugin_large_n",
     ),
     "nonID_ex1_aug": GalleryEstimand(
         case_name="nonID_ex1_aug",
         outcome_node="Q^y",
         intervention_node="Q^a",
         description=(
-            "ATE of Q^a on Q^y in the non-ID variant; reference truth from binary-plate do on A "
-            "with Q^y as mean subunit Y per unit."
+            "ATE of Q^a on Q^y in the non-ID variant; §4 truth is the aligned plug-in on the "
+            "binary-plate simulator."
         ),
-        truth_reference="structural_binary_plate_do",
+        truth_reference="aligned_plugin_large_n",
     ),
 }
 

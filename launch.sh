@@ -18,4 +18,8 @@ source .venv/bin/activate
 uv pip install -e .
 # 8. Run test script (if it exists at tests/test_env.py relative to project root)
 uv run tests/test_env.py
+
+uv lock --upgrade-package causalgraphicalmodels
+uv sync
+
 # 9. Re-activate venv (redundant since already activated, but harmless)

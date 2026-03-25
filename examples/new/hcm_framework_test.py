@@ -34,7 +34,7 @@
 #    no heuristic key-name matching; the formula structure is the ground truth
 # 6. Compare against true ATE (Monte Carlo over unobserved U)
 #
-# **§4** — All **13** graphs from `collapsed_cases.py`: full pipeline in one cell (DAG, plots, ID, estimate, table).  Structural MC `true_ATE` for generic rows is computed inline (`mc_truth_ate_binary_plate`).
+# **§4** — All **13** graphs from `collapsed_cases.py`: full pipeline in one cell (DAG, plots, ID, estimate, table).  **`true_ATE`** is one definition for every row: same `identify_effect` + `estimate_causal_effect` as the estimate, on a **large** observational sample from the same DGP (§1–3 formulas for curated rows; binary-plate simulator otherwise).
 #
 # jupytext: edit this file, then run (from repo root)
 #   uv run jupytext --sync examples/new/hcm_framework_test.ipynb
@@ -59,7 +59,17 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import networkx as nx
 
-from hierarchicalcausalmodels.models import HSCMParametric
+from hierarchicalcausalmodels.models import (
+    HSCMParametric,
+    COLLAPSED_DO_CALCULUS_CASES,
+    bern_families,
+    build_cgm_for_case,
+    gallery_aligned_truth_ate,
+    gallery_case_knobs,
+    gallery_unobserved_set,
+    gallery_x_for_case,
+    simulate_binary_hscm,
+)
 from do_calculus import (
     collapse,
     augment_collapsed_model,
@@ -75,7 +85,6 @@ from estimation import (
 )
 
 import do_calculus as dc_pkg
-from collapsed_cases import COLLAPSED_DO_CALCULUS_CASES, build_cgm_for_case
 
 rng = np.random.default_rng(42)
 
@@ -624,7 +633,7 @@ print('{:<30} {:>12.4f} {:>12.4f} {:>10.4f} {:>10.4f}'.format(
 # ## 4 — **Every** `collapsed_cases` graph: same checks as §1–3 + estimation
 #
 # For **all 13** cases we run the **full pipeline** in this cell: **DAG** → **plots** → `identify_effect` (knob + paper latents) →
-# **`estimate_causal_effect`** at `do(X)=1` vs `0` → table.  **Curated** rows use §1–3 `true_ATE`; **generic** rows use structural MC truth (same plate SCM as `simulate_binary_hscm`, helpers below).
+# **`estimate_causal_effect`** at `do(X)=1` vs `0` → table.  **`true_ATE`** comes from **`gallery_ground_truth.compute_ground_truth_ate`** (imported here as `gallery_aligned_truth_ate`): plug-in ATE at large `n_units` × `n_sub` and large `n_mc_samples`, on data from the same generator as the row (§1–3 DGP for the three curated cases; `simulate_binary_hscm` for the rest).  Per-case callables: `GROUND_TRUTH_ATE_ESTIMATORS` in that module.
 # **Estimand** for each case is defined once in `gallery_estimands.py` (`GalleryEstimand`); the printed block after `df_gallery` spells out the full text per graph.
 #
 # **Knobs**
@@ -633,7 +642,7 @@ print('{:<30} {:>12.4f} {:>12.4f} {:>10.4f} {:>10.4f}'.format(
 # - `GALLERY_X_OVERRIDE_BY_CASE`: optional `{case_name: "Q^a", ...}`.
 # - `GALLERY_SIM_NU` / `GALLERY_SIM_NS`: size for **generic** sim only (curated cases reuse §1–3 arrays).
 # - `GALLERY_N_MC`: Monte Carlo draws inside `estimate_causal_effect` (we set `ESTIMATION_N_MC` at top; low values inflate variance for front-door / IV).
-# - `GALLERY_MC_TRUTH_NU` / `GALLERY_MC_TRUTH_NS`: sample size for **structural** `true_ATE` on non-curated cases (large → stable MC difference of means).
+# - `GALLERY_ALIGNED_TRUTH_NU` / `GALLERY_ALIGNED_TRUTH_NS` / `GALLERY_ALIGNED_TRUTH_N_MC`: budget for the **single** aligned `true_ATE` (same estimator as the row, large data + MC).
 
 # %%
 import copy
@@ -646,172 +655,37 @@ from gallery_estimands import get_estimand
 GALLERY_UNOBSERVED_MODE = "all_unit_nodes"
 GALLERY_X_OVERRIDE_BY_CASE = None
 GALLERY_N_MC = ESTIMATION_N_MC
+GALLERY_N_MC_BY_CASE = {}
 GALLERY_SIM_NU = min(150, N_UNITS)
 GALLERY_SIM_NS = min(80, N_SUB)
+GALLERY_SIM_NU_BY_CASE = {}
+GALLERY_SIM_NS_BY_CASE = {}
 GALLERY_SIM_SIZES = [GALLERY_SIM_NS] * GALLERY_SIM_NU
-GALLERY_MC_TRUTH_NU = 4000
-GALLERY_MC_TRUTH_NS = min(80, N_SUB)
+GALLERY_ALIGNED_TRUTH_NU = 4000
+GALLERY_ALIGNED_TRUTH_NS = min(80, N_SUB)
+GALLERY_ALIGNED_TRUTH_N_MC = 8000
 rng_gallery = np.random.default_rng(12345)
-rng_mc_truth = np.random.default_rng(99991)
+rng_aligned_truth = np.random.default_rng(44421)
 
 
 def _gallery_unobserved_set(case, cgm, mode, y_node, x_node):
-    unit_nodes = case[3]
-    if mode == "all_unit_nodes":
-        base = set(unit_nodes) & set(cgm.dag.nodes)
-        return base - {y_node, x_node}
-    if mode == "case_default":
-        return set(case[9]) & set(cgm.dag.nodes)
-    raise ValueError("unknown GALLERY_UNOBSERVED_MODE: {!r}".format(mode))
+    return gallery_unobserved_set(case, cgm, mode, y_node, x_node)
 
 
 def _gallery_x_for_case(case):
-    cname = case[0]
-    if GALLERY_X_OVERRIDE_BY_CASE and cname in GALLERY_X_OVERRIDE_BY_CASE:
-        return GALLERY_X_OVERRIDE_BY_CASE[cname]
-    return case[8]
+    return gallery_x_for_case(case, GALLERY_X_OVERRIDE_BY_CASE)
 
 
-def simulate_binary_hscm(hscm, n_units, n_sub, rng):
-    """we generate a coherent binary plate sample for any HSCMParametric DAG (§4 generic graphs)."""
-    G = nx.DiGraph()
-    G.add_nodes_from(hscm.nodes)
-    G.add_edges_from(hscm.edges)
-    order = list(nx.topological_sort(G))
-    stor = {}
-    for n in order:
-        parents = [p for p, c in hscm.edges if c == n]
-        is_sub = n in hscm.subunit_nodes
-        if is_sub:
-            if not parents:
-                p = rng.uniform(0.25, 0.75, size=(n_units, n_sub))
-                arr = rng.binomial(1, p).astype(float)
-            else:
-                acc = np.zeros((n_units, n_sub), dtype=float)
-                for p in parents:
-                    if p in hscm.subunit_nodes:
-                        acc += 0.75 * stor[p]
-                    else:
-                        acc += 0.75 * stor[p][:, None]
-                prob = np.clip(sigmoid(acc - 0.2), 0.02, 0.98)
-                arr = rng.binomial(1, prob).astype(float)
-        else:
-            if not parents:
-                p = rng.uniform(0.25, 0.75, size=n_units)
-                arr = rng.binomial(1, p).astype(float)
-            else:
-                acc = np.zeros(n_units, dtype=float)
-                for p in parents:
-                    if p in hscm.subunit_nodes:
-                        acc += 0.75 * stor[p].mean(axis=1)
-                    else:
-                        acc += 0.75 * stor[p]
-                prob = np.clip(sigmoid(acc - 0.2), 0.02, 0.98)
-                arr = rng.binomial(1, prob).astype(float)
-        stor[n] = arr
-    return {n.lstrip("_"): stor[n] for n in stor}
-
-
-def _bern_families(data_dict):
-    return {k: "bernoulli" for k in data_dict}
-
-
-def _gallery_x_to_forced_subunits(x_node, subunit_nodes):
-    s = (x_node or "").strip()
-    if s == "Q^a":
-        return ["A"] if "A" in subunit_nodes else []
-    if s == "Q^w":
-        return ["W"] if "W" in subunit_nodes else []
-    if s == "Q^{a|x}":
-        out = []
-        if "A" in subunit_nodes:
-            out.append("A")
-        if "X" in subunit_nodes:
-            out.append("X")
-        return out
-    if s == "Q^z":
-        return ["Z"] if "Z" in subunit_nodes else []
-    raise ValueError("unknown gallery x_node for structural do(): {!r}".format(x_node))
-
-
-def _gallery_outcome_per_unit(stor, y_node, unit_nodes, subunit_nodes):
-    if y_node == "Q^y":
-        y_arr = stor["Y"]
-        if y_arr.ndim == 2:
-            return y_arr.mean(axis=1).astype(float)
-        return y_arr.astype(float).ravel()
-    if y_node in unit_nodes:
-        return np.asarray(stor[y_node], dtype=float).ravel()
-    if y_node in subunit_nodes:
-        v = stor[y_node]
-        if v.ndim == 2:
-            return v.mean(axis=1).astype(float)
-        return v.astype(float).ravel()
-    raise ValueError("gallery outcome y_node={!r}".format(y_node))
-
-
-def simulate_binary_hscm_do(nodes, edges, unit_nodes, subunit_nodes, n_units, n_sub, rng, forced_subunits):
-    """we same SCM as simulate_binary_hscm but pin listed subunit plates (structural do)."""
-    g = nx.DiGraph()
-    g.add_nodes_from(nodes)
-    g.add_edges_from(edges)
-    order = list(nx.topological_sort(g))
-    stor = {}
-    forced = {k: float(v) for k, v in forced_subunits.items()}
-    for n in order:
-        if n in forced:
-            v = forced[n]
-            if n in subunit_nodes:
-                stor[n] = np.full((n_units, n_sub), v, dtype=float)
-            else:
-                stor[n] = np.full(n_units, v, dtype=float)
-            continue
-        parents = [p for p, c in edges if c == n]
-        is_sub = n in subunit_nodes
-        if is_sub:
-            if not parents:
-                p = rng.uniform(0.25, 0.75, size=(n_units, n_sub))
-                arr = rng.binomial(1, p).astype(float)
-            else:
-                acc = np.zeros((n_units, n_sub), dtype=float)
-                for p in parents:
-                    if p in subunit_nodes:
-                        acc += 0.75 * stor[p]
-                    else:
-                        acc += 0.75 * stor[p][:, None]
-                prob = np.clip(sigmoid(acc - 0.2), 0.02, 0.98)
-                arr = rng.binomial(1, prob).astype(float)
-        else:
-            if not parents:
-                p = rng.uniform(0.25, 0.75, size=n_units)
-                arr = rng.binomial(1, p).astype(float)
-            else:
-                acc = np.zeros(n_units, dtype=float)
-                for p in parents:
-                    if p in subunit_nodes:
-                        acc += 0.75 * stor[p].mean(axis=1)
-                    else:
-                        acc += 0.75 * stor[p]
-                prob = np.clip(sigmoid(acc - 0.2), 0.02, 0.98)
-                arr = rng.binomial(1, prob).astype(float)
-        stor[n] = arr
-    return {k.lstrip("_"): v for k, v in stor.items()}
-
-
-def mc_truth_ate_binary_plate(case, x_node, n_units, n_sub, rng):
-    """we E[outcome|do(X)=1] - E[outcome|do(X)=0] for the case HSCM (same generator as simulate_binary_hscm)."""
-    nodes, edges, unit_nodes, subunit_nodes = case[1], case[2], case[3], case[4]
-    y_node = case[7]
-    targets = _gallery_x_to_forced_subunits(x_node, subunit_nodes)
-    if not targets:
-        return float("nan")
-    f1 = {t: 1.0 for t in targets}
-    f0 = {t: 0.0 for t in targets}
-    stor1 = simulate_binary_hscm_do(nodes, edges, unit_nodes, subunit_nodes, n_units, n_sub, rng, f1)
-    stor0 = simulate_binary_hscm_do(nodes, edges, unit_nodes, subunit_nodes, n_units, n_sub, rng, f0)
-    y1 = _gallery_outcome_per_unit(stor1, y_node, unit_nodes, subunit_nodes)
-    y0 = _gallery_outcome_per_unit(stor0, y_node, unit_nodes, subunit_nodes)
-    return float(y1.mean() - y0.mean())
+def _gallery_case_knobs(case_name):
+    return gallery_case_knobs(
+        case_name,
+        sim_nu=GALLERY_SIM_NU,
+        sim_ns=GALLERY_SIM_NS,
+        n_mc=GALLERY_N_MC,
+        sim_nu_by_case=GALLERY_SIM_NU_BY_CASE,
+        sim_ns_by_case=GALLERY_SIM_NS_BY_CASE,
+        n_mc_by_case=GALLERY_N_MC_BY_CASE,
+    )
 
 
 CURATED_CASE_DATA = {
@@ -846,6 +720,7 @@ axes_flat = np.atleast_1d(axes_gal).ravel()
 
 for idx, case in enumerate(cases):
     cname = case[0]
+    case_sim_nu, case_sim_ns, case_n_mc = _gallery_case_knobs(cname)
     y_node = case[7]
     expected_id = case[10]
     cgm, _u_default, _y_def, _x_def, _exp = build_cgm_for_case(dc_pkg, case)
@@ -861,27 +736,30 @@ for idx, case in enumerate(cases):
 
     if cname in CURATED_CASE_DATA:
         data_obs = CURATED_CASE_DATA[cname]["data"]
-        truth_ate = CURATED_CASE_DATA[cname]["truth_ate"]
-        has_truth = True
     else:
         hscm_sim = HSCMParametric(
             nodes=set(case[1]),
             edges=set(case[2]),
             unit_nodes=set(case[3]),
             subunit_nodes=set(case[4]),
-            sizes=GALLERY_SIM_SIZES,
+            sizes=[case_sim_ns] * case_sim_nu,
             node_functions={n: _noop for n in case[1]},
             data={},
         )
-        data_obs = simulate_binary_hscm(hscm_sim, GALLERY_SIM_NU, GALLERY_SIM_NS, rng_gallery)
-        truth_ate = mc_truth_ate_binary_plate(
-            case,
-            x_node,
-            GALLERY_MC_TRUTH_NU,
-            GALLERY_MC_TRUTH_NS,
-            rng_mc_truth,
-        )
-        has_truth = np.isfinite(truth_ate)
+        data_obs = simulate_binary_hscm(hscm_sim, case_sim_nu, case_sim_ns, rng_gallery)
+    truth_ate = gallery_aligned_truth_ate(
+        case=case,
+        cgm=cgm,
+        y_node=y_node,
+        x_node=x_node,
+        n_units=GALLERY_ALIGNED_TRUTH_NU,
+        n_sub=GALLERY_ALIGNED_TRUTH_NS,
+        n_mc=GALLERY_ALIGNED_TRUTH_N_MC,
+        rng=rng_aligned_truth,
+        identify_effect=identify_effect,
+        estimate_causal_effect=estimate_causal_effect,
+    )
+    has_truth = np.isfinite(truth_ate)
 
     got_knob = False
     got_paper = False
@@ -903,7 +781,7 @@ for idx, case in enumerate(cases):
     est_msg = ""
     abs_err = float("nan")
     if PYAGNUM_AVAILABLE and got_paper and res_paper is not None:
-        fam = _bern_families(data_obs)
+        fam = bern_families(data_obs)
         try:
             e1 = estimate_causal_effect(
                 res_paper,
@@ -911,7 +789,7 @@ for idx, case in enumerate(cases):
                 intervention={x_node: 1.0},
                 distribution_families=fam,
                 random_seed=0,
-                n_mc_samples=GALLERY_N_MC,
+                n_mc_samples=case_n_mc,
             )
             e0 = estimate_causal_effect(
                 res_paper,
@@ -919,7 +797,7 @@ for idx, case in enumerate(cases):
                 intervention={x_node: 0.0},
                 distribution_families=fam,
                 random_seed=1,
-                n_mc_samples=GALLERY_N_MC,
+                n_mc_samples=case_n_mc,
             )
             ate_hat = float(e1 - e0)
             est_ok = True
@@ -954,6 +832,19 @@ for idx, case in enumerate(cases):
             "id_err": err_id if not got_knob else "",
             "est_err": est_msg,
         }
+    )
+    print(
+        "[{}/{}] {} | id_paper={} est_ok={} ATE_hat={} true_ATE={} |ATE err|={}".format(
+            idx + 1,
+            nc,
+            cname,
+            got_paper,
+            est_ok,
+            "nan" if not np.isfinite(ate_hat) else round(float(ate_hat), 6),
+            "nan" if not np.isfinite(truth_ate) else round(float(truth_ate), 6),
+            "nan" if not np.isfinite(abs_err) else round(float(abs_err), 6),
+        ),
+        flush=True,
     )
 
 for j in range(nc, len(axes_flat)):
@@ -992,7 +883,7 @@ print(
 )
 cur = df_gallery[df_gallery["curated_truth"]]
 if len(cur):
-    print("\nCurated cases (§1–3 DGP truth):")
+    print("\nCurated cases (§1–3 arrays for estimation; aligned plug-in `true_ATE`):")
     print(cur[["got_id (paper)", "est_ok", "ATE_hat", "true_ATE", "|ATE err|"]].to_string())
 if n_dag_fail or n_id_mismatch:
     print("\nwe inspect ID/DAG failures:")
@@ -1005,7 +896,7 @@ if n_est_fail:
 # ---
 # ## 5 — Summary (three DGP models, same numbers as §4 curated rows)
 #
-# Table and bars use **`df_gallery`** from §4: curated rows use §1–3 truth; other rows use structural MC `true_ATE` vs `ATE_hat` on the same plate SCM.
+# Table and bars use **`df_gallery`** from §4: **`true_ATE`** is the aligned large-sample plug-in for every case (same target as `estimate_causal_effect`).
 
 # %%
 _CURATED_LABELS = [
@@ -1048,7 +939,7 @@ fig, axes = plt.subplots(1, 2, figsize=(13, 5))
 
 # ATE comparison
 ax = axes[0]
-ax.bar(x - w/2, true_ates, w, label='True ATE (MC)',          color='#4c72b0', alpha=0.9)
+ax.bar(x - w/2, true_ates, w, label='True ATE (aligned plug-in)', color='#4c72b0', alpha=0.9)
 ax.bar(x + w/2, est_ates,  w, label='estimate_causal_effect',  color='#55a868', alpha=0.9)
 ax.set_xticks(x); ax.set_xticklabels(models, fontsize=11)
 ax.set_ylabel('ATE', fontsize=11)
