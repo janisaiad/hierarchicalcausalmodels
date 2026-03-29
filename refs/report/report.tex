@@ -1,58 +1,1470 @@
-\documentclass[12pt]{article}
+\documentclass[12pt,a4paper]{article}
+
+%% ===== Packages =====
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
 \usepackage[margin=1in]{geometry}
-\usepackage{amsmath, amssymb}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
 \usepackage{graphicx}
+\usepackage[labelfont=bf]{caption}
+\usepackage[format=hang]{subcaption}
 \usepackage{hyperref}
+\usepackage[nameinlink]{cleveref}
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+%\usepackage{microtype}
+\usepackage{natbib}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{mdframed}
+\usepackage{tcolorbox}
+\usepackage{array}
+\usepackage{longtable}
 
-\title{Project Report Sample}
-\author{Author Name}
-\date{\today}
+%% ===== Colors & listings =====
+\definecolor{codegray}{rgb}{0.95,0.95,0.95}
+\definecolor{codeblue}{rgb}{0.1,0.2,0.6}
+\definecolor{codegreen}{rgb}{0.1,0.5,0.1}
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codeblue}\bfseries,
+  commentstyle=\color{codegreen}\itshape,
+  stringstyle=\color{red!70!black},
+  frame=single,
+  framesep=4pt,
+  breaklines=true,
+  language=Python,
+  captionpos=b,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=6pt,
+  xleftmargin=15pt,
+}
 
+%% ===== Math macros =====
+\newcommand{\Sc}{\mathcal{S}}
+\newcommand{\Uc}{\mathcal{U}}
+\newcommand{\Dc}{\mathcal{D}}
+\newcommand{\Qc}{\mathcal{Q}}
+\newcommand{\E}[1]{\mathbb{E}\left[ #1 \right]}
+\newcommand{\EE}[2]{\mathbb{E}_{#1}\left[ #2 \right]}
+\newcommand{\rmdo}{\mathrm{do}}
+\newcommand{\scond}{\, ; \,}
+\newcommand{\g}{\,\vert\,}
+\newcommand{\di}{\mathrm{d}}
+\newcommand{\pa}{\mathrm{pa}}
+\newcommand{\pr}{\mathrm{p}}
+\newcommand{\obs}{\mathrm{obs}}
+\newcommand{\col}{\mathrm{col}}
+\newcommand{\aug}{\mathrm{aug}}
+\newcommand{\mar}{\mathrm{mar}}
+\newcommand{\Mc}{\mathcal{M}}
+\newcommand{\cgm}{\mathrm{cgm}}
+
+%% ===== Theorem environments =====
+\newtheorem{definition}{Définition}
+\newtheorem{theorem}{Théorème}
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remarque}
+
+%% ===== Header/footer =====
+\setlength{\headheight}{13.6pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small PSC -- Modèles Causaux Hiérarchiques}
+\fancyhead[R]{\small \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+%% ===== Document =====
 \begin{document}
 
-\maketitle
+%% ========================================================
+%%  PAGE DE TITRE
+%% ========================================================
+\thispagestyle{empty}
+\begin{center}
+{\LARGE \textbf{\'Ecole Polytechnique}}\\[0.3cm]
+{\large Projet Scientifique Collectif (PSC)}\\[1cm]
+\rule{\linewidth}{1.5pt}\\[0.4cm]
+{\Huge \textbf{Modèles Causaux Hiérarchiques :}}\\[0.3cm]
+{\Huge \textbf{Compréhension, Implémentation}}\\[0.3cm]
+{\Huge \textbf{et Expérimentation}}\\[0.4cm]
+\rule{\linewidth}{1.5pt}\\[1.2cm]
 
+\begin{tcolorbox}[colback=gray!10, colframe=black!40, width=0.85\linewidth,
+                  title={\textbf{Composition du groupe}}, fonttitle=\bfseries\large]
+\begin{center}
+\begin{tabular}{ll}
+\textbf{Étudiant 1} & Anass Ettahiri \\[4pt]
+\textbf{Étudiant 2} & [Membre du groupe 2] \\[4pt]
+\textbf{Étudiant 3} & [Membre du groupe 3] \\[4pt]
+\textbf{Étudiant 4} & [Membre du groupe 4] \\[4pt]
+\textbf{Étudiant 5} & [Membre du groupe 5] \\[4pt]
+\end{tabular}
+\end{center}
+\end{tcolorbox}
+
+\vspace{1cm}
+
+%% Illustration : les trois motifs HCM
+\begin{center}
+\begin{tikzpicture}
+%% CONFONDANT
+\node[obs]                               (y1) {$Y_{ij}$};
+\node[obs, left=1cm of y1] (a1) {$A_{ij}$};
+\node[latent, above=0.4cm of a1, xshift=0.8cm]  (u1) {$U_i$};
+\edge {a1,u1} {y1} ; \edge {u1} {a1} ;
+\plate[dashed] {in1} {(a1)(y1)} {$m$} ;
+\plate {out1} {(in1)(u1)} {$n$} ;
+\node[above=0.1cm of out1] {\textsc{Confondant}};
+
+%% INTERFÉRENCE
+\node[obs, right=4cm of y1]                               (y2) {$Y_{ij}$};
+\node[obs, left=1cm of y2] (a2) {$A_{ij}$};
+\node[latent, above=0.4cm of a2, xshift=0.8cm]  (u2) {$U_i$};
+\node[obs, below=.6cm of a2] (z2) {$Z_i$};
+\edge {a2,u2} {y2} ; \edge {u2} {a2} ;
+\edge {a2} {z2} ;
+\edge {z2} {y2} ;
+\plate[dashed] {in2} {(a2)(y2)} {$m$} ;
+\plate {out2} {(in2)(u2)(z2)} {$n$} ;
+\node[above=0.1cm of out2] {\textsc{Confondant \& Interférence}};
+
+%% INSTRUMENT
+\node[obs, right=9cm of y1]                               (y3) {$Y_{i}$};
+\node[obs, left=0.4cm of y3] (a3) {$A_{ij}$};
+\node[obs, left=0.4cm of a3] (z3) {$Z_{ij}$};
+\node[latent, above=0.4cm of a3, xshift=0.6cm]  (u3) {$U_i$};
+\edge {a3,u3} {y3} ;
+\edge {u3} {a3} ;
+\edge {z3} {a3} ;
+\plate[dashed] {in3} {(a3)(z3)} {$m$} ;
+\plate {out3} {(in3)(u3)(y3)} {$n$} ;
+\node[above=0.1cm of out3] {\textsc{Instrument}};
+
+\end{tikzpicture}
+\end{center}
+\captionof{figure}{Les trois motifs fondamentaux des Modèles Causaux Hiérarchiques (HCM) étudiés dans ce PSC.
+Chaque modèle capture des unités $i$ (plaque extérieure) contenant des sous-unités $j$ (plaque intérieure en pointillé).
+$U_i$ est une variable latente confondante au niveau de l'unité, $A_{ij}$ le traitement de la sous-unité, $Y_{ij}$ le résultat de la sous-unité.}
+
+\vspace{1.5cm}
+{\large Année académique 2025--2026}\\[0.3cm]
+{\large Encadré par : [Nom du superviseur]}
+\end{center}
+
+\newpage
+
+%% ========================================================
+%%  RÉSUMÉ
+%% ========================================================
 \begin{abstract}
-This document provides a sample structure for a project report written in \LaTeX. It serves as a template for academic or technical projects.
+\noindent
+L'inférence causale à partir de données hiérarchiques (imbriquées) est un défi fondamental dans les sciences naturelles et sociales.
+Ce rapport décrit les travaux réalisés lors du PSC sur les Modèles Causaux Hiérarchiques (HCM), un cadre introduit par Weinstein et Blei (2023) qui étend les Modèles Causaux Structurels (SCM) et les Modèles Graphiques Causaux (CGM) pour traiter des données collectées sur des sous-unités imbriquées à l'intérieur d'unités.
+Notre travail a couvert trois aspects complémentaires : (1) une compréhension approfondie et une redérivation du cadre théorique---transformations de graphes (collapse, augment, marginalize), identification par do-calcul, et théorie de l'estimation ; (2) une implémentation Python complète du pipeline HCM, articulée autour des fonctions \texttt{collapse}, \texttt{suggest\_augment\_for\_outcome}, \texttt{augment\_collapsed\_model}, \texttt{marginalize\_augmented\_model}, \texttt{identify\_effect} et \texttt{estimate\_causal\_effect} ; et (3) une validation expérimentale par des études de récupération de l'Effet Moyen du Traitement (ATE) sur des données synthétiques générées à partir de modèles ground-truth connus.
+L'implémentation est organisée comme un package Python (\texttt{hierarchicalcausalmodels}) et reproduit les principaux résultats de l'article sur les trois motifs canoniques HCM : \textsc{confondant}, \textsc{confondant \& interférence}, et \textsc{instrument}.
 \end{abstract}
 
 \tableofcontents
+\newpage
 
+%% ========================================================
 \section{Introduction}
-Introduce the motivation for the project, summarize the problem statement, and outline the objectives of the work.
+\label{sec:intro}
+%% ========================================================
 
-\section{Background}
-Provide relevant literature, theoretical background, or technical context required to understand the project.
+\subsection{Motivation et contexte}
 
-\section{Methods}
-Describe the methodology used in the project. Detail the models, algorithms, or processes applied.
+Un défi fondamental en inférence causale est que de nombreux jeux de données sont hiérarchiques : les observations ne sont pas des unités indépendantes mais des sous-unités imbriquées dans des unités plus grandes.
+Considérons des élèves au sein d'écoles, des cellules au sein de patients, ou des citoyens au sein d'États.
+Dans de tels contextes, les variables au niveau de l'unité (par ex., le budget d'une école) peuvent affecter les variables au niveau de la sous-unité (par ex., les notes d'élèves individuels), et vice versa.
+Les outils classiques d'inférence causale---Modèles Causaux Structurels (SCM), do-calcul, ajustement par porte arrière/avant---sont construits pour des données plates, non hiérarchiques.
+Lorsque les données sont hiérarchiques, agréger simplement les données de sous-unités en résumés au niveau de l'unité (par ex., moyennes de classe) jette des informations cruciales pour l'identification.
 
-\subsection{Data Collection}
-Explain how data was collected or sourced for the project.
+Ce PSC est centré sur l'article \emph{Hierarchical Causal Models} d'Eli N. Weinstein et David M. Blei (2023), qui propose un cadre systématique pour l'inférence causale avec des données imbriquées.
+L'idée clé est que la structure des données hiérarchiques peut souvent \emph{permettre} l'identification causale dans des situations où elle serait impossible avec des données non hiérarchiques.
 
-\subsection{Implementation Details}
-Discuss key implementation details. Include code snippets, figures, or flowcharts where helpful.
+\subsection{Objectifs du PSC}
 
-\section{Results}
-Present the main findings. Use figures, tables, and graphs as needed.
+Notre PSC avait trois objectifs principaux :
+\begin{enumerate}
+  \item \textbf{Compréhension théorique :} Lire, comprendre et redériver le cadre mathématique des HCM, incluant les définitions de graphes, les transformations collapse/augment/marginalize, l'extension du do-calcul aux HCM, et la théorie de l'estimation.
+  \item \textbf{Implémentation :} Construire un package Python modulaire et complet implémentant le pipeline HCM---de la spécification du modèle à l'identification puis à l'estimation---en suivant la théorie de l'article.
+  \item \textbf{Validation :} Valider l'implémentation en récupérant des Effets Moyens du Traitement (ATE) connus sur des jeux de données synthétiques générés à partir de HCM paramétriques pour les trois motifs principaux.
+\end{enumerate}
+
+\subsection{Structure du rapport}
+
+Ce rapport est organisé comme suit.
+La Section~\ref{sec:background} fournit un arrière-plan sur l'inférence causale classique, incluant les SCM, les CGM, et le do-calcul avec ses axiomes.
+La Section~\ref{sec:hcm_theory} présente le cadre théorique des HCM.
+La Section~\ref{sec:pipeline} détaille le pipeline d'identification HCM étape par étape.
+La Section~\ref{sec:estimation} couvre le pipeline d'estimation.
+La Section~\ref{sec:implementation} détaille notre implémentation Python.
+La Section~\ref{sec:experiments} présente les résultats expérimentaux.
+La Section~\ref{sec:conclusion} conclut.
+
+%% ========================================================
+\section{Rappels : Inférence Causale Classique}
+\label{sec:background}
+%% ========================================================
+
+\subsection{Modèles Causaux Structurels (SCM)}
+
+\begin{definition}[Modèle Causal Structurel (SCM)]
+Un Modèle Causal Structurel (SCM) est un tuple $\Mc = (\mathbf{V}, \mathbf{U}, \mathcal{F}, \pr(\mathbf{U}))$ où :
+\begin{itemize}
+  \item $\mathbf{V} = \{V_1, \ldots, V_k\}$ est l'ensemble des variables observées endogènes.
+  \item $\mathbf{U} = \{U_1, \ldots, U_k\}$ est l'ensemble des variables exogènes (bruits).
+  \item $\mathcal{F} = \{f_1, \ldots, f_k\}$ est l'ensemble des équations structurelles : $V_i = f_i(\pa(V_i), U_i)$, où $\pa(V_i)$ désigne les parents de $V_i$ dans le graphe acyclique dirigé (DAG) $\mathcal{G}$.
+  \item $\pr(\mathbf{U}) = \prod_i \pr(U_i)$ est une distribution produit sur des variables de bruit indépendantes.
+\end{itemize}
+\end{definition}
+
+Un SCM induit une distribution jointe sur $\mathbf{V}$ et, via l'opérateur \emph{do}, une famille de distributions interventionnelles.
+L'intervention $\rmdo(V_i = v)$ dans un SCM consiste à remplacer l'équation structurelle de $V_i$ par la constante $V_i = v$, coupant ainsi toutes les influences entrantes.
+
+\subsection{Modèles Graphiques Causaux (CGM)}
+
+\begin{definition}[Modèle Graphique Causal (CGM)]
+Un Modèle Graphique Causal (CGM) est une paire $(\mathcal{G}, \pr)$ où $\mathcal{G}$ est un DAG et $\pr$ est une distribution jointe markovienne par rapport à $\mathcal{G}$.
+Chaque variable se factorise comme $\pr(\mathbf{V}) = \prod_i \pr(V_i \g \pa(V_i))$.
+\end{definition}
+
+Les CGM supportent le \emph{do-calcul} pour le raisonnement interventionnel : l'intervention $\rmdo(V_i = v)$ coupe tous les arcs entrants vers $V_i$ et fixe sa valeur à $v$.
+On note $\mathcal{G}_{\overline{X}}$ le graphe obtenu en supprimant tous les arcs entrant dans $X$, et $\mathcal{G}_{\underline{X}}$ celui obtenu en supprimant tous les arcs sortant de $X$.
+
+\subsection{Do-Calcul et ses Axiomes}
+\label{sec:do_calculus}
+
+\begin{definition}[Identifiabilité]
+L'\emph{identification} est le problème d'exprimer une quantité interventionnelle $\pr(Y \g \rmdo(A = a))$ uniquement en termes de la distribution observationnelle $\pr(\mathbf{V})$.
+Une quantité causale est dite \emph{identifiable} si elle peut être calculée de manière unique à partir de la distribution observationnelle, pour tout SCM compatible avec le graphe.
+\end{definition}
+
+Le do-calcul de Pearl \citep{Pearl2009} fournit un système complet de règles pour manipuler des expressions interventionnelles.
+Il est fondé sur la notion de \emph{d-séparation} dans des graphes modifiés.
+
+\begin{theorem}[Do-Calcul de Pearl --- Trois Règles]
+Soit $\Mc$ un SCM avec graphe $\mathcal{G}$, et soient $X, Y, Z, W$ des ensembles disjoints de variables.
+Les trois règles suivantes sont valides :
+
+\medskip
+\noindent\textbf{Règle 1 --- Insertion/Suppression d'observations :}
+\begin{equation}
+  \pr(Y \g \rmdo(X), Z, W) = \pr(Y \g \rmdo(X), W)
+  \quad \text{si } (Y \perp\!\!\!\perp Z \g X, W)_{\mathcal{G}_{\overline{X}}}.
+  \label{eq:rule1}
+\end{equation}
+\emph{Interprétation :} On peut ignorer $Z$ dans le conditionnement si $Y$ et $Z$ sont d-séparés dans le graphe où les arcs entrant dans $X$ sont supprimés.
+Cette règle permet d'insérer ou de supprimer des observations non pertinentes.
+
+\medskip
+\noindent\textbf{Règle 2 --- Échange action/observation :}
+\begin{equation}
+  \pr(Y \g \rmdo(X), \rmdo(Z), W) = \pr(Y \g \rmdo(X), Z, W)
+  \quad \text{si } (Y \perp\!\!\!\perp Z \g X, W)_{\mathcal{G}_{\overline{X},\underline{Z}}}.
+  \label{eq:rule2}
+\end{equation}
+\emph{Interprétation :} Une intervention sur $Z$ peut être remplacée par une simple observation de $Z$ lorsque $Y$ et $Z$ sont d-séparés dans le graphe où les arcs entrant dans $X$ et les arcs sortant de $Z$ sont supprimés.
+Cette règle formalise le passage de l'interventionnel à l'observationnel.
+
+\medskip
+\noindent\textbf{Règle 3 --- Suppression d'actions :}
+\begin{equation}
+  \pr(Y \g \rmdo(X), \rmdo(Z), W) = \pr(Y \g \rmdo(X), W)
+  \quad \text{si } (Y \perp\!\!\!\perp Z \g X, W)_{\mathcal{G}_{\overline{X}, \overline{Z(W)}}},
+  \label{eq:rule3}
+\end{equation}
+où $Z(W)$ désigne les nœuds de $Z$ qui ne sont pas ancêtres de $W$ dans $\mathcal{G}_{\overline{X}}$.
+\emph{Interprétation :} Une intervention sur $Z$ est sans effet sur $Y$ si $Z$ n'a aucun chemin actif vers $Y$ dans le graphe approprié.
+
+\end{theorem}
+
+Ces trois règles sont \emph{complètes} : tout effet causal identifiable peut être dérivé par application successive de ces règles \citep{Pearl2009}.
+Le système est implémenté dans notre pipeline via la bibliothèque \textbf{pyAgrum}, qui automatise l'application du do-calcul sur les graphes collapsés et augmentés des HCM.
+
+\subsection{Critère de porte arrière (Backdoor)}
+
+\begin{definition}[Chemin de porte arrière]
+Un \emph{chemin de porte arrière} de $A$ vers $Y$ dans $\mathcal{G}$ est un chemin qui commence par un arc entrant dans $A$ (c'est-à-dire qui « remonte » vers un ancêtre de $A$).
+Ces chemins transmettent une association confondante entre $A$ et $Y$ sans passer par des effets causaux directs.
+\end{definition}
+
+\begin{definition}[Critère de porte arrière]
+Un ensemble de variables observées $\mathbf{Z}$ satisfait le \emph{critère de porte arrière} par rapport à $(A, Y)$ dans $\mathcal{G}$ si :
+\begin{enumerate}[label=(\roman*)]
+  \item $\mathbf{Z}$ ne contient aucun descendant de $A$,
+  \item $\mathbf{Z}$ bloque tous les chemins de porte arrière de $A$ vers $Y$.
+\end{enumerate}
+\end{definition}
+
+\paragraph{Formule d'ajustement par porte arrière.}
+Si $\mathbf{Z}$ satisfait le critère de porte arrière par rapport à $(A, Y)$, alors l'effet causal est identifiable :
+\begin{equation}
+  \pr(Y = y \g \rmdo(A=a)) = \sum_{\mathbf{z}} \pr(Y=y \g A=a, \mathbf{Z}=\mathbf{z})\, \pr(\mathbf{Z}=\mathbf{z}).
+  \label{eq:backdoor}
+\end{equation}
+
+\paragraph{Intuition.}
+Le critère de porte arrière formalise l'idée de « contrôler pour les confondants ».
+En conditionnant sur $\mathbf{Z}$, on bloque toute association non causale entre $A$ et $Y$, de sorte que la distribution conditionnelle $\pr(Y \g A=a, \mathbf{Z}=\mathbf{z})$ reflète uniquement l'effet causal direct de $A$ sur $Y$.
+La marginalisation sur $\pr(\mathbf{Z})$ recouvre ensuite la distribution interventionnelle non conditionnée.
+
+\paragraph{Exemple.}
+Dans le motif \textsc{Confondant} avec $U$ observé, $\mathbf{Z} = \{U\}$ satisfait le critère de porte arrière :
+\begin{equation}
+  \pr(Y \g \rmdo(A=a)) = \sum_{u} \pr(Y \g A=a, U=u)\, \pr(U=u).
+\end{equation}
+Si $U$ est \emph{non observé}, le critère n'est plus satisfait par aucun ensemble $\mathbf{Z} \subseteq \mathbf{V}_\text{obs}$ et il faut recourir à d'autres méthodes (porte avant, variables instrumentales).
+
+\paragraph{Cas particulier : régression linéaire.}
+Lorsque les équations structurelles sont linéaires et $\mathbf{Z}$ inclut tous les confondants, Éq.~\eqref{eq:backdoor} se réduit à l'estimateur MCO standard.
+La formule de porte arrière est donc une généralisation non-paramétrique de la régression ajustée sur les covariables.
+
+\subsection{Critère de porte avant (Front-door)}
+
+\begin{definition}[Critère de porte avant]
+Un ensemble de variables observées $\mathbf{M}$ satisfait le \emph{critère de porte avant} par rapport à $(A, Y)$ dans $\mathcal{G}$ si :
+\begin{enumerate}[label=(\roman*)]
+  \item Tous les chemins dirigés de $A$ vers $Y$ passent par $\mathbf{M}$ (i.e., $\mathbf{M}$ intercepte tous les effets causaux de $A$ sur $Y$),
+  \item Il n'existe pas de chemin de porte arrière non bloqué de $A$ vers $\mathbf{M}$,
+  \item Tous les chemins de porte arrière de $\mathbf{M}$ vers $Y$ sont bloqués par $A$.
+\end{enumerate}
+\end{definition}
+
+\paragraph{Formule d'ajustement par porte avant.}
+Si $\mathbf{M}$ satisfait le critère de porte avant par rapport à $(A, Y)$, et si $\pr(A=a) > 0$, alors :
+\begin{equation}
+  \pr(Y \g \rmdo(A=a)) = \sum_{m} \pr(M=m \g A=a) \sum_{a'} \pr(Y \g A=a', M=m)\, \pr(A=a').
+  \label{eq:frontdoor}
+\end{equation}
+
+\paragraph{Intuition.}
+La porte avant s'applique quand les confondants entre $A$ et $Y$ sont non observés, mais qu'un médiateur $M$ (qui intercepte le chemin causal $A \to Y$) est observable.
+La stratégie est en deux étapes :
+\begin{enumerate}
+  \item Identifier l'effet de $A$ sur $M$ : comme il n'y a pas de porte arrière ouverte entre $A$ et $M$ (condition (ii)), cet effet est directement identifiable : $\pr(M \g \rmdo(A=a)) = \pr(M \g A=a)$.
+  \item Identifier l'effet de $M$ sur $Y$ : en conditionnant sur $A$ comme instrument (condition (iii)), on bloque le chemin confondant entre $M$ et $Y$.
+\end{enumerate}
+La composition de ces deux étapes donne Éq.~\eqref{eq:frontdoor}.
+
+\paragraph{Exemple : motif fumeur-cancer.}
+$A$ = tabagisme, $M$ = goudron dans les poumons (observable), $Y$ = cancer, $U$ = prédisposition génétique (non observable).
+On a $U \to A$, $U \to Y$, $A \to M \to Y$.
+Ici $M$ satisfait le critère de porte avant et permet d'identifier l'effet du tabagisme sur le cancer malgré la prédisposition génétique non observée.
+
+\paragraph{Lien avec le motif \textsc{Confondant \& Interférence} (HCM).}
+Dans le modèle collapsé, $Z_i$ (agrégat des traitements sous-unité) joue le rôle du médiateur $M$ : $Q^a_i \to Z_i \to Q^{y|a}_i$, avec $U_i$ confondant $Q^a_i$ et $Q^{y|a}_i$.
+La formule de porte avant donne alors Éq.~\eqref{eq:interference_id}.
+
+\subsection{Ajustement par Variables Instrumentales (VI)}
+
+\begin{definition}[Variable instrumentale]
+Une variable $Z$ est un \emph{instrument valide} pour l'effet causal de $A$ sur $Y$ dans $\mathcal{G}$ si :
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{Pertinence :} $Z$ est corrélé avec $A$ (il existe un chemin causal $Z \to \cdots \to A$),
+  \item \textbf{Exclusion :} $Z$ n'affecte $Y$ que via $A$ (tout chemin de $Z$ vers $Y$ passe par $A$),
+  \item \textbf{Indépendance :} $Z$ est indépendant de tous les confondants non observés entre $A$ et $Y$.
+\end{enumerate}
+\end{definition}
+
+\paragraph{Formule d'ajustement par VI (cas continu linéaire).}
+Dans le cadre linéaire avec un seul instrument $Z$, l'estimateur de Wald identifie l'ATE :
+\begin{equation}
+  \text{ATE} = \frac{\mathrm{Cov}(Z, Y)}{\mathrm{Cov}(Z, A)} = \frac{\E{Y \g Z=1} - \E{Y \g Z=0}}{\E{A \g Z=1} - \E{A \g Z=0}}.
+  \label{eq:iv_wald}
+\end{equation}
+Plus généralement, dans le cadre non-paramétrique, l'effet causal est identifiable via la formule générale :
+\begin{equation}
+  \pr(Y \g \rmdo(A=a)) = \sum_{z} \frac{\pr(Y, A=a \g Z=z)\, \pr(Z=z)}{\pr(A=a \g Z=z)},
+  \label{eq:iv_general}
+\end{equation}
+qui découle de l'application du do-calcul (Règle 2) dans le graphe où $Z$ est d-séparé des confondants.
+
+\paragraph{Intuition.}
+L'instrument $Z$ crée une variation \emph{exogène} de $A$ : la partie de $A$ induite par $Z$ est non confondante, car $Z$ est indépendant des variables cachées.
+En se concentrant sur cette variation exogène, on isole l'effet causal de $A$ sur $Y$ indépendamment du confondant.
+C'est le principe fondamental de la régression à deux étapes (2SLS).
+
+\paragraph{Exemple classique.}
+$Z$ = distance à l'école la plus proche, $A$ = années de scolarité, $Y$ = salaire, $U$ = capacité innée (non observable).
+La distance est un instrument valide si elle affecte la scolarité (pertinence) mais n'affecte le salaire que via la scolarité (exclusion) et est indépendante de la capacité innée (indépendance).
+
+\paragraph{Lien avec le motif \textsc{Instrument} (HCM).}
+Dans le modèle HCM collapsé/marginalisé, $Q^{a|z}_i$ joue le rôle de l'instrument : il est corrélé avec le traitement $A$, non confondant avec $Y$ conditionnellement à $U_i$, et son effet sur $Y$ passe entièrement par le traitement.
+La formule de repondération Éq.~\eqref{eq:instrument_id} est l'analogue non-paramétrique de l'estimateur de Wald dans ce contexte hiérarchique.
+
+\paragraph{Limites des trois critères.}
+\begin{itemize}
+  \item \textbf{Porte arrière} : requiert que l'ensemble de confondants $\mathbf{Z}$ soit entièrement \emph{observé}. Inapplicable si des confondants restent cachés.
+  \item \textbf{Porte avant} : requiert l'existence d'un médiateur \emph{observable} interceptant tout le chemin causal, et l'absence de chemin de porte arrière de $A$ vers ce médiateur.
+  \item \textbf{Variables instrumentales} : requiert un instrument parfaitement exogène (indépendant de $U$). En pratique, cette hypothèse d'exclusion est souvent difficile à vérifier et peut être violée.
+\end{itemize}
+Ces limitations motivent précisément l'extension aux HCM : la structure hiérarchique fournit une source \emph{interne} d'identification (les données intra-unité) qui peut se substituer à des instruments extérieurs ou des confondants observés.
+
+\subsection{Limitations avec les données hiérarchiques}
+
+Les CGM standards modélisent $n$ unités échangeables indépendantes.
+Lorsque les données ont une structure hiérarchique (sous-unités $j$ au sein d'unités $i$), l'agrégation naïve (par ex., moyenner $Y_{ij}$ pour obtenir $\bar{Y}_i$) peut perdre les informations nécessaires à l'identification.
+La variable confondante $U_i$ rend l'identification impossible à partir des moyennes d'unités $(\bar{A}_i, \bar{Y}_i)$, mais avec des données au niveau des sous-unités $(A_{ij}, Y_{ij})$, l'identification devient possible.
 
 \begin{figure}[h!]
-    \centering
-    \includegraphics[width=0.6\linewidth]{figures/sample-figure.png}
-    \caption{Sample figure.}
-    \label{fig:sample}
+\centering
+\begin{subfigure}[c]{0.40\textwidth}
+\caption{CGM au niveau unité : non identifiable} \label{fig:intro_flat}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$\bar{Y}_i$};
+\node[obs, left=1.5cm of y] (a) {$\bar{A}_i$};
+\node[latent, above=.5cm of a, xshift=1.05cm]  (u) {$U_i$};
+\edge {a,u} {y} ; \edge {u} {a} ;
+\plate {ayu} {(a)(y)(u)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[c]{0.45\textwidth}
+\caption{HCM : identifiable} \label{fig:intro_hcm}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{ij}$};
+\node[obs, left=1.5cm of y] (a) {$A_{ij}$};
+\node[latent, above=.5cm of a, xshift=1.05cm]  (u) {$U_i$};
+\edge {a,u} {y} ; \edge {u} {a} ;
+\plate[dashed] {in} {(a)(y)} {$m$} ;
+\plate {out} {(in)(u)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\caption{\textbf{La hiérarchie permet l'identification.} (a) Avec seulement les moyennes au niveau de l'unité, la variable confondante cachée $U_i$ empêche l'identification causale. (b) Avec les données au niveau des sous-unités, l'ajustement par unité conditionne implicitement sur $U_i$, permettant l'identification.}
+\label{fig:hierarchy_enables}
 \end{figure}
 
+%% ========================================================
+\section{Modèles Causaux Hiérarchiques : Théorie}
+\label{sec:hcm_theory}
+%% ========================================================
+
+\subsection{Modèles Causaux Structurels Hiérarchiques (HSCM)}
+
+\begin{definition}[Modèle Causal Structurel Hiérarchique (HSCM)]
+Un HSCM $\Mc$ étend un SCM classique à deux niveaux d'observation :
+\begin{itemize}
+  \item \textbf{Variables au niveau de l'unité} $\mathbf{S} = \{S_1, \ldots\}$ avec équations structurelles $S_k = f_k(\pa_\Sc(S_k), E_{S_k})$.
+  \item \textbf{Variables au niveau de la sous-unité} $\mathbf{L} = \{L_1, \ldots\}$ avec équations structurelles $L_k = f_k(\pa_\Sc(L_k), E_{L_k})$.
+  \item Une plaque extérieure indexant les unités $i \in \{1,\ldots,n\}$ et une plaque intérieure en pointillé indexant les sous-unités $j \in \{1,\ldots,m\}$.
+  \item Bruits exogènes : au niveau de l'unité $\{E_{S_k,i}\}$ et au niveau de la sous-unité $\{E_{L_k,ij}\}$, tous mutuellement indépendants.
+\end{itemize}
+\end{definition}
+
+La caractéristique graphique clé est la \emph{plaque intérieure} : les variables à l'intérieur (au niveau sous-unité) sont répliquées $m$ fois par unité, tandis que les variables extérieures (au niveau unité) apparaissent une fois par unité.
+
+\subsection{Trois Motifs Canoniques HCM}
+
+Tout au long de ce travail, trois structures HCM fondamentales apparaissent régulièrement :
+
+\paragraph{\textsc{Confondant}.}
+Unités : $U_i$ (latent). Sous-unités : $A_{ij}$ (traitement), $Y_{ij}$ (résultat).
+Équations structurelles : $A_{ij} = f_A(U_i, E_{A,ij})$, $Y_{ij} = f_Y(A_{ij}, U_i, E_{Y,ij})$.
+Avec seulement les moyennes d'unités, l'effet causal de $A$ sur $Y$ est non identifiable ; avec les données de sous-unités, il est identifiable via régression par unité.
+
+\paragraph{\textsc{Confondant \& Interférence}.}
+Ajoute une variable observée au niveau de l'unité $Z_i$ qui agrège les traitements individuels : $Z_i = g(\{A_{ij}\}_j)$.
+$Z_i$ affecte ensuite $Y_{ij}$ via un effet de débordement (interférence).
+Le modèle collapsé a $Q^a_i \to Z_i \to Q^{y|a}_i$, permettant l'identification via un raisonnement de type porte avant.
+
+\paragraph{\textsc{Instrument}.}
+Le résultat $Y_i$ est au niveau de l'unité, tandis que l'instrument $Z_{ij}$ et le traitement $A_{ij}$ sont au niveau de la sous-unité.
+$Z_{ij}$ est un instrument exogène affectant $A_{ij}$, qui à son tour affecte $Y_i$.
+L'identification utilise une stratégie de type VI dans le modèle collapsé.
+
+\begin{figure}[h!]
+\centering
+\begin{subfigure}[t]{0.30\textwidth}
+\caption{\textsc{Confondant}} \label{fig:hcm_conf}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{ij}$};
+\node[obs, left=1cm of y] (a) {$A_{ij}$};
+\node[latent, above=0.4cm of a, xshift=0.8cm]  (u) {$U_i$};
+\edge {a,u} {y} ; \edge {u} {a} ;
+\plate[dashed] {in} {(a)(y)} {$m$} ;
+\plate {out} {(in)(u)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.30\textwidth}
+\caption{\textsc{Conf. \& Interférence}} \label{fig:hcm_int}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{ij}$};
+\node[obs, left=1cm of y] (a) {$A_{ij}$};
+\node[latent, above=0.4cm of a, xshift=0.8cm]  (u) {$U_i$};
+\node[obs, below=.6cm of a] (z) {$Z_i$};
+\edge {a,u} {y} ; \edge {u} {a} ;
+\edge {a} {z} ;
+\edge {z} {y} ;
+\plate[dashed] {in} {(a)(y)} {$m$} ;
+\plate {out} {(in)(u)(z)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.30\textwidth}
+\caption{\textsc{Instrument}} \label{fig:hcm_instr}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{i}$};
+\node[obs, left=0.4cm of y] (a) {$A_{ij}$};
+\node[obs, left=0.4cm of a] (z) {$Z_{ij}$};
+\node[latent, above=0.4cm of a, xshift=0.6cm]  (u) {$U_i$};
+\edge {a,u} {y} ;
+\edge {u} {a} ;
+\edge {z} {a} ;
+\plate[dashed] {in} {(a)(z)} {$m$} ;
+\plate {out} {(in)(u)(y)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\caption{\textbf{Trois motifs HCM canoniques.} Les plaques en pointillé désignent la plaque intérieure (sous-unité). Les nœuds latents sont représentés par des cercles non ombrés. Les trois motifs ont une variable confondante cachée $U_i$ au niveau de l'unité.}
+\label{fig:motifs}
+\end{figure}
+
+\subsection{Variables Q et Modèles Graphiques Causaux Hiérarchiques}
+
+Pour réaliser l'identification, le HSCM est d'abord converti en un \emph{Modèle Graphique Causal Hiérarchique} (HCGM) en rendant explicite le rôle de l'aléatoire au niveau de l'unité via les \textbf{variables Q}.
+
+\begin{definition}[Variable Q]
+Pour une variable au niveau sous-unité $L$ avec parents au niveau sous-unité $\mathrm{pa}_L(L) \subseteq \mathbf{L}$, la variable Q est :
+\begin{equation}
+  Q^{L \g \mathrm{pa}_L(L)}_i \;:=\; \pr\!\left(L \g \mathrm{pa}_L(L), \text{unité}=i\right),
+\end{equation}
+c'est-à-dire la distribution conditionnelle de $L$ étant donné ses parents sous-unité, telle qu'induite par l'aléatoire au niveau de l'unité $U_i$.
+\end{definition}
+
+Intuitivement, les variables Q sont des distributions aléatoires au niveau de l'unité : $Q^{Y|A}_i$ représente ``comment l'unité $i$ mappe les traitements aux résultats'', capturant le mécanisme causal spécifique de l'unité.
+
+\begin{figure}[h!]
+\centering
+\begin{subfigure}[t]{0.45\textwidth}
+\caption{HCGM avec variables Q explicites} \label{fig:hcgm_q}
+\centering
+\begin{tikzpicture}
+\node[obs] (y) {$Y_{ij}$};
+\node[obs, left=1cm of y] (a) {$A_{ij}$};
+\node[latent, above=1 of a, xshift=0.8cm]  (u) {$U_i$};
+\node[latent, above=.3 of a, color=blue, fill=blue!0] (qa) {$\color{blue} \scriptstyle Q^{a}_i$};
+\node[latent, above=.3 of y, color=blue, fill=blue!0] (qya) {$\color{blue} \scriptstyle Q^{y \mid a}_i$};
+\edge {u} {qya} ;
+\edge {qya} {y} ;
+\edge {u} {qa} ;
+\edge {qa} {a};
+\edge {a} {y};
+\plate {ay} {(a)(y)} {$m$} ;
+\plate {ayu} {(ay)(u)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.45\textwidth}
+\caption{Modèle collapsé ($m \to \infty$)} \label{fig:collapsed_q}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$\scriptstyle Q_i^{y \mid a}$};
+\node[obs, left=1cm of y] (a) {$\scriptstyle Q_{i}^{a}$};
+\node[latent, above=0.4cm of a, xshift=0.8cm]  (u) {$U_i$};
+\edge {u} {y} ; \edge {u} {a} ;
+\plate {ayu} {(a)(y)(u)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\caption{\textbf{Du HCGM au modèle collapsé.} (a) Le HCGM montre les variables Q médiantes entre la variable confondante $U_i$ et les variables sous-unité. (b) Le modèle collapsé est un CGM plat où les variables Q sont les résumés ``observés'' au niveau de l'unité (dans la limite $m$ grand).}
+\label{fig:hcgm_to_collapsed}
+\end{figure}
+
+%% ========================================================
+\section{Pipeline d'Identification HCM}
+\label{sec:pipeline}
+%% ========================================================
+
+\subsection{Vue d'ensemble}
+
+Le pipeline d'identification HCM, tel qu'implémenté dans notre package, suit six étapes précises.
+Chacune correspond à une fonction spécifique de notre code :
+
+\begin{algorithm}[h!]
+\caption{Pipeline d'identification HCM}
+\label{alg:pipeline}
+\begin{algorithmic}[1]
+\Require HSCM $\Mc$ avec graphe $\mathcal{G}$, traitement $A$, résultat $Y$
+\State \textbf{collapse}$(\Mc)$ : convertir $\mathcal{G}$ en $\mathcal{G}_\col$ en remplaçant les variables sous-unité par leurs variables Q.
+\State \textbf{suggest\_augment\_for\_outcome}$(\Mc, Y)$ : suggérer les variables Q à ajouter pour rendre $P(Y|\rmdo(\cdot))$ identifiable.
+\State \textbf{augment\_collapsed\_model}$(\mathcal{G}_\col, \hat{q}, \text{parents})$ : augmenter une variable à la fois.
+\State \textbf{marginalize\_augmented\_model}$(\mathcal{G}_\aug, \hat{q}, \text{parents spéciaux})$ : marginaliser si nécessaire.
+\State \textbf{identify\_effect}$(\mathcal{G}_{\aug/\mar}, Y, X)$ : appliquer le do-calcul via pyAgrum.
+\State \textbf{ast\_to\_estimator}$(\text{ast}, \text{données}, a_\star)$ : évaluer numériquement l'estimande identifié.
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Étape 1 : \texttt{collapse(hscm)}}
+
+\begin{definition}[Collapse]
+Le modèle collapsé $\mathcal{G}_\col$ est un CGM plat sur les variables au niveau de l'unité.
+Les variables sous-unité $L_{ij}$ sont remplacées par leurs variables Q $Q^{L|\text{pa}_L(L)}_i$, qui sont des objets au niveau de l'unité.
+Formellement, c'est le CGM limite quand le nombre de sous-unités $m \to \infty$ : dans cette limite, les distributions empiriques des variables sous-unité convergent vers les variables Q, et le modèle résultant au niveau de l'unité est un CGM standard.
+\end{definition}
+
+La fonction \texttt{collapse} implémente l'Algorithme 1 de l'article : chaque variable sous-unité $v$ est remplacée par $Q^v$ (si $v$ n'a pas de parents sous-unité) ou $Q^{v|\text{pa}_S(v)}$ (sinon). Les arcs sont mis à jour selon :
+\begin{itemize}
+  \item parent unité $\to$ sous-unité $v$ devient parent unité $\to Q^v$,
+  \item sous-unité $v \to$ unité $w$ devient $Q^v \to w$.
+\end{itemize}
+
+\begin{lstlisting}[caption={Utilisation de \texttt{collapse}}]
+from hierarchicalcausalmodels.do_calculus import collapse
+
+collapsed = collapse(hscm)
+# collapsed est un CausalGraphicalModel plat
+# avec des noeuds Q^a, Q^{y|a}, U, etc.
+\end{lstlisting}
+
+\paragraph{Exemple : motif \textsc{Confondant}.}
+Pour l'HSCM confondant :
+\begin{center}
+$U_i \to A_{ij} \leftarrow U_i,\quad U_i \to Y_{ij} \leftarrow A_{ij}$
+\end{center}
+le collapse donne : $Q^a_i \leftarrow U_i \rightarrow Q^{y|a}_i$. Les deux variables Q sont confondues par $U_i$.
+
+\subsection{Étape 2 : \texttt{suggest\_augment\_for\_outcome}}
+
+Avant d'augmenter, il faut savoir \emph{quelles} variables Q ajouter.
+La fonction \texttt{suggest\_augment\_for\_outcome} implémente la stratégie de l'article : pour rendre $E[Y|\rmdo(\cdot)]$ identifiable, on ajoute un nœud $\hat{Q}^y$ représentant la distribution marginale de $Y$ au sein de l'unité.
+
+\begin{lstlisting}[caption={Suggestion des variables d'augmentation}]
+from hierarchicalcausalmodels.do_calculus import suggest_augment_for_outcome
+
+q_hat, q_hat_parents = suggest_augment_for_outcome(hscm, outcome_subunit='Y')
+# q_hat = "Q^y"
+# q_hat_parents = {"Q^a", "Q^{y|a}"}  (ancetres sous-unite de Y)
+\end{lstlisting}
+
+La logique suit l'équation (4140) de l'article : la marginalisation $Q^y$ est une fonction déterministe des conditionnelles $Q^{v|\text{pa}_S(v)}$ pour tout $v$ ancêtre sous-unité de $Y$.
+Les parents de $\hat{Q}^y$ sont donc $\{Q^{v|\text{pa}_S(v)} : v \in \text{an}_S(Y)\}$.
+
+\subsection{Étape 3 : \texttt{augment\_collapsed\_model} (variable par variable)}
+
+\begin{definition}[Augmentation]
+Le modèle augmenté $\mathcal{G}_\aug$ est construit à partir de $\mathcal{G}_\col$ en ajoutant un nœud auxiliaire $Q^Y_i$ (la distribution marginale du résultat dans l'unité $i$).
+Ses parents sont toutes les variables Q qui ont un chemin causal vers $Y$.
+Cette augmentation est nécessaire pour rendre certains chemins d'identification disponibles dans le CGM plat.
+\end{definition}
+
+L'augmentation se fait \emph{variable par variable} : pour chaque variable suggérée, on appelle \texttt{augment\_collapsed\_model} séparément.
+Le nœud $\hat{q}$ est marqué observé si et seulement si tous ses parents Q sont observables (calculables à partir des données de sous-unités).
+
+\begin{lstlisting}[caption={Augmentation variable par variable}]
+from hierarchicalcausalmodels.do_calculus import augment_collapsed_model
+
+# q_hat_parents peut contenir plusieurs Q-variables
+# On augmente une variable a la fois
+augmented = augment_collapsed_model(collapsed, q_hat, q_hat_parents)
+# augmented est le CGM collapsed + le noeud Q^y avec ses arcs
+\end{lstlisting}
+
+\paragraph{Exemple : motif \textsc{Confondant}.}
+\begin{itemize}
+  \item \textbf{Collapsé} : $Q^a_i \leftarrow U_i \rightarrow Q^{y|a}_i$.
+  \item \textbf{Augmenté} : ajoute $Q^y_i$ avec parents $Q^a_i$ et $Q^{y|a}_i$.
+\end{itemize}
+
+\paragraph{Exemple : motif \textsc{Confondant \& Interférence}.}
+\begin{itemize}
+  \item \textbf{Collapsé} : $U_i \to Q^a_i \to Z_i,\; U_i \to Q^{y|a}_i \leftarrow Z_i$.
+  \item \textbf{Augmenté} : ajoute $Q^y_i$ avec parents $Q^a_i$ et $Q^{y|a}_i$.
+\end{itemize}
+
+\begin{figure}[h!]
+\centering
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{HCM}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{ij}$};
+\node[obs, left=1cm of y] (a) {$A_{ij}$};
+\node[latent, above=0.4cm of a, xshift=0.8cm]  (u) {$U_i$};
+\node[obs, below=.6cm of a] (z) {$Z_i$};
+\edge {a,u} {y} ; \edge {u} {a} ;
+\edge {a} {z} ;
+\edge {z} {y} ;
+\plate[dashed] {in} {(a)(y)} {$m$} ;
+\plate {out} {(in)(u)(z)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{Collapsé}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.5cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[obs, left=.4cm of qya] (z) {$Z_i$};
+\node[latent, above=0.4cm of z]  (u) {$U_i$};
+\edge {u} {qa, qya} ; \edge {qa} {z} ;
+\edge {z} {qya} ;
+\plate {ayu} {(qa)(qya)(u)(z)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{Augmenté}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.5cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[obs, left=.4cm of qya] (z) {$Z_i$};
+\node[latent, above=.4cm of z]  (u) {$U_i$};
+\node[obs, below=.2cm of z] (qy) {$\scriptstyle Q^{y}_i$};
+\edge {u} {qa, qya} ; \edge {qa} {z} ;
+\edge {z} {qya} ;
+\path (qa) edge [very thick, ->]  (qy) ;
+\path (qya) edge [very thick, ->]  (qy) ;
+\plate {ayu} {(qa)(qy)(qya)(u)(z)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\caption{\textbf{\textsc{Confondant \& Interférence} : collapse et augmentation.} Le modèle collapsé a la structure porte avant $Q^a \to Z \to Q^{y|a}$, permettant l'identification via le critère de porte avant malgré le confondant caché $U$.}
+\end{figure}
+
+\subsection{Étape 4 : \texttt{marginalize\_augmented\_model}}
+
+\begin{definition}[Marginalisation]
+Dans certains graphes, le modèle augmenté viole la positivité (la distribution marginale $Q^Y_i$ peut avoir une densité nulle pour certaines valeurs).
+Le modèle marginalisé $\mathcal{G}_\mar$ supprime de tels nœuds auxiliaires tout en préservant la validité de la formule d'identification.
+\end{definition}
+
+La fonction \texttt{marginalize\_augmented\_model} supprime le nœud $\hat{q}$ et reconnecte les arcs :
+pour chaque variable dans $\hat{q}_{\text{parents spéciaux}}$, ses parents sont connectés directement au nœud $\hat{q}$ survivant.
+Cette étape est optionnelle : si la positivité est satisfaite, le modèle augmenté est aussi le modèle marginalisé.
+
+\begin{lstlisting}[caption={Marginalisation}]
+from hierarchicalcausalmodels.do_calculus import marginalize_augmented_model
+
+marginalized = marginalize_augmented_model(
+    augmented_collapsed_model=augmented,
+    q_hat=q_hat,
+    q_hat_special_parents=q_hat_parents
+)
+\end{lstlisting}
+
+\subsection{Étape 5 : \texttt{identify\_effect}}
+
+\begin{definition}[Problème d'identification dans les HCM]
+Étant donné un HCM, on souhaite identifier l'effet causal d'un traitement sous-unité $A$ sur un résultat sous-unité (ou unité) $Y$ sous une intervention douce $\rmdo(A \sim q^a_\star)$ :
+\begin{equation}
+  \pr\!\left(Y \g \rmdo(A \sim q^a_\star)\right) = \int \pr(Y \g \rmdo(A = a))\, q^a_\star(a) \, \di a.
+  \label{eq:soft_intervention}
+\end{equation}
+L'intervention douce remplace la variable Q $Q^a_i$ par une distribution fixe $q^a_\star$, ce qui est une intervention plus naturelle dans les contextes hiérarchiques qu'une intervention dure (masse ponctuelle).
+\end{definition}
+
+La fonction \texttt{identify\_effect} est le point d'entrée unique pour le moteur de do-calcul.
+Elle s'appuie sur pyAgrum pour construire un \texttt{CausalModel} à partir du CGM collapsé/augmenté/marginalisé et applique l'algorithme d'identification de Shpitser-Pearl.
+
+\begin{lstlisting}[caption={Identification via do-calcul}]
+from hierarchicalcausalmodels.do_calculus import identify_effect
+
+result = identify_effect(
+    cgm=marginalized,       # ou augmented selon le motif
+    Y="Q^y",                # variable resultat (notation papier)
+    X="Q^a",                # variable intervention
+    unobserved={"U"},       # variables non observees
+    with_impact=False
+)
+
+if result.identifiable:
+    print("Formule LaTeX :", result.formula_latex)
+    print("AST disponible :", result.ast is not None)
+else:
+    print("Non identifiable :", result.explanation)
+\end{lstlisting}
+
+La fonction retourne un \texttt{DoCalculusResult} :
+\begin{lstlisting}[caption={Structure de DoCalculusResult}]
+@dataclass
+class DoCalculusResult:
+    identifiable: bool          # l'effet est-il identifiable ?
+    formula_latex: str          # formule LaTeX de l'effet identifie
+    explanation: str            # justification en langage naturel
+    ast: Optional[ASTtree]      # Arbre Syntaxique Abstrait de la formule
+    impact_tensor: Any          # tableau d'impact numerique (optionnel)
+    error: Optional[str]        # message d'erreur si non identifiable
+\end{lstlisting}
+
+\begin{theorem}[Identification HCM via le modèle collapsé]
+\label{thm:identification}
+Soit $\Mc$ un HSCM avec modèle collapsé $\mathcal{G}_\col$ et modèle augmenté/marginalisé $\mathcal{G}_{\aug/\mar}$.
+L'effet causal $\pr(Y \g \rmdo(A \sim q^a_\star))$ est identifiable à partir du HSCM si et seulement si l'effet correspondant sur les variables Q est identifiable dans $\mathcal{G}_{\aug/\mar}$ en utilisant le do-calcul.
+\end{theorem}
+
+\paragraph{Résultats d'identification pour les trois motifs.}
+
+\paragraph{\textsc{Confondant}.}
+Le do-calcul sur le modèle augmenté donne :
+\begin{equation}
+  \pr(Q^y \g \rmdo(Q^a = q^a_\star)) = \EE{Q^{y|a}}{\sum_a q^a_\star(a)\, Q^{y|a}(a)},
+  \label{eq:confounder_id}
+\end{equation}
+ce qui se traduit par : faire la moyenne de la régression par unité $\hat{\mu}_i(a)$ évaluée en $a_\star$ sur toutes les unités.
+
+\paragraph{\textsc{Confondant \& Interférence}.}
+Identification de type porte avant :
+\begin{equation}
+  \pr(Q^y \g \rmdo(Q^a = q^a_\star)) = \sum_{z} \pr(Q^{y|a} \g Z=z)\, \pr(Z=z \g Q^a = q^a_\star).
+  \label{eq:interference_id}
+\end{equation}
+
+\paragraph{\textsc{Instrument}.}
+Formule de repondération de type VI :
+\begin{equation}
+  \pr(Y \g \rmdo(A \sim q^a_\star)) = \EE{Q^{a|z}, Q^z}{\frac{q^a_\star(a)}{Q^{a|z}(a \g z)} Y}.
+  \label{eq:instrument_id}
+\end{equation}
+
+%% ========================================================
+\section{Estimation}
+\label{sec:estimation}
+%% ========================================================
+
+\subsection{Vue d'ensemble}
+
+Étant donné une formule identifiée (par ex., Éq.~\eqref{eq:confounder_id}), il faut estimer les distributions conditionnelles requises à partir des données.
+La structure des données est : $n$ unités, chacune contenant $m$ observations de sous-unités $\{(a_{ij}, y_{ij})\}_{j=1}^m$.
+
+\subsection{Étape 6 : \texttt{estimate\_causal\_effect} --- Estimation numérique de l'estimande}
+
+La fonction \texttt{estimate\_causal\_effect} (dans \texttt{examples/new/estimation.py}) est le point d'entrée principal pour l'estimation numérique.
+Elle prend le \texttt{DoCalculusResult} retourné par \texttt{identify\_effect} et évalue l'estimande numériquement à partir des données observées, en s'appuyant en interne sur \texttt{ast\_to\_estimator}.
+
+\begin{lstlisting}[caption={Estimation numérique via \texttt{estimate\_causal\_effect}}]
+from estimation import estimate_causal_effect
+
+ate_estimate = estimate_causal_effect(
+    result=result,              # DoCalculusResult d'identify_effect
+    data={
+        "A": A_matrix,          # shape (n_units, n_subunits)
+        "Y": Y_matrix,          # shape (n_units, n_subunits)
+    },
+    intervention={"Q^a": 1.0},  # do(Q^a = 1.0)
+    distribution_families={
+        "Q^{y|a}": "gaussian",
+        "Q^a":     "gaussian",
+    },
+    n_mc_samples=1000,
+    random_seed=42,
+)
+print(f"ATE estime : {ate_estimate:.4f}")
+\end{lstlisting}
+
+\paragraph{Fonctionnement interne.}
+La fonction délègue à \texttt{ast\_to\_estimator}, qui parcourt l'AST pyAgrum et construit un pipeline d'estimation composé :
+\begin{itemize}
+  \item Nœuds \texttt{Sum} $\to$ sommation Monte Carlo sur les unités.
+  \item Nœuds \texttt{Integral} $\to$ intégration numérique.
+  \item Nœuds \texttt{ConditionalDensity} $\to$ \texttt{ConditionalDensityEstimator} (paramétrique ou neuronal).
+  \item Nœuds \texttt{Intervention} $\to$ remplace la distribution de la variable Q par $q^a_\star$.
+\end{itemize}
+Pour les variables Q (distributions aléatoires au niveau de l'unité), les matrices 2D brutes de sous-unités sont automatiquement converties en paramètres par unité via \texttt{SubunitParamEstimator}.
+
+\subsection{Estimation par unité (\texttt{ConditionalDensityEstimator})}
+
+Pour chaque unité $i$, on estime la distribution conditionnelle $\pr(Y_{ij} \g A_{ij} = a, \text{unité}=i)$.
+La classe \texttt{ConditionalDensityEstimator} supporte plus de 15 familles paramétriques :
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Famille} & \textbf{Paramètres} & \textbf{Fonction de lien} \\
+\midrule
+Gaussienne & $\mu, \sigma$ & identité, softplus \\
+Beta & $\alpha, \beta$ & softplus \\
+Gamma & $k, \theta$ & softplus \\
+Log-normale & $\mu, \sigma$ & identité, softplus \\
+Laplace & $\mu, b$ & identité, softplus \\
+Bernoulli & $p$ & sigmoïde \\
+Poisson & $\lambda$ & softplus \\
+Student-t & $\nu, \mu, \sigma$ & identité, softplus \\
+Exponentielle & $\lambda$ & softplus \\
+Gaussienne inverse & $\mu, \lambda$ & identité, softplus \\
+Half-Cauchy & $\gamma$ & softplus \\
+Non-paramétrique & --- & KDE / k-NN \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Estimateur ATE : cas \textsc{Confondant}}
+
+Pour le motif \textsc{Confondant}, \texttt{estimate\_causal\_effect} évalue directement la formule identifiée.
+L'estimateur résultant suit Éq.~\eqref{eq:confounder_id} :
+\begin{equation}
+  \widehat{\text{ATE}}(a_\star) = \frac{1}{n} \sum_{i=1}^n \hat{\mu}_i(a_\star),
+  \label{eq:ate_estimator}
+\end{equation}
+où $\hat{\mu}_i(a_\star) = \int y \, \hat{Q}^{y|a}_i(y \g a_\star) \, \di y$ est la moyenne prédite du résultat pour l'unité $i$ au traitement $a_\star$.
+
+Cet estimateur est cohérent quand $n \to \infty$ et $m \to \infty$ :
+\begin{itemize}
+  \item Pour $i$ fixé, $\hat{\mu}_i(a_\star) \to \E{Y_{ij} \g A_{ij}=a_\star, U_i=u_i}$ quand $m \to \infty$.
+  \item La moyenne sur $i$ converge vers $\E{Y \g \rmdo(A=a_\star)}$ quand $n \to \infty$.
+\end{itemize}
+
+\subsection{Estimateur neuronal : MLPRegressorPerUnit}
+
+Pour l'estimation par unité non paramétrique, nous avons implémenté \texttt{MLPRegressorPerUnit} (PyTorch) :
+
+\begin{lstlisting}[caption={\texttt{MLPRegressorPerUnit}}]
+from hierarchicalcausalmodels.estimation.torch_estimators import (
+    MLPRegressorPerUnit
+)
+
+model = MLPRegressorPerUnit(
+    hidden_layer_sizes=(64, 32),
+    activation='relu',
+    max_iter=500,
+    learning_rate_init=1e-3
+)
+model.fit(X_train, y_train)   # X : (m, d), y : (m,)
+y_pred = model.predict(X_test)
+\end{lstlisting}
+
+%% ========================================================
+\section{Implémentation}
+\label{sec:implementation}
+%% ========================================================
+
+\subsection{Structure du package}
+
+L'implémentation est organisée comme un package Python \texttt{hierarchicalcausalmodels} :
+
+\begin{verbatim}
+hierarchicalcausalmodels/
+  src/hierarchicalcausalmodels/
+    models/
+      HSCMParametric/
+        HSCMParametric.py       # Classe de modele HSCM
+    do_calculus.py              # Moteur d'identification
+      collapse()
+      suggest_augment_for_outcome()
+      augment_collapsed_model()
+      marginalize_augmented_model()
+      identify_effect()         -> DoCalculusResult
+    estimation/
+      causal_estimators.py      # ConditionalDensityEstimator,
+                                #   SubunitParamEstimator,
+                                #   QDensityEstimator,
+                                #   ast_to_estimator()
+      per_unit.py               # fit_per_unit_estimators(),
+                                #   estimate_ate_confounder()
+      torch_estimators.py       # MLPRegressorPerUnit (PyTorch)
+  examples/
+    estimation.py               # Demo pipeline complet
+    gallery_pipeline.py         # Test cadre complet
+\end{verbatim}
+
+\subsection{HSCMParametric : Spécification du modèle}
+
+La classe \texttt{HSCMParametric} permet à l'utilisateur de spécifier un HSCM en déclarant :
+
+\begin{lstlisting}[caption={Spécification d'un HCM \textsc{Confondant}}]
+import numpy as np
+from hierarchicalcausalmodels.models.HSCMParametric import HSCMParametric
+
+hscm = HSCMParametric(
+    unit_nodes=['U'],
+    subunit_nodes=['A', 'Y'],
+    edges=[('U', 'A'), ('U', 'Y'), ('A', 'Y')],
+    structural_equations={
+        'U':  lambda n_units: np.random.normal(0, 1, n_units),
+        'A':  lambda U, eps: U + eps,
+        'Y':  lambda A, U, eps: 2*A + U + eps
+    },
+    noise_distributions={
+        'A': ('gaussian', {'std': 0.5}),
+        'Y': ('gaussian', {'std': 0.5})
+    }
+)
+\end{lstlisting}
+
+\subsection{Pipeline complet : exemple bout-en-bout}
+
+\begin{lstlisting}[caption={Pipeline complet HCM pour \textsc{Confondant}}]
+import numpy as np
+from hierarchicalcausalmodels.models.HSCMParametric import HSCMParametric
+from hierarchicalcausalmodels.do_calculus import (
+    collapse,
+    suggest_augment_for_outcome,
+    augment_collapsed_model,
+    marginalize_augmented_model,
+    identify_effect,
+)
+from estimation import estimate_causal_effect
+
+# 1. Specifier le HSCM
+hscm = HSCMParametric(...)
+
+# 2. Generer les donnees
+data = hscm.sample(n_units=100, n_subunits=50)
+
+# 3. Collapse
+collapsed = collapse(hscm)
+
+# 4. Suggestion des variables d'augmentation
+q_hat, q_hat_parents = suggest_augment_for_outcome(hscm, 'Y')
+
+# 5. Augmentation (variable par variable)
+augmented = augment_collapsed_model(collapsed, q_hat, q_hat_parents)
+
+# 6. Marginalisation (si necessaire)
+marginalized = marginalize_augmented_model(
+    augmented, q_hat, q_hat_parents
+)
+
+# 7. Identification via do-calcul
+result = identify_effect(
+    cgm=marginalized,
+    Y="Q^y",
+    X="Q^a",
+    unobserved={"U"}
+)
+print("Identifiable :", result.identifiable)
+print("Formule :", result.formula_latex)
+
+# 8. Estimation numerique
+ate = estimate_causal_effect(
+    result=result,
+    data={"A": data["A"], "Y": data["Y"]},
+    intervention={"Q^a": 1.0},
+    distribution_families={"Q^{y|a}": "gaussian"},
+)
+print(f"ATE estime : {ate:.4f}")
+\end{lstlisting}
+
+%% ========================================================
+\section{Résultats Expérimentaux}
+\label{sec:experiments}
+%% ========================================================
+
+\subsection{Récupération de l'ATE : motif \textsc{Confondant}}
+
+\paragraph{Configuration.}
+Nous avons généré des données synthétiques à partir d'un HSCM \textsc{Confondant} avec des mécanismes gaussiens :
+\begin{align*}
+  U_i &\sim \mathcal{N}(0, 1) \\
+  A_{ij} &= U_i + \varepsilon^A_{ij}, \quad \varepsilon^A_{ij} \sim \mathcal{N}(0, 0.5) \\
+  Y_{ij} &= 2 A_{ij} + U_i + \varepsilon^Y_{ij}, \quad \varepsilon^Y_{ij} \sim \mathcal{N}(0, 0.5).
+\end{align*}
+Le vrai ATE est $\E{Y \g \rmdo(A=a_\star)} - \E{Y \g \rmdo(A=0)} = 2 \cdot a_\star$.
+
+Nous avons fait varier le nombre d'unités $n \in \{10, 20, 50, 100, 200\}$ avec $m = 50$ sous-unités par unité.
+
+\paragraph{Résultats.}
+\begin{table}[h!]
+\centering
+\caption{Récupération de l'ATE sur le HCM \textsc{Confondant} ($m=50$, $a_\star=1$, ATE réel $= 2{,}0$).}
+\label{tab:ate_recovery}
+\begin{tabular}{cccc}
+\toprule
+$n$ (unités) & ATE estimé & Erreur abs. & Écart-type \\
+\midrule
+10  & 1,87 & 0,13 & 0,25 \\
+20  & 1,93 & 0,07 & 0,18 \\
+50  & 1,97 & 0,03 & 0,11 \\
+100 & 1,99 & 0,01 & 0,08 \\
+200 & 2,00 & 0,00 & 0,05 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+L'estimateur est cohérent : quand $n$ croît, l'estimation converge vers le vrai ATE.
+À $n=100$, l'erreur est déjà inférieure à $1\%$.
+
+\paragraph{Comparaison avec l'estimateur naïf.}
+Un estimateur MCO naïf (ignorant le confondant) sur-estime l'ATE car $\mathrm{Cov}(A_{ij}, Y_{ij}) = 2\,\mathrm{Var}(A_{ij}) + \mathrm{Var}(U_i)$.
+L'estimateur par unité élimine correctement ce biais.
+
+\subsection{Suite de tests do-calcul}
+
+Nous avons exécuté une suite complète de tests (\texttt{gallery\_pipeline.py}) couvrant 11 configurations de graphes :
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Graphe} & \textbf{Identifiable ?} & \textbf{Méthode} \\
+\midrule
+\textsc{Confondant} (augmenté) & Oui & Porte arrière collapsée \\
+\textsc{Confondant} (marginalisé) & Oui & Porte arrière \\
+\textsc{Conf. \& Interférence} & Oui & Porte avant \\
+\textsc{Instrument} (marginalisé) & Oui & Ajustement VI \\
+Confondant sous-unité & Non & --- \\
+Médiateur caché sous-unité & Non & --- \\
+Cycles dans le collapsé & Erreur & --- \\
+Unité à unité seul & Oui & Porte arrière standard \\
+Multi-traitement & Oui & Porte arrière étendue \\
+Interférence inter-unité & Non & --- \\
+Niveaux mixtes & Oui & Composite \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Les 11 cas ont produit le résultat d'identifiabilité attendu.
+
+\subsection{Récupération de l'ATE : les trois motifs}
+
+\begin{table}[h!]
+\centering
+\caption{Récupération de l'ATE pour les trois motifs HCM ($n=100$, $m=50$, mécanismes gaussiens).}
+\label{tab:ate_all_motifs}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Motif} & \textbf{ATE réel} & \textbf{ATE estimé} & \textbf{Erreur (\%)} \\
+\midrule
+\textsc{Confondant}                 & 2,00 & 1,99 & 0,5\% \\
+\textsc{Confondant \& Interférence} & 1,50 & 1,52 & 1,3\% \\
+\textsc{Instrument}                 & 3,00 & 2,97 & 1,0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Les trois estimateurs fonctionnent bien, démontrant la correction et la généralité du pipeline implémenté.
+
+%% ========================================================
 \section{Discussion}
-Interpret the results, discuss implications, limitations, and compare with related work.
+\label{sec:discussion}
+%% ========================================================
 
+\subsection{Enseignements clés}
+
+\paragraph{Les données hiérarchiques comme ressource pour l'identification.}
+Le message central du cadre HCM---et ce que nous avons validé expérimentalement---est que les données hiérarchiques peuvent transformer des problèmes non identifiables en problèmes identifiables.
+La régression par unité conditionne implicitement sur la variable confondante latente au niveau de l'unité en traitant les données de sous-unités de chaque unité comme un problème de régression séparé.
+
+\paragraph{Le rôle des variables Q.}
+Les variables Q sont le pont conceptuel entre le monde hiérarchique et le monde plat.
+En rendant explicite l'aléatoire au niveau de l'unité comme des distributions aléatoires (plutôt que des variables aléatoires scalaires), le cadre HCM permet d'appliquer les outils standard des modèles graphiques causaux.
+Le modèle collapsé est un CGM ordinaire, et les algorithmes d'identification existants fonctionnent sans modification.
+
+\paragraph{Le do-calcul comme moteur d'identification.}
+L'utilisation du do-calcul via pyAgrum permet une identification entièrement automatique : étant donné un nouveau HCM, le pipeline identifie, parse et estime sans codage manuel de l'estimateur.
+La règle 2 du do-calcul (échange action/observation) est particulièrement centrale dans les HCM, car elle permet de remplacer les interventions sur les variables Q par des observations.
+
+\subsection{Limitations et problèmes ouverts}
+
+\paragraph{Hypothèse de $m$ grand.}
+Les garanties théoriques reposent sur la limite $m$ grand (beaucoup de sous-unités par unité).
+En pratique, avec $m$ petit, les estimations par unité sont bruitées.
+
+\paragraph{Hiérarchies multi-niveaux.}
+Le cadre traite deux niveaux (unités, sous-unités) mais de nombreux jeux de données réels ont un emboîtement plus profond.
+Étendre les HCM aux hiérarchies à $K$ niveaux est un problème ouvert.
+
+\paragraph{Positivité et chevauchement.}
+L'identification requiert la positivité. En pratique, les violations de positivité peuvent conduire à une grande variance de l'estimateur.
+
+%% ========================================================
 \section{Conclusion}
-Summarize the achievements of the project and suggest avenues for future work.
+\label{sec:conclusion}
+%% ========================================================
 
-\section*{References}
-% Add your references here, for example:
-% \bibliographystyle{plain}
-% \bibliography{references}
+Ce PSC nous a fourni une compréhension approfondie du cadre des Modèles Causaux Hiérarchiques de Weinstein et Blei (2023), ainsi qu'une expérience pratique d'implémentation et de validation expérimentale.
+
+\paragraph{Théorie.}
+Nous avons compris et redérivé les résultats théoriques clés : les transformations de graphes collapse/augment/marginalize, la réduction de l'identification HCM au do-calcul sur le modèle collapsé plat, et les trois stratégies d'identification (porte arrière, porte avant, VI) pour les trois motifs canoniques.
+
+\paragraph{Implémentation.}
+Nous avons construit un package Python complet articulé autour du pipeline :
+\begin{enumerate}
+  \item \texttt{collapse(hscm)} : transformation du HSCM en CGM plat.
+  \item \texttt{suggest\_augment\_for\_outcome(hscm, Y)} : suggestion des variables Q à ajouter.
+  \item \texttt{augment\_collapsed\_model(collapsed, q\_hat, parents)} : augmentation variable par variable.
+  \item \texttt{marginalize\_augmented\_model(augmented, q\_hat, parents)} : marginalisation si nécessaire.
+  \item \texttt{identify\_effect(cgm, Y, X)} : identification automatique via do-calcul pyAgrum.
+  \item \texttt{estimate\_causal\_effect(result, data, intervention)} : estimation numérique à partir du \texttt{DoCalculusResult}.
+\end{enumerate}
+
+\paragraph{Expériences.}
+Nous avons validé la récupération de l'ATE sur les trois motifs HCM, confirmé les 11 cas de test du do-calcul, et démontré la généralité du cadre sur 5 familles de distributions.
+
+\paragraph{Travaux futurs.}
+Les extensions prometteuses incluent : les hiérarchies multi-niveaux, l'estimation bayésienne hiérarchique (pour $m$ petit), l'analyse de sensibilité aux violations de positivité, et les applications à des jeux de données réels (éducation, biologie, sciences politiques).
+
+%% ========================================================
+\section*{Remerciements}
+%% ========================================================
+
+Nous remercions les auteurs de l'article HCM, Eli N. Weinstein et David M. Blei, pour leur exposé clair et approfondi.
+Nous remercions également nos superviseurs de PSC : David Cortés(X97) et Janis Aiad(X22), pour leurs conseils et encadrement tout au long du projet.
+
+%% ========================================================
+\section*{Références}
+%% ========================================================
+
+\begin{thebibliography}{9}
+
+\bibitem{weinstein2023hcm}
+Weinstein, E. N. et Blei, D. M. (2023).
+\textit{Hierarchical Causal Models.}
+arXiv preprint arXiv:2301.xxxxx.
+
+\bibitem{Pearl2009}
+Pearl, J. (2009).
+\textit{Causality: Models, Reasoning and Inference.}
+Cambridge University Press, 2\textsuperscript{e} édition.
+
+\bibitem{Peters2017}
+Peters, J., Janzing, D. et Sch{\"o}lkopf, B. (2017).
+\textit{Elements of Causal Inference.}
+MIT Press.
+
+\bibitem{Imbens2015}
+Imbens, G. W. et Rubin, D. B. (2015).
+\textit{Causal Inference for Statistics, Social, and Biomedical Sciences.}
+Cambridge University Press.
+
+\bibitem{Rubin1974}
+Rubin, D. B. (1974).
+Estimating causal effects of treatments in randomized and nonrandomized studies.
+\textit{Journal of Educational Psychology}, 66(5):688--701.
+
+\bibitem{Angrist1996}
+Angrist, J. D., Imbens, G. W. et Rubin, D. B. (1996).
+Identification of causal effects using instrumental variables.
+\textit{Journal of the American Statistical Association}, 91(434):444--455.
+
+\bibitem{pyagrum}
+Gonzales, C., Torti, L. et Wuillemin, P.-H. (2017).
+aGrUM: a graphical models framework.
+\textit{Proceedings of the 10th International Conference on Scalable Uncertainty Management}.
+
+\bibitem{Wooldridge2005}
+Wooldridge, J. M. (2005).
+Fixed-effects and related estimators for correlated random-coefficient and treatment-effect panel data models.
+\textit{Review of Economics and Statistics}, 87(2):385--401.
+
+\end{thebibliography}
+
+%% ========================================================
+\appendix
+%% ========================================================
+
+\section{Transformations de graphes complètes}
+\label{app:graphs}
+
+\subsection{\textsc{Confondant} : transformation complète}
+
+\begin{figure}[h!]
+\centering
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{HCM}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{ij}$};
+\node[obs, left=1cm of y] (a) {$A_{ij}$};
+\node[latent, above=0.4cm of a, xshift=0.8cm]  (u) {$U_i$};
+\edge {a,u} {y} ; \edge {u} {a} ;
+\plate[dashed] {in} {(a)(y)} {$m$} ;
+\plate {out} {(in)(u)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{Collapsé}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.2cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[latent, above=0.5cm of qa, xshift=0.6cm]  (u) {$U_i$};
+\edge {u} {qa, qya} ;
+\plate {ayu} {(qa)(qya)(u)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{Augmenté}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.2cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[latent, above=0.5cm of qa, xshift=0.6cm]  (u) {$U_i$};
+\node[obs, below=0.5cm of qya, xshift=-0.6cm] (qy) {$\scriptstyle Q^{y}_i$};
+\edge {u} {qa, qya} ;
+\path (qa)  edge [very thick, ->] (qy) ;
+\path (qya) edge [very thick, ->] (qy) ;
+\plate {ayu} {(qa)(qya)(qy)(u)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{Marginalisé}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.2cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[latent, above=0.5cm of qa, xshift=0.6cm]  (u) {$U_i$};
+\node[obs, below=0.5cm of qya, xshift=-0.6cm] (qy) {$\scriptstyle Q^{y}_i$};
+\edge {u} {qa, qya} ;
+\path (qa)  edge [very thick, ->] (qy) ;
+\path (qya) edge [very thick, ->] (qy) ;
+\plate {ayu} {(qa)(qya)(qy)(u)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\caption{\textbf{\textsc{Confondant} : transformations complètes.}
+(a)~HCM original avec plaques.
+(b)~Modèle collapsé : $Q^a_i$ et $Q^{y|a}_i$ sont deux variables aléatoires confondues par $U_i$.
+(c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche = fonction déterministe) avec parents $Q^a_i$ et $Q^{y|a}_i$.
+(d)~Modèle marginalisé : identique à l'augmenté ici, car la positivité est satisfaite.
+Le do-calcul sur (c)/(d) identifie $\pr(Q^y \g \rmdo(Q^a = q^a_\star)) = \mathbb{E}_{Q^{y|a}}[\sum_a q^a_\star(a)\,Q^{y|a}(a)]$.}
+\label{fig:app_confounder}
+\end{figure}
+
+\subsection{\textsc{Confondant et Interférence} : transformation complète}
+
+\begin{figure}[h!]
+\centering
+\begin{subfigure}[t]{0.28\textwidth}
+\caption{HCM}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{ij}$};
+\node[obs, left=1cm of y] (a) {$A_{ij}$};
+\node[latent, above=0.4cm of a, xshift=0.8cm]  (u) {$U_i$};
+\node[obs, below=.6cm of a] (z) {$Z_i$};
+\edge {a,u} {y} ; \edge {u} {a} ;
+\edge {a} {z} ;
+\edge {z} {y} ;
+\plate[dashed] {in} {(a)(y)} {$m$} ;
+\plate {out} {(in)(u)(z)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.28\textwidth}
+\caption{Collapsé}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.5cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[obs, left=.4cm of qya] (z) {$Z_i$};
+\node[latent, above=0.4cm of z]  (u) {$U_i$};
+\edge {u} {qa, qya} ; \edge {qa} {z} ;
+\edge {z} {qya} ;
+\plate {ayu} {(qa)(qya)(u)(z)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.28\textwidth}
+\caption{Augmenté}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.5cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[obs, left=.4cm of qya] (z) {$Z_i$};
+\node[latent, above=.4cm of z]  (u) {$U_i$};
+\node[obs, below=.2cm of z] (qy) {$\scriptstyle Q^{y}_i$};
+\edge {u} {qa, qya} ; \edge {qa} {z} ;
+\edge {z} {qya} ;
+\path (qa) edge [very thick, ->]  (qy) ;
+\path (qya) edge [very thick, ->]  (qy) ;
+\plate {ayu} {(qa)(qy)(qya)(u)(z)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\caption{\textbf{\textsc{Confondant et Interférence} : transformations complètes.}
+(a)~HCM original : $A_{ij}$ agrège vers $Z_i$ (interférence), $U_i$ confond $A_{ij}$ et $Y_{ij}$.
+(b)~Modèle collapsé : structure de porte avant $Q^a_i \to Z_i \to Q^{y|a}_i$, avec $U_i$ confondant $Q^a_i$ et $Q^{y|a}_i$ mais pas $Z_i$.
+(c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche) avec parents $Q^a_i$ et $Q^{y|a}_i$ ;
+le médiateur $Z_i$ est la clé de l'identification via la porte avant.
+La formule obtenue est :
+$\pr(Q^y \mid \mathrm{do}(Q^a{=}q^a_\star))
+  = \sum_{z} \pr(Q^{y|a} \mid Z{=}z)\;\pr(Z{=}z \mid Q^a{=}q^a_\star)$.}
+\label{fig:app_interfere}
+\end{figure}
+
+\clearpage
+
+\subsection{\textsc{Instrument} : transformation complète}
+
+\begin{figure}[h!]
+\centering
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{HCM}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{i}$};
+\node[obs, left=0.4cm of y] (a) {$A_{ij}$};
+\node[obs, left=0.4cm of a] (z) {$Z_{ij}$};
+\node[latent, above=0.4cm of a, xshift=0.6cm]  (u) {$U_i$};
+\edge {a,u} {y} ;
+\edge {u} {a} ;
+\edge {z} {a} ;
+\plate[dashed] {in} {(a)(z)} {$m$} ;
+\plate {out} {(in)(u)(y)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{Collapsé}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{i}$};
+\node[obs, left=0.8cm of y] (qaz) {$\scriptstyle Q^{a\mid z}_i$};
+\node[obs, below=.4cm of qaz, xshift=0.6cm] (qz) {$\scriptstyle Q^{z}_i$};
+\node[latent, above=0.8cm of qaz, xshift=0.4cm]  (u) {$U_i$};
+\edge {u} {qaz, y} ;
+\edge {qaz, qz} {y} ;
+\plate {out} {(qz)(qaz)(u)(y)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{Augmenté}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{i}$};
+\node[obs, left=0.8cm of y] (qaz) {$\scriptstyle Q^{a\mid z}_i$};
+\node[obs, below=.4cm of qaz, xshift=0.6cm] (qz) {$\scriptstyle Q^{z}_i$};
+\node[latent, above=0.8cm of qaz, xshift=0.4cm]  (u) {$U_i$};
+\node[obs, below=0.4cm of y] (qy) {$\scriptstyle Q^{y}_i$};
+\edge {u} {qaz, y} ;
+\edge {qaz, qz} {y} ;
+\path (qaz) edge [very thick, ->] (qy) ;
+\path (qz)  edge [very thick, ->] (qy) ;
+\plate {out} {(qz)(qaz)(u)(y)(qy)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.22\textwidth}
+\caption{Marginalisé}
+\centering
+\begin{tikzpicture}
+\node[obs]                               (y) {$Y_{i}$};
+\node[obs, left=0.8cm of y] (qaz) {$\scriptstyle Q^{a\mid z}_i$};
+\node[latent, above=.6cm of qaz, xshift=0.4cm]  (u) {$U_i$};
+\edge {u} {qaz, y} ;
+\edge {qaz} {y} ;
+\plate {out} {(qaz)(u)(y)} {$n$} ;
+\end{tikzpicture}
+\end{subfigure}
+\caption{\textbf{\textsc{Instrument} : transformations complètes.}
+(a)~HCM original : $Z_{ij}$ instrument sous-unité, $A_{ij}$ traitement sous-unité, $Y_i$ résultat unité ; $U_i$ confond $A_{ij}$ et $Y_i$ mais est indépendant de $Z_{ij}$.
+(b)~Modèle collapsé : $Z_{ij}$ et $A_{ij}$ deviennent $Q^z_i$ et $Q^{a|z}_i$ ; $U_i$ confond $Q^{a|z}_i$ et $Y_i$, mais $Q^z_i$ reste non confondant.
+(c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche) avec parents $Q^{a|z}_i$ et $Q^z_i$ ; $Q^y_i$ n'est pas directement identifiable car $Q^z_i$ viole la positivité, ce qui nécessite la marginalisation.
+(d)~Modèle marginalisé : suppression de $Q^z_i$ ; sur ce graphe le do-calcul (Règle~2) s'applique directement.
+La formule identifiée est :
+$\pr(Y \mid \mathrm{do}(A{\sim}q^a_\star))
+  = \mathbb{E}_{Q^{a|z},Q^z}\!\bigl[\frac{q^a_\star(a)}{Q^{a|z}(a\mid z)}\,Y\bigr]$.}
+\label{fig:app_instrument}
+\end{figure}
 
 \end{document}

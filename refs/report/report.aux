@@ -1,15 +1,218 @@
 \relax 
+\providecommand\zref@newlabel[2]{}
+\providecommand\babel@aux[2]{}
+\@nameuse{bbl@beforestart}
 \providecommand\hyper@newdestlabel[2]{}
 \providecommand\HyField@AuxAddToFields[1]{}
 \providecommand\HyField@AuxAddToCoFields[2]{}
-\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {2}Background}{1}{section.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3}Methods}{1}{section.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Data Collection}{1}{subsection.3.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Implementation Details}{1}{subsection.3.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {4}Results}{2}{section.4}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Sample figure.}}{2}{figure.1}\protected@file@percent }
-\newlabel{fig:sample}{{1}{2}{Sample figure}{figure.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Discussion}{2}{section.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{2}{section.6}\protected@file@percent }
-\gdef \@abspage@last{2}
+\babel@aux{nil}{}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Les trois motifs fondamentaux des Modèles Causaux Hiérarchiques (HCM) étudiés dans ce PSC. Chaque modèle capture des unités $i$ (plaque extérieure) contenant des sous-unités $j$ (plaque intérieure en pointillé). $U_i$ est une variable latente confondante au niveau de l'unité, $A_{ij}$ le traitement de la sous-unité, $Y_{ij}$ le résultat de la sous-unité.}}{1}{figure.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{4}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{4}{Introduction}{section.1}{}}
+\newlabel{sec:intro@cref}{{[section][1][]1}{[1][4][]4}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Motivation et contexte}{4}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Objectifs du PSC}{4}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}Structure du rapport}{4}{subsection.1.3}\protected@file@percent }
+\citation{Pearl2009}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Rappels : Inférence Causale Classique}{5}{section.2}\protected@file@percent }
+\newlabel{sec:background}{{2}{5}{Rappels : Inférence Causale Classique}{section.2}{}}
+\newlabel{sec:background@cref}{{[section][2][]2}{[1][4][]5}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Modèles Causaux Structurels (SCM)}{5}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Modèles Graphiques Causaux (CGM)}{5}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Do-Calcul et ses Axiomes}{5}{subsection.2.3}\protected@file@percent }
+\newlabel{sec:do_calculus}{{2.3}{5}{Do-Calcul et ses Axiomes}{subsection.2.3}{}}
+\newlabel{sec:do_calculus@cref}{{[subsection][3][2]2.3}{[1][5][]5}}
+\newlabel{eq:rule1}{{1}{5}{Do-Calcul de Pearl --- Trois Règles}{equation.2.1}{}}
+\newlabel{eq:rule1@cref}{{[equation][1][]1}{[1][5][]5}}
+\citation{Pearl2009}
+\newlabel{eq:rule2}{{2}{6}{Do-Calcul de Pearl --- Trois Règles}{equation.2.2}{}}
+\newlabel{eq:rule2@cref}{{[equation][2][]2}{[1][5][]6}}
+\newlabel{eq:rule3}{{3}{6}{Do-Calcul de Pearl --- Trois Règles}{equation.2.3}{}}
+\newlabel{eq:rule3@cref}{{[equation][3][]3}{[1][6][]6}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Critère de porte arrière (Backdoor)}{6}{subsection.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Formule d'ajustement par porte arrière.}{6}{Item.5}\protected@file@percent }
+\newlabel{eq:backdoor}{{4}{6}{Formule d'ajustement par porte arrière}{equation.2.4}{}}
+\newlabel{eq:backdoor@cref}{{[equation][4][]4}{[1][6][]6}}
+\@writefile{toc}{\contentsline {paragraph}{Intuition.}{6}{equation.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Exemple.}{7}{equation.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Cas particulier : régression linéaire.}{7}{equation.2.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Critère de porte avant (Front-door)}{7}{subsection.2.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Formule d'ajustement par porte avant.}{7}{Item.8}\protected@file@percent }
+\newlabel{eq:frontdoor}{{6}{7}{Formule d'ajustement par porte avant}{equation.2.6}{}}
+\newlabel{eq:frontdoor@cref}{{[equation][6][]6}{[1][7][]7}}
+\@writefile{toc}{\contentsline {paragraph}{Intuition.}{7}{equation.2.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Exemple : motif fumeur-cancer.}{7}{Item.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Lien avec le motif \textsc  {Confondant \& Interférence} (HCM).}{8}{Item.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.6}Ajustement par Variables Instrumentales (VI)}{8}{subsection.2.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Formule d'ajustement par VI (cas continu linéaire).}{8}{Item.13}\protected@file@percent }
+\newlabel{eq:iv_wald}{{7}{8}{Formule d'ajustement par VI (cas continu linéaire)}{equation.2.7}{}}
+\newlabel{eq:iv_wald@cref}{{[equation][7][]7}{[1][8][]8}}
+\newlabel{eq:iv_general}{{8}{8}{Formule d'ajustement par VI (cas continu linéaire)}{equation.2.8}{}}
+\newlabel{eq:iv_general@cref}{{[equation][8][]8}{[1][8][]8}}
+\@writefile{toc}{\contentsline {paragraph}{Intuition.}{8}{equation.2.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Exemple classique.}{8}{equation.2.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Lien avec le motif \textsc  {Instrument} (HCM).}{8}{equation.2.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Limites des trois critères.}{9}{equation.2.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.7}Limitations avec les données hiérarchiques}{9}{subsection.2.7}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:intro_flat}{{2a}{9}{CGM au niveau unité : non identifiable}{figure.caption.1}{}}
+\newlabel{fig:intro_flat@cref}{{[subfigure][1][2]2a}{[1][9][]9}}
+\newlabel{sub@fig:intro_flat}{{a}{9}{CGM au niveau unité : non identifiable}{figure.caption.1}{}}
+\newlabel{sub@fig:intro_flat@cref}{{[subfigure][1][2]2a}{[1][9][]9}}
+\newlabel{fig:intro_hcm}{{2b}{9}{HCM : identifiable}{figure.caption.1}{}}
+\newlabel{fig:intro_hcm@cref}{{[subfigure][2][2]2b}{[1][9][]9}}
+\newlabel{sub@fig:intro_hcm}{{b}{9}{HCM : identifiable}{figure.caption.1}{}}
+\newlabel{sub@fig:intro_hcm@cref}{{[subfigure][2][2]2b}{[1][9][]9}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {La hiérarchie permet l'identification.} (a) Avec seulement les moyennes au niveau de l'unité, la variable confondante cachée $U_i$ empêche l'identification causale. (b) Avec les données au niveau des sous-unités, l'ajustement par unité conditionne implicitement sur $U_i$, permettant l'identification.}}{9}{figure.caption.1}\protected@file@percent }
+\newlabel{fig:hierarchy_enables}{{2}{9}{\textbf {La hiérarchie permet l'identification.} (a) Avec seulement les moyennes au niveau de l'unité, la variable confondante cachée $U_i$ empêche l'identification causale. (b) Avec les données au niveau des sous-unités, l'ajustement par unité conditionne implicitement sur $U_i$, permettant l'identification}{figure.caption.1}{}}
+\newlabel{fig:hierarchy_enables@cref}{{[figure][2][]2}{[1][9][]9}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Modèles Causaux Hiérarchiques : Théorie}{9}{section.3}\protected@file@percent }
+\newlabel{sec:hcm_theory}{{3}{9}{Modèles Causaux Hiérarchiques : Théorie}{section.3}{}}
+\newlabel{sec:hcm_theory@cref}{{[section][3][]3}{[1][9][]9}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Modèles Causaux Structurels Hiérarchiques (HSCM)}{9}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Trois Motifs Canoniques HCM}{10}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\textsc  {Confondant}.}{10}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\textsc  {Confondant \& Interférence}.}{10}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\textsc  {Instrument}.}{10}{subsection.3.2}\protected@file@percent }
+\newlabel{fig:hcm_conf}{{3a}{10}{\textsc {Confondant}}{figure.caption.2}{}}
+\newlabel{fig:hcm_conf@cref}{{[subfigure][1][3]3a}{[1][10][]10}}
+\newlabel{sub@fig:hcm_conf}{{a}{10}{\textsc {Confondant}}{figure.caption.2}{}}
+\newlabel{sub@fig:hcm_conf@cref}{{[subfigure][1][3]3a}{[1][10][]10}}
+\newlabel{fig:hcm_int}{{3b}{10}{\textsc {Conf. \& Interférence}}{figure.caption.2}{}}
+\newlabel{fig:hcm_int@cref}{{[subfigure][2][3]3b}{[1][10][]10}}
+\newlabel{sub@fig:hcm_int}{{b}{10}{\textsc {Conf. \& Interférence}}{figure.caption.2}{}}
+\newlabel{sub@fig:hcm_int@cref}{{[subfigure][2][3]3b}{[1][10][]10}}
+\newlabel{fig:hcm_instr}{{3c}{10}{\textsc {Instrument}}{figure.caption.2}{}}
+\newlabel{fig:hcm_instr@cref}{{[subfigure][3][3]3c}{[1][10][]10}}
+\newlabel{sub@fig:hcm_instr}{{c}{10}{\textsc {Instrument}}{figure.caption.2}{}}
+\newlabel{sub@fig:hcm_instr@cref}{{[subfigure][3][3]3c}{[1][10][]10}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Trois motifs HCM canoniques.} Les plaques en pointillé désignent la plaque intérieure (sous-unité). Les nœuds latents sont représentés par des cercles non ombrés. Les trois motifs ont une variable confondante cachée $U_i$ au niveau de l'unité.}}{10}{figure.caption.2}\protected@file@percent }
+\newlabel{fig:motifs}{{3}{10}{\textbf {Trois motifs HCM canoniques.} Les plaques en pointillé désignent la plaque intérieure (sous-unité). Les nœuds latents sont représentés par des cercles non ombrés. Les trois motifs ont une variable confondante cachée $U_i$ au niveau de l'unité}{figure.caption.2}{}}
+\newlabel{fig:motifs@cref}{{[figure][3][]3}{[1][10][]10}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Variables Q et Modèles Graphiques Causaux Hiérarchiques}{11}{subsection.3.3}\protected@file@percent }
+\newlabel{fig:hcgm_q}{{4a}{11}{HCGM avec variables Q explicites}{figure.caption.3}{}}
+\newlabel{fig:hcgm_q@cref}{{[subfigure][1][4]4a}{[1][11][]11}}
+\newlabel{sub@fig:hcgm_q}{{a}{11}{HCGM avec variables Q explicites}{figure.caption.3}{}}
+\newlabel{sub@fig:hcgm_q@cref}{{[subfigure][1][4]4a}{[1][11][]11}}
+\newlabel{fig:collapsed_q}{{4b}{11}{Modèle collapsé ($m \to \infty $)}{figure.caption.3}{}}
+\newlabel{fig:collapsed_q@cref}{{[subfigure][2][4]4b}{[1][11][]11}}
+\newlabel{sub@fig:collapsed_q}{{b}{11}{Modèle collapsé ($m \to \infty $)}{figure.caption.3}{}}
+\newlabel{sub@fig:collapsed_q@cref}{{[subfigure][2][4]4b}{[1][11][]11}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Du HCGM au modèle collapsé.} (a) Le HCGM montre les variables Q médiantes entre la variable confondante $U_i$ et les variables sous-unité. (b) Le modèle collapsé est un CGM plat où les variables Q sont les résumés ``observés'' au niveau de l'unité (dans la limite $m$ grand).}}{11}{figure.caption.3}\protected@file@percent }
+\newlabel{fig:hcgm_to_collapsed}{{4}{11}{\textbf {Du HCGM au modèle collapsé.} (a) Le HCGM montre les variables Q médiantes entre la variable confondante $U_i$ et les variables sous-unité. (b) Le modèle collapsé est un CGM plat où les variables Q sont les résumés ``observés'' au niveau de l'unité (dans la limite $m$ grand)}{figure.caption.3}{}}
+\newlabel{fig:hcgm_to_collapsed@cref}{{[figure][4][]4}{[1][11][]11}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Pipeline d'Identification HCM}{11}{section.4}\protected@file@percent }
+\newlabel{sec:pipeline}{{4}{11}{Pipeline d'Identification HCM}{section.4}{}}
+\newlabel{sec:pipeline@cref}{{[section][4][]4}{[1][11][]11}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Vue d'ensemble}{11}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Étape 1 : \texttt  {collapse(hscm)}}{11}{subsection.4.2}\protected@file@percent }
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces Pipeline d'identification HCM}}{12}{algorithm.1}\protected@file@percent }
+\newlabel{alg:pipeline}{{1}{12}{Pipeline d'identification HCM}{algorithm.1}{}}
+\newlabel{alg:pipeline@cref}{{[algorithm][1][]1}{[1][11][]12}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {1}{\ignorespaces Utilisation de \texttt  {collapse}}}{12}{lstlisting.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Exemple : motif \textsc  {Confondant}.}{12}{lstnumber.1.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Étape 2 : \texttt  {suggest\_augment\_for\_outcome}}{12}{subsection.4.3}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {2}{\ignorespaces Suggestion des variables d'augmentation}}{12}{lstlisting.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Étape 3 : \texttt  {augment\_collapsed\_model} (variable par variable)}{13}{subsection.4.4}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3}{\ignorespaces Augmentation variable par variable}}{13}{lstlisting.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Exemple : motif \textsc  {Confondant}.}{13}{lstnumber.3.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Exemple : motif \textsc  {Confondant \& Interférence}.}{13}{lstnumber.3.6}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces \textbf  {\textsc  {Confondant \& Interférence} : collapse et augmentation.} Le modèle collapsé a la structure porte avant $Q^a \to Z \to Q^{y|a}$, permettant l'identification via le critère de porte avant malgré le confondant caché $U$.}}{13}{figure.caption.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Étape 4 : \texttt  {marginalize\_augmented\_model}}{14}{subsection.4.5}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {4}{\ignorespaces Marginalisation}}{14}{lstlisting.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Étape 5 : \texttt  {identify\_effect}}{14}{subsection.4.6}\protected@file@percent }
+\newlabel{eq:soft_intervention}{{10}{14}{Problème d'identification dans les HCM}{equation.4.10}{}}
+\newlabel{eq:soft_intervention@cref}{{[equation][10][]10}{[1][14][]14}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {5}{\ignorespaces Identification via do-calcul}}{14}{lstlisting.5}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {6}{\ignorespaces Structure de DoCalculusResult}}{15}{lstlisting.6}\protected@file@percent }
+\newlabel{thm:identification}{{2}{15}{Identification HCM via le modèle collapsé}{theorem.2}{}}
+\newlabel{thm:identification@cref}{{[theorem][2][]2}{[1][15][]15}}
+\@writefile{toc}{\contentsline {paragraph}{Résultats d'identification pour les trois motifs.}{15}{theorem.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\textsc  {Confondant}.}{15}{theorem.2}\protected@file@percent }
+\newlabel{eq:confounder_id}{{11}{15}{\textsc {Confondant}}{equation.4.11}{}}
+\newlabel{eq:confounder_id@cref}{{[equation][11][]11}{[1][15][]15}}
+\@writefile{toc}{\contentsline {paragraph}{\textsc  {Confondant \& Interférence}.}{15}{equation.4.11}\protected@file@percent }
+\newlabel{eq:interference_id}{{12}{15}{\textsc {Confondant \& Interférence}}{equation.4.12}{}}
+\newlabel{eq:interference_id@cref}{{[equation][12][]12}{[1][15][]15}}
+\@writefile{toc}{\contentsline {paragraph}{\textsc  {Instrument}.}{15}{equation.4.12}\protected@file@percent }
+\newlabel{eq:instrument_id}{{13}{15}{\textsc {Instrument}}{equation.4.13}{}}
+\newlabel{eq:instrument_id@cref}{{[equation][13][]13}{[1][15][]15}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Estimation}{16}{section.5}\protected@file@percent }
+\newlabel{sec:estimation}{{5}{16}{Estimation}{section.5}{}}
+\newlabel{sec:estimation@cref}{{[section][5][]5}{[1][15][]16}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Vue d'ensemble}{16}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Étape 6 : \texttt  {estimate\_causal\_effect} --- Estimation numérique de l'estimande}{16}{subsection.5.2}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {7}{\ignorespaces Estimation numérique via \texttt  {estimate\_causal\_effect}}}{16}{lstlisting.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Fonctionnement interne.}{16}{lstnumber.7.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Estimation par unité (\texttt  {ConditionalDensityEstimator})}{17}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Estimateur ATE : cas \textsc  {Confondant}}{17}{subsection.5.4}\protected@file@percent }
+\newlabel{eq:ate_estimator}{{14}{17}{Estimateur ATE : cas \textsc {Confondant}}{equation.5.14}{}}
+\newlabel{eq:ate_estimator@cref}{{[equation][14][]14}{[1][17][]17}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Estimateur neuronal : MLPRegressorPerUnit}{17}{subsection.5.5}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {8}{\ignorespaces \texttt  {MLPRegressorPerUnit}}}{17}{lstlisting.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Implémentation}{18}{section.6}\protected@file@percent }
+\newlabel{sec:implementation}{{6}{18}{Implémentation}{section.6}{}}
+\newlabel{sec:implementation@cref}{{[section][6][]6}{[1][18][]18}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Structure du package}{18}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}HSCMParametric : Spécification du modèle}{18}{subsection.6.2}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {9}{\ignorespaces Spécification d'un HCM \textsc  {Confondant}}}{18}{lstlisting.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Pipeline complet : exemple bout-en-bout}{19}{subsection.6.3}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {10}{\ignorespaces Pipeline complet HCM pour \textsc  {Confondant}}}{19}{lstlisting.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Résultats Expérimentaux}{20}{section.7}\protected@file@percent }
+\newlabel{sec:experiments}{{7}{20}{Résultats Expérimentaux}{section.7}{}}
+\newlabel{sec:experiments@cref}{{[section][7][]7}{[1][20][]20}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Récupération de l'ATE : motif \textsc  {Confondant}}{20}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Configuration.}{20}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Résultats.}{20}{subsection.7.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Récupération de l'ATE sur le HCM \textsc  {Confondant} ($m=50$, $a_\star =1$, ATE réel $= 2{,}0$).}}{20}{table.caption.5}\protected@file@percent }
+\newlabel{tab:ate_recovery}{{1}{20}{Récupération de l'ATE sur le HCM \textsc {Confondant} ($m=50$, $a_\star =1$, ATE réel $= 2{,}0$)}{table.caption.5}{}}
+\newlabel{tab:ate_recovery@cref}{{[table][1][]1}{[1][20][]20}}
+\@writefile{toc}{\contentsline {paragraph}{Comparaison avec l'estimateur naïf.}{21}{table.caption.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Suite de tests do-calcul}{21}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Récupération de l'ATE : les trois motifs}{21}{subsection.7.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Récupération de l'ATE pour les trois motifs HCM ($n=100$, $m=50$, mécanismes gaussiens).}}{21}{table.caption.6}\protected@file@percent }
+\newlabel{tab:ate_all_motifs}{{2}{21}{Récupération de l'ATE pour les trois motifs HCM ($n=100$, $m=50$, mécanismes gaussiens)}{table.caption.6}{}}
+\newlabel{tab:ate_all_motifs@cref}{{[table][2][]2}{[1][21][]21}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Discussion}{21}{section.8}\protected@file@percent }
+\newlabel{sec:discussion}{{8}{21}{Discussion}{section.8}{}}
+\newlabel{sec:discussion@cref}{{[section][8][]8}{[1][21][]21}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Enseignements clés}{21}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Les données hiérarchiques comme ressource pour l'identification.}{21}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Le rôle des variables Q.}{22}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Le do-calcul comme moteur d'identification.}{22}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Limitations et problèmes ouverts}{22}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Hypothèse de $m$ grand.}{22}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Hiérarchies multi-niveaux.}{22}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Positivité et chevauchement.}{22}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{22}{section.9}\protected@file@percent }
+\newlabel{sec:conclusion}{{9}{22}{Conclusion}{section.9}{}}
+\newlabel{sec:conclusion@cref}{{[section][9][]9}{[1][22][]22}}
+\@writefile{toc}{\contentsline {paragraph}{Théorie.}{22}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Implémentation.}{22}{section.9}\protected@file@percent }
+\bibcite{weinstein2023hcm}{{1}{}{{}}{{}}}
+\bibcite{Pearl2009}{{2}{}{{}}{{}}}
+\bibcite{Peters2017}{{3}{}{{}}{{}}}
+\bibcite{Imbens2015}{{4}{}{{}}{{}}}
+\bibcite{Rubin1974}{{5}{}{{}}{{}}}
+\bibcite{Angrist1996}{{6}{}{{}}{{}}}
+\bibcite{pyagrum}{{7}{}{{}}{{}}}
+\bibcite{Wooldridge2005}{{8}{}{{}}{{}}}
+\@writefile{toc}{\contentsline {paragraph}{Expériences.}{23}{Item.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Travaux futurs.}{23}{Item.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A}Transformations de graphes complètes}{24}{appendix.A}\protected@file@percent }
+\newlabel{app:graphs}{{A}{24}{Transformations de graphes complètes}{appendix.A}{}}
+\newlabel{app:graphs@cref}{{[appendix][1][2147483647]A}{[1][24][]24}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}\textsc  {Confondant} : transformation complète}{24}{subsection.A.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces \textbf  {\textsc  {Confondant} : transformations complètes.} (a)~HCM original avec plaques. (b)~Modèle collapsé : $Q^a_i$ et $Q^{y|a}_i$ sont deux variables aléatoires confondues par $U_i$. (c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche = fonction déterministe) avec parents $Q^a_i$ et $Q^{y|a}_i$. (d)~Modèle marginalisé : identique à l'augmenté ici, car la positivité est satisfaite. Le do-calcul sur (c)/(d) identifie $\mathrm  {p}(Q^y \,\vert \,\mathrm  {do}(Q^a = q^a_\star )) = \mathbb  {E}_{Q^{y|a}}[\DOTSB \sum@ \slimits@ _a q^a_\star (a)\,Q^{y|a}(a)]$.}}{24}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:app_confounder}{{6}{24}{\textbf {\textsc {Confondant} : transformations complètes.} (a)~HCM original avec plaques. (b)~Modèle collapsé : $Q^a_i$ et $Q^{y|a}_i$ sont deux variables aléatoires confondues par $U_i$. (c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche = fonction déterministe) avec parents $Q^a_i$ et $Q^{y|a}_i$. (d)~Modèle marginalisé : identique à l'augmenté ici, car la positivité est satisfaite. Le do-calcul sur (c)/(d) identifie $\pr (Q^y \g \rmdo (Q^a = q^a_\star )) = \mathbb {E}_{Q^{y|a}}[\sum _a q^a_\star (a)\,Q^{y|a}(a)]$}{figure.caption.7}{}}
+\newlabel{fig:app_confounder@cref}{{[figure][6][2147483647]6}{[1][24][]24}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}\textsc  {Confondant et Interférence} : transformation complète}{24}{subsection.A.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces \textbf  {\textsc  {Confondant et Interférence} : transformations complètes.} (a)~HCM original : $A_{ij}$ agrège vers $Z_i$ (interférence), $U_i$ confond $A_{ij}$ et $Y_{ij}$. (b)~Modèle collapsé : structure de porte avant $Q^a_i \to Z_i \to Q^{y|a}_i$, avec $U_i$ confondant $Q^a_i$ et $Q^{y|a}_i$ mais pas $Z_i$. (c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche) avec parents $Q^a_i$ et $Q^{y|a}_i$ ; le médiateur $Z_i$ est la clé de l'identification via la porte avant. La formule obtenue est : $\mathrm  {p}(Q^y \mid \mathrm  {do}(Q^a{=}q^a_\star )) = \DOTSB \sum@ \slimits@ _{z} \mathrm  {p}(Q^{y|a} \mid Z{=}z)\tmspace  +\thickmuskip {.2777em}\mathrm  {p}(Z{=}z \mid Q^a{=}q^a_\star )$.}}{25}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:app_interfere}{{7}{25}{\textbf {\textsc {Confondant et Interférence} : transformations complètes.} (a)~HCM original : $A_{ij}$ agrège vers $Z_i$ (interférence), $U_i$ confond $A_{ij}$ et $Y_{ij}$. (b)~Modèle collapsé : structure de porte avant $Q^a_i \to Z_i \to Q^{y|a}_i$, avec $U_i$ confondant $Q^a_i$ et $Q^{y|a}_i$ mais pas $Z_i$. (c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche) avec parents $Q^a_i$ et $Q^{y|a}_i$ ; le médiateur $Z_i$ est la clé de l'identification via la porte avant. La formule obtenue est : $\pr (Q^y \mid \mathrm {do}(Q^a{=}q^a_\star )) = \sum _{z} \pr (Q^{y|a} \mid Z{=}z)\;\pr (Z{=}z \mid Q^a{=}q^a_\star )$}{figure.caption.8}{}}
+\newlabel{fig:app_interfere@cref}{{[figure][7][2147483647]7}{[1][24][]25}}
+\providecommand\NAT@force@numbers{}\NAT@force@numbers
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}\textsc  {Instrument} : transformation complète}{26}{subsection.A.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces \textbf  {\textsc  {Instrument} : transformations complètes.} (a)~HCM original : $Z_{ij}$ instrument sous-unité, $A_{ij}$ traitement sous-unité, $Y_i$ résultat unité ; $U_i$ confond $A_{ij}$ et $Y_i$ mais est indépendant de $Z_{ij}$. (b)~Modèle collapsé : $Z_{ij}$ et $A_{ij}$ deviennent $Q^z_i$ et $Q^{a|z}_i$ ; $U_i$ confond $Q^{a|z}_i$ et $Y_i$, mais $Q^z_i$ reste non confondant. (c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche) avec parents $Q^{a|z}_i$ et $Q^z_i$ ; $Q^y_i$ n'est pas directement identifiable car $Q^z_i$ viole la positivité, ce qui nécessite la marginalisation. (d)~Modèle marginalisé : suppression de $Q^z_i$ ; sur ce graphe le do-calcul (Règle~2) s'applique directement. La formule identifiée est : $\mathrm  {p}(Y \mid \mathrm  {do}(A{\sim }q^a_\star )) = \mathbb  {E}_{Q^{a|z},Q^z}\!\bigl  [\frac  {q^a_\star (a)}{Q^{a|z}(a\mid z)}\,Y\bigr  ]$.}}{26}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:app_instrument}{{8}{26}{\textbf {\textsc {Instrument} : transformations complètes.} (a)~HCM original : $Z_{ij}$ instrument sous-unité, $A_{ij}$ traitement sous-unité, $Y_i$ résultat unité ; $U_i$ confond $A_{ij}$ et $Y_i$ mais est indépendant de $Z_{ij}$. (b)~Modèle collapsé : $Z_{ij}$ et $A_{ij}$ deviennent $Q^z_i$ et $Q^{a|z}_i$ ; $U_i$ confond $Q^{a|z}_i$ et $Y_i$, mais $Q^z_i$ reste non confondant. (c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche) avec parents $Q^{a|z}_i$ et $Q^z_i$ ; $Q^y_i$ n'est pas directement identifiable car $Q^z_i$ viole la positivité, ce qui nécessite la marginalisation. (d)~Modèle marginalisé : suppression de $Q^z_i$ ; sur ce graphe le do-calcul (Règle~2) s'applique directement. La formule identifiée est : $\pr (Y \mid \mathrm {do}(A{\sim }q^a_\star )) = \mathbb {E}_{Q^{a|z},Q^z}\!\bigl [\frac {q^a_\star (a)}{Q^{a|z}(a\mid z)}\,Y\bigr ]$}{figure.caption.9}{}}
+\newlabel{fig:app_instrument@cref}{{[figure][8][2147483647]8}{[1][26][]26}}
+\gdef \@abspage@last{26}
