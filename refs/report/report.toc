@@ -80,4 +80,4 @@
 \contentsline {section}{\numberline {A}Transformations de graphes complètes}{24}{appendix.A}%
 \contentsline {subsection}{\numberline {A.1}\textsc {Confondant} : transformation complète}{24}{subsection.A.1}%
 \contentsline {subsection}{\numberline {A.2}\textsc {Confondant et Interférence} : transformation complète}{24}{subsection.A.2}%
-\contentsline {subsection}{\numberline {A.3}\textsc {Instrument} : transformation complète}{26}{subsection.A.3}%
+\contentsline {subsection}{\numberline {A.3}\textsc {Instrument} : transformation complète}{25}{subsection.A.3}%

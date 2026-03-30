@@ -29,6 +29,8 @@
 \usepackage{tcolorbox}
 \usepackage{array}
 \usepackage{longtable}
+\usepackage{float}
+\usepackage[margin=0pt]{abstract}
 
 %% ===== Colors & listings =====
 \definecolor{codegray}{rgb}{0.95,0.95,0.95}
@@ -169,11 +171,8 @@ $U_i$ est une variable latente confondante au niveau de l'unité, $A_{ij}$ le tr
 %%  RÉSUMÉ
 %% ========================================================
 \begin{abstract}
-\noindent
-L'inférence causale à partir de données hiérarchiques (imbriquées) est un défi fondamental dans les sciences naturelles et sociales.
-Ce rapport décrit les travaux réalisés lors du PSC sur les Modèles Causaux Hiérarchiques (HCM), un cadre introduit par Weinstein et Blei (2023) qui étend les Modèles Causaux Structurels (SCM) et les Modèles Graphiques Causaux (CGM) pour traiter des données collectées sur des sous-unités imbriquées à l'intérieur d'unités.
-Notre travail a couvert trois aspects complémentaires : (1) une compréhension approfondie et une redérivation du cadre théorique---transformations de graphes (collapse, augment, marginalize), identification par do-calcul, et théorie de l'estimation ; (2) une implémentation Python complète du pipeline HCM, articulée autour des fonctions \texttt{collapse}, \texttt{suggest\_augment\_for\_outcome}, \texttt{augment\_collapsed\_model}, \texttt{marginalize\_augmented\_model}, \texttt{identify\_effect} et \texttt{estimate\_causal\_effect} ; et (3) une validation expérimentale par des études de récupération de l'Effet Moyen du Traitement (ATE) sur des données synthétiques générées à partir de modèles ground-truth connus.
-L'implémentation est organisée comme un package Python (\texttt{hierarchicalcausalmodels}) et reproduit les principaux résultats de l'article sur les trois motifs canoniques HCM : \textsc{confondant}, \textsc{confondant \& interférence}, et \textsc{instrument}.
+\setlength{\parindent}{0pt}
+L'inférence causale à partir de données hiérarchiques (imbriquées) est un défi fondamental dans les sciences naturelles et sociales. Ce rapport décrit les travaux réalisés lors du PSC sur les Modèles Causaux Hiérarchiques (HCM), un cadre introduit par Weinstein et Blei (2023) qui étend les Modèles Causaux Structurels (SCM) et les Modèles Graphiques Causaux (CGM) pour traiter des données collectées sur des sous-unités imbriquées à l'intérieur d'unités. Notre travail a couvert trois aspects complémentaires : (1)~une compréhension approfondie et une redérivation du cadre théorique---transformations de graphes (\textit{collapse}, \textit{augment}, \textit{marginalize}), identification par do-calcul, et théorie de l'estimation ; (2)~une implémentation Python complète du pipeline HCM, articulée autour des fonctions \texttt{collapse}, \texttt{suggest} \texttt{\_augment\_for\_outcome}, \texttt{augment\_collapsed\_model}, \texttt{marginalize\_augmented\_model}, \texttt{identify\_effect} et \texttt{estimate\_causal\_effect} ; et (3)~une validation expérimentale par des études de récupération de l'Effet Moyen du Traitement (ATE) sur des données synthétiques générées à partir de modèles \textit{ground-truth} connus. L'implémentation est organisée comme un package Python (\texttt{hierarchicalcausalmodels}) et reproduit les principaux résultats de l'article sur les trois motifs canoniques HCM : \textsc{confondant}, \textsc{confondant \& interférence}, et \textsc{instrument}.
 \end{abstract}
 
 \tableofcontents
@@ -1265,7 +1264,7 @@ Fixed-effects and related estimators for correlated random-coefficient and treat
 
 \subsection{\textsc{Confondant} : transformation complète}
 
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
 \begin{subfigure}[t]{0.22\textwidth}
 \caption{HCM}
@@ -1332,7 +1331,7 @@ Le do-calcul sur (c)/(d) identifie $\pr(Q^y \g \rmdo(Q^a = q^a_\star)) = \mathbb
 
 \subsection{\textsc{Confondant et Interférence} : transformation complète}
 
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
 \begin{subfigure}[t]{0.28\textwidth}
 \caption{HCM}
@@ -1391,11 +1390,11 @@ $\pr(Q^y \mid \mathrm{do}(Q^a{=}q^a_\star))
 \label{fig:app_interfere}
 \end{figure}
 
-\clearpage
+
 
 \subsection{\textsc{Instrument} : transformation complète}
 
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
 \begin{subfigure}[t]{0.22\textwidth}
 \caption{HCM}
