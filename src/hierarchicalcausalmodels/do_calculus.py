@@ -384,26 +384,75 @@ def augment_collapsed_model(hscm_collapsed, q_hat, q_hat_parents) -> CausalGraph
     return collapsed_model
 
 
-def marginalize_augmented_model(augmented_collapsed_model, q_hat, q_hat_special_parents) -> CausalGraphicalModel:
-    """
-    Marginalize out the augmented node from the collapsed model.
+def _is_collapsed_q_node(name: str) -> bool:
+    """True if ``name`` is a collapsed-model Q-symbol (paper notation Q^v, Q^{y|a}, ...)."""
+    return isinstance(name, str) and name.startswith("Q^")
 
-    This function removes the augmented node from the model and updates the edges and mechanisms
-    to reflect the marginalization.
+
+def marginalization_Qc_eligible_parents(
+    augmented_cgm: CausalGraphicalModel,
+    q_hat: str,
+) -> set[str]:
+    """
+    Eligible parents for paper Algorithm ``alg:marginalize`` (input set Q^C).
+
+    The algorithm takes a set of parents of the augmentation ``tilde Q`` (here ``q_hat``)
+    such that ``tilde Q`` is their **only child**. In our **flat** collapsed CGM, unit nodes
+    (e.g. ``Y``) often appear as additional children of the same Q-parents (mechanism
+    dependence). Those edges are not Q–Q structure, so we apply the same predicate restricted
+    to **Q-named** successors: a parent ``p`` is eligible iff its Q-successors in the DAG are
+    exactly ``{q_hat}``.
+
+    Any **non-empty subset** of the returned set is valid input to
+    :func:`marginalize_augmented_model` (identification / positivity may favor a strict subset,
+    as in the instrument example where only ``Q^z`` is marginalized).
 
     Parameters
     ----------
-    CausalGraphicalModel : augmented_collapsed_model
-        The augmented collapsed causal graphical model to be marginalized.
-    str : q_hat
-        The name of the node to be marginalized out.
-    set : q_hat_special_parents
-        The set of special parent nodes that may require additional handling during marginalization.
+    augmented_cgm : CausalGraphicalModel
+        Collapsed model **after** :func:`augment_collapsed_model`, **before** marginalization.
+    q_hat : str
+        Augmentation variable ``tilde Q`` (first component of the ``marginalize`` tuple).
+
+    Returns
+    -------
+    set[str]
+        All parents of ``q_hat`` satisfying the Q-restricted sole-child condition.
+    """
+    dag = augmented_cgm.dag
+    if q_hat not in dag:
+        raise ValueError(
+            "q_hat {!r} not in graph nodes: {}".format(q_hat, sorted(dag.nodes))
+        )
+    eligible: set[str] = set()
+    for p in dag.predecessors(q_hat):
+        q_succ = {c for c in dag.successors(p) if _is_collapsed_q_node(c)}
+        if q_succ == {q_hat}:
+            eligible.add(p)
+    return eligible
+
+
+def marginalize_augmented_model(augmented_collapsed_model, q_hat, q_hat_special_parents) -> CausalGraphicalModel:
+    """
+    Apply paper ``alg:marginalize`` on an augmented collapsed CGM.
+
+    For each ``Q^c`` in ``q_hat_special_parents`` (paper input set Q^C), incoming edges to
+    ``Q^c`` are reattached to ``q_hat``, then ``Q^c`` is removed. This is **not** removing
+    ``q_hat``; it removes chosen parents of ``q_hat`` that were eligible for marginalization.
+
+    Parameters
+    ----------
+    augmented_collapsed_model : CausalGraphicalModel
+        Model after augmentation.
+    q_hat : str
+        Augmentation variable ``tilde Q`` (edges from removed parents attach here).
+    q_hat_special_parents : set[str]
+        Subset of :func:`marginalization_Qc_eligible_parents` (possibly strict) for this graph.
 
     Returns
     -------
     CausalGraphicalModel
-        The marginalized causal graphical model.
+        Marginalized model (paper M^mar).
     """
     temp_cgm = copy.deepcopy(augmented_collapsed_model)
     for variable in q_hat_special_parents:
@@ -426,5 +475,6 @@ __all__ = [
     "collapse",
     "augment_collapsed_model",
     "marginalize_augmented_model",
+    "marginalization_Qc_eligible_parents",
     "suggest_augment_for_outcome",
 ]

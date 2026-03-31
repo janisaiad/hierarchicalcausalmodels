@@ -1,16 +1,18 @@
 \documentclass[12pt,a4paper]{article}
 
+%% ===== Gabarit École polytechnique (comme main.tex) =====
+\usepackage[a4paper,fancysections,titlepage]{polytechnique}
+
 %% ===== Packages =====
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[french]{babel}
-\usepackage[margin=1in]{geometry}
 \usepackage{amsmath, amssymb, amsthm}
 \usepackage{mathtools}
-\usepackage{graphicx}
 \usepackage[labelfont=bf]{caption}
 \usepackage[format=hang]{subcaption}
-\usepackage{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
 \usepackage[nameinlink]{cleveref}
 \usepackage{tikz}
 \usetikzlibrary{bayesnet}
@@ -20,9 +22,6 @@
 \usepackage{xcolor}
 \usepackage{enumitem}
 %\usepackage{microtype}
-\usepackage{natbib}
-\usepackage{fancyhdr}
-\usepackage{titlesec}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{mdframed}
@@ -30,7 +29,9 @@
 \usepackage{array}
 \usepackage{longtable}
 \usepackage{float}
-\usepackage[margin=0pt]{abstract}
+\usepackage{abstract}
+\setlength{\absleftindent}{0pt}
+\setlength{\absrightindent}{0pt}
 
 %% ===== Colors & listings =====
 \definecolor{codegray}{rgb}{0.95,0.95,0.95}
@@ -73,52 +74,44 @@
 \newcommand{\Mc}{\mathcal{M}}
 \newcommand{\cgm}{\mathrm{cgm}}
 
-%% ===== Theorem environments =====
-\newtheorem{definition}{Définition}
-\newtheorem{theorem}{Théorème}
-\newtheorem{proposition}{Proposition}
-\newtheorem{remark}{Remarque}
+%% ===== Commandes utiles (main.tex TypographiX) =====
+\newcommand{\code}[1]{%
+    \mbox{\ttfamily\detokenize{#1}}%
+}
+\newcommand{\resultat}[1]{%
+    \quad $\rightsquigarrow$ \quad #1%
+}
 
-%% ===== Header/footer =====
-\setlength{\headheight}{13.6pt}
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small PSC -- Modèles Causaux Hiérarchiques}
-\fancyhead[R]{\small \thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-
-%% ===== Document =====
-\begin{document}
-
-%% ========================================================
-%%  PAGE DE TITRE
-%% ========================================================
-\thispagestyle{empty}
-\begin{center}
-{\LARGE \textbf{\'Ecole Polytechnique}}\\[0.3cm]
-{\large Projet Scientifique Collectif (PSC)}\\[1cm]
-\rule{\linewidth}{1.5pt}\\[0.4cm]
-{\Huge \textbf{Modèles Causaux Hiérarchiques :}}\\[0.3cm]
-{\Huge \textbf{Compréhension, Implémentation}}\\[0.3cm]
-{\Huge \textbf{et Expérimentation}}\\[0.4cm]
-\rule{\linewidth}{1.5pt}\\[1.2cm]
-
-\begin{tcolorbox}[colback=gray!10, colframe=black!40, width=0.85\linewidth,
-                  title={\textbf{Composition du groupe}}, fonttitle=\bfseries\large]
-\begin{center}
+%% ===== Métadonnées (page de titre polytechnique) =====
+\title[PSC -- Modèles causaux hiérarchiques]{Modèles causaux hiérarchiques : compréhension, implémentation et expérimentation}
+\subtitle{Projet Scientifique Collectif (PSC)}
+\author{%
 \begin{tabular}{ll}
 \textbf{Étudiant 1} & Anass Ettahiri \\[4pt]
 \textbf{Étudiant 2} & [Membre du groupe 2] \\[4pt]
 \textbf{Étudiant 3} & [Membre du groupe 3] \\[4pt]
 \textbf{Étudiant 4} & [Membre du groupe 4] \\[4pt]
 \textbf{Étudiant 5} & [Membre du groupe 5] \\[4pt]
-\end{tabular}
-\end{center}
-\end{tcolorbox}
+\end{tabular}\\[1.5em]
+\textit{Encadré par :} [Nom du superviseur]%
+}
+\date{Année académique 2025--2026}
+\logo{typographix}
 
-\vspace{1cm}
+%% ===== Theorem environments =====
+\newtheorem{definition}{Définition}
+\newtheorem{theorem}{Théorème}
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remarque}
 
-%% Illustration : les trois motifs HCM
+%% ===== Document =====
+\begin{document}
+
+\maketitle
+
+%% ========================================================
+%%  Figure des trois motifs (après la page de titre officielle)
+%% ========================================================
 \begin{center}
 \begin{tikzpicture}
 %% CONFONDANT
@@ -159,11 +152,6 @@
 \captionof{figure}{Les trois motifs fondamentaux des Modèles Causaux Hiérarchiques (HCM) étudiés dans ce PSC.
 Chaque modèle capture des unités $i$ (plaque extérieure) contenant des sous-unités $j$ (plaque intérieure en pointillé).
 $U_i$ est une variable latente confondante au niveau de l'unité, $A_{ij}$ le traitement de la sous-unité, $Y_{ij}$ le résultat de la sous-unité.}
-
-\vspace{1.5cm}
-{\large Année académique 2025--2026}\\[0.3cm]
-{\large Encadré par : [Nom du superviseur]}
-\end{center}
 
 \newpage
 
