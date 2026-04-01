@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hierarchical Causal Models | PSC Project</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="#hero" class="nav-logo">
+                <span class="logo-icon">&#x2261;</span>
+                <span>HCM</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#about">About</a></li>
+                <li><a href="#problem">Problem</a></li>
+                <li><a href="#methodology">Methodology</a></li>
+                <li><a href="#results">Results</a></li>
+                <li><a href="#applications">Applications</a></li>
+                <li><a href="#library">Library</a></li>
+                <li><a href="#team">Team</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+        <div class="hero-bg">
+            <div class="hero-grid"></div>
+        </div>
+        <div class="hero-content">
+            <div class="hero-badge">PSC &mdash; Projet Scientifique Collectif &mdash; &Eacute;cole Polytechnique</div>
+            <h1 class="hero-title">
+                Hierarchical<br>
+                <span class="gradient-text">Causal Models</span>
+            </h1>
+            <p class="hero-subtitle">
+                Extending causal inference to hierarchical data &mdash; when subunits are nested inside units,
+                hierarchy can unlock causal identification that would otherwise be impossible.
+            </p>
+            <div class="hero-actions">
+                <a href="#about" class="btn btn-primary">Explore the Project</a>
+                <a href="#library" class="btn btn-secondary">View the Library</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-number">3</span>
+                    <span class="stat-label">Core HCM Motifs</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-number">7</span>
+                    <span class="stat-label">Identification Theorems</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-number">&infin;</span>
+                    <span class="stat-label">Arbitrary Graphs</span>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-indicator">
+            <div class="scroll-arrow"></div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="section" id="about">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">01 &mdash; Overview</span>
+                <h2 class="section-title">About the Project</h2>
+            </div>
+            <div class="about-grid">
+                <div class="about-text">
+                    <p class="lead">
+                        Scientists often want to learn about <strong>cause and effect</strong> from hierarchical data &mdash;
+                        data collected from subunits nested inside units. Students in schools, cells in patients,
+                        citizens in states.
+                    </p>
+                    <p>
+                        In such settings, unit-level variables (e.g. a school's budget) may affect subunit-level
+                        variables (e.g. each student's test scores) and vice versa. Traditional causal inference
+                        methods treat all observations as flat, losing the rich structure that hierarchy provides.
+                    </p>
+                    <p>
+                        This project studies <strong>Hierarchical Causal Models (HCMs)</strong>, which extend
+                        structural causal models and causal graphical models by adding inner plates. We develop
+                        a general graphical identification technique that extends do-calculus to hierarchical settings.
+                    </p>
+                </div>
+                <div class="about-card">
+                    <div class="card-accent"></div>
+                    <h3>Key Insight</h3>
+                    <p>
+                        Hierarchical data can enable causal identification <em>even when it would be impossible</em>
+                        with non-hierarchical data. By disaggregating averages into individual observations within groups,
+                        we move from situations where causal effects cannot be estimated to ones where they can.
+                    </p>
+                    <div class="card-formula">
+                        <code>&Eopf;[Y ; do(a = a<sub>*</sub>)] &approx; (1/n) &sum;<sub>i</sub> &mu;&#x0302;<sub>i</sub>(a<sub>*</sub>)</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section class="section section-dark" id="problem">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">02 &mdash; Problem</span>
+                <h2 class="section-title">The Challenge</h2>
+            </div>
+            <div class="problem-content">
+                <div class="problem-example">
+                    <div class="example-icon">&#x1F3EB;</div>
+                    <h3>The Tutoring Problem</h3>
+                    <p>
+                        A school superintendent wants to know: <em>how effective is after-school tutoring at
+                        raising test scores?</em> For each school <var>i</var>, they record the average tutoring
+                        hours <var>&amacr;<sub>i</sub></var> and average test score <var>&ymacr;<sub>i</sub></var>.
+                    </p>
+                </div>
+                <div class="problem-steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>The Confounder</h4>
+                            <p>A school's budget <var>U<sub>i</sub></var> affects both tutoring availability and test scores.
+                            With only aggregated data, this hidden confounder makes causal identification <strong>impossible</strong>.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>The Hierarchy</h4>
+                            <p>Instead of averages, collect individual student data: for student <var>j</var> in school <var>i</var>,
+                            record tutoring hours <var>a<sub>ij</sub></var> and test score <var>y<sub>ij</sub></var>.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>The Solution</h4>
+                            <p>Within each school, the confounder is held fixed. Student-level variation provides a
+                            natural experiment &mdash; enabling <strong>causal identification through hierarchy</strong>.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diagram -->
+            <div class="diagram-container">
+                <div class="diagram-card">
+                    <h4>Flat Causal Model</h4>
+                    <svg viewBox="0 0 280 200" class="diagram-svg">
+                        <!-- U node (hidden) -->
+                        <circle cx="140" cy="40" r="28" class="node-hidden"/>
+                        <text x="140" y="45" class="node-text">U<tspan class="sub">i</tspan></text>
+                        <!-- A node -->
+                        <circle cx="60" cy="150" r="28" class="node-observed"/>
+                        <text x="60" y="155" class="node-text">&Amacr;<tspan class="sub">i</tspan></text>
+                        <!-- Y node -->
+                        <circle cx="220" cy="150" r="28" class="node-observed"/>
+                        <text x="220" y="155" class="node-text">&Ymacr;<tspan class="sub">i</tspan></text>
+                        <!-- Edges -->
+                        <line x1="118" y1="58" x2="78" y2="130" class="edge-hidden"/>
+                        <line x1="162" y1="58" x2="202" y2="130" class="edge-hidden"/>
+                        <line x1="88" y1="150" x2="192" y2="150" class="edge" marker-end="url(#arrowhead)"/>
+                        <!-- Plate -->
+                        <rect x="15" y="100" width="250" height="90" rx="6" class="plate"/>
+                        <text x="248" y="182" class="plate-text">n</text>
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/>
+                            </marker>
+                        </defs>
+                    </svg>
+                    <p class="diagram-caption">Cannot identify causal effect<br><span class="text-red">&#x2717; Confounded</span></p>
+                </div>
+                <div class="diagram-arrow">&rarr;</div>
+                <div class="diagram-card">
+                    <h4>Hierarchical Causal Model</h4>
+                    <svg viewBox="0 0 280 220" class="diagram-svg">
+                        <!-- U node (hidden) -->
+                        <circle cx="140" cy="35" r="28" class="node-hidden"/>
+                        <text x="140" y="40" class="node-text">U<tspan class="sub">i</tspan></text>
+                        <!-- A node -->
+                        <circle cx="70" cy="140" r="25" class="node-observed"/>
+                        <text x="70" y="145" class="node-text-sm">A<tspan class="sub">ij</tspan></text>
+                        <!-- Y node -->
+                        <circle cx="210" cy="140" r="25" class="node-observed"/>
+                        <text x="210" y="145" class="node-text-sm">Y<tspan class="sub">ij</tspan></text>
+                        <!-- Edges -->
+                        <line x1="120" y1="55" x2="82" y2="118" class="edge-hidden"/>
+                        <line x1="160" y1="55" x2="198" y2="118" class="edge-hidden"/>
+                        <line x1="95" y1="140" x2="185" y2="140" class="edge" marker-end="url(#arrowhead2)"/>
+                        <!-- Inner plate -->
+                        <rect x="30" y="100" width="230" height="80" rx="6" class="plate-inner"/>
+                        <text x="243" y="172" class="plate-text">m</text>
+                        <!-- Outer plate -->
+                        <rect x="10" y="15" width="260" height="195" rx="8" class="plate"/>
+                        <text x="253" y="203" class="plate-text">n</text>
+                        <defs>
+                            <marker id="arrowhead2" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/>
+                            </marker>
+                        </defs>
+                    </svg>
+                    <p class="diagram-caption">Causal effect identifiable!<br><span class="text-green">&#x2713; Hierarchy enables identification</span></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Methodology Section -->
+    <section class="section" id="methodology">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">03 &mdash; Methodology</span>
+                <h2 class="section-title">Our Approach</h2>
+            </div>
+            <div class="method-grid">
+                <div class="method-card" data-step="1">
+                    <div class="method-icon">
+                        <svg viewBox="0 0 48 48" width="48" height="48">
+                            <circle cx="24" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="12" cy="36" r="8" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="36" cy="36" r="8" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <line x1="19" y1="18" x2="14" y2="28" stroke="currentColor" stroke-width="2"/>
+                            <line x1="29" y1="18" x2="34" y2="28" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <h3>Hierarchical SCMs</h3>
+                    <p>We formally define <strong>Hierarchical Structural Causal Models (HSCMs)</strong>, extending classical
+                    SCMs with unit-level and subunit-level variables connected through deterministic mechanisms with
+                    two sources of noise: unit-level and subunit-level.</p>
+                </div>
+                <div class="method-card" data-step="2">
+                    <div class="method-icon">
+                        <svg viewBox="0 0 48 48" width="48" height="48">
+                            <rect x="6" y="6" width="36" height="36" rx="4" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2"/>
+                            <rect x="14" y="14" width="20" height="20" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="24" cy="24" r="4" fill="currentColor" opacity="0.3"/>
+                        </svg>
+                    </div>
+                    <h3>Causal Graphical Models</h3>
+                    <p>We derive <strong>Hierarchical Causal Graphical Models (HCGMs)</strong> with latent Q variables
+                    that capture the stochastic dependencies introduced by the plate structure, enabling graphical
+                    reasoning about interventions.</p>
+                </div>
+                <div class="method-card" data-step="3">
+                    <div class="method-icon">
+                        <svg viewBox="0 0 48 48" width="48" height="48">
+                            <path d="M8 24 L20 24 L24 12 L28 36 L32 24 L44 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h3>Collapsing &amp; Identification</h3>
+                    <p>We develop a <strong>collapsing procedure</strong> that transforms HCMs into flat causal models,
+                    then apply augmented do-calculus to systematically identify causal effects in the original
+                    hierarchical model.</p>
+                </div>
+                <div class="method-card" data-step="4">
+                    <div class="method-icon">
+                        <svg viewBox="0 0 48 48" width="48" height="48">
+                            <rect x="8" y="28" width="8" height="14" rx="1" fill="currentColor" opacity="0.3"/>
+                            <rect x="20" y="18" width="8" height="24" rx="1" fill="currentColor" opacity="0.5"/>
+                            <rect x="32" y="8" width="8" height="34" rx="1" fill="currentColor" opacity="0.7"/>
+                        </svg>
+                    </div>
+                    <h3>Estimation</h3>
+                    <p>We develop estimation techniques using <strong>hierarchical Bayesian models</strong>, per-unit
+                    predictors, and Monte Carlo methods to estimate causal effects from finite hierarchical datasets,
+                    validated on the classic "eight schools" study.</p>
+                </div>
+            </div>
+
+            <!-- Three Motifs -->
+            <div class="motifs-section">
+                <h3 class="motifs-title">Three Core HCM Motifs</h3>
+                <div class="motifs-grid">
+                    <div class="motif-card">
+                        <div class="motif-header">Confounder</div>
+                        <div class="motif-desc">
+                            Hidden unit-level variable <var>U<sub>i</sub></var> affects both treatment
+                            <var>A<sub>ij</sub></var> and outcome <var>Y<sub>ij</sub></var> at the subunit level.
+                        </div>
+                        <div class="motif-example">
+                            <strong>Example:</strong> School budget affects both tutoring hours and test scores.
+                        </div>
+                    </div>
+                    <div class="motif-card">
+                        <div class="motif-header">Confounder &amp; Interference</div>
+                        <div class="motif-desc">
+                            Subunit treatments <var>A<sub>ij</sub></var> affect an observable unit-level variable
+                            <var>Z<sub>i</sub></var> that in turn affects all subunit outcomes.
+                        </div>
+                        <div class="motif-example">
+                            <strong>Example:</strong> More tutored students leads to school-wide academic culture,
+                            improving everyone's scores.
+                        </div>
+                    </div>
+                    <div class="motif-card">
+                        <div class="motif-header">Instrument</div>
+                        <div class="motif-desc">
+                            A subunit-level instrument <var>Z<sub>ij</sub></var> exogenously affects treatment,
+                            with the outcome <var>Y<sub>i</sub></var> now at the unit level.
+                        </div>
+                        <div class="motif-example">
+                            <strong>Example:</strong> Random tutoring incentives (instrument) affect whether a school
+                            appears on a "best schools" list.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="section section-dark" id="results">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">04 &mdash; Results</span>
+                <h2 class="section-title">Key Contributions</h2>
+            </div>
+            <div class="results-grid">
+                <div class="result-card">
+                    <div class="result-number">01</div>
+                    <h3>Formal Framework</h3>
+                    <p>First systematic formalization of hierarchical causal models with arbitrary graphs and
+                    nonparametric causal mechanisms, unifying fixed-effects models, difference-in-difference,
+                    and hierarchical Bayesian approaches as special cases.</p>
+                </div>
+                <div class="result-card">
+                    <div class="result-number">02</div>
+                    <h3>Identification Theory</h3>
+                    <p>A general graphical identification technique extending do-calculus to HCMs. We find many
+                    situations where hierarchical data enables causal identification that would be impossible
+                    with only aggregated data.</p>
+                </div>
+                <div class="result-card">
+                    <div class="result-number">03</div>
+                    <h3>Collapsing Procedure</h3>
+                    <p>A novel method to transform hierarchical causal models into flat causal models with latent
+                    Q variables, enabling application of classical do-calculus tools to hierarchical settings.</p>
+                </div>
+                <div class="result-card">
+                    <div class="result-number">04</div>
+                    <h3>Estimation Methods</h3>
+                    <p>Practical estimation techniques using hierarchical Bayesian models, validated through
+                    simulations and a reanalysis of the classic "eight schools" study, demonstrating real-world applicability.</p>
+                </div>
+                <div class="result-card">
+                    <div class="result-number">05</div>
+                    <h3>Interference &amp; Instruments</h3>
+                    <p>HCMs naturally capture clustered interference and spillover effects as a special case,
+                    and handle instrumental variables in multi-site trials through the hierarchy.</p>
+                </div>
+                <div class="result-card">
+                    <div class="result-number">06</div>
+                    <h3>Python Library</h3>
+                    <p>An open-source Python implementation for creating, sampling, and analyzing hierarchical
+                    causal models, enabling researchers to apply HCM theory to their own datasets.</p>
+                </div>
+            </div>
+
+            <!-- Equation highlight -->
+            <div class="equation-highlight">
+                <div class="equation-label">Core Identification Result</div>
+                <div class="equation">
+                    <code>&Eopf;[Y ; do(a = a<sub>*</sub>)] = &int; &Eopf;[Y | A = a<sub>*</sub>, U = u] p(u) du &approx; (1/n) &sum;<sub>i=1</sub><sup>n</sup> &mu;&#x0302;<sub>i</sub>(a<sub>*</sub>)</code>
+                </div>
+                <p class="equation-desc">
+                    The causal effect is estimated by fitting per-unit predictors and averaging their predictions
+                    across units &mdash; each unit acts as its own natural experiment.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Applications Section -->
+    <section class="section" id="applications">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">05 &mdash; Applications</span>
+                <h2 class="section-title">Domains of Impact</h2>
+            </div>
+            <div class="app-grid">
+                <div class="app-card">
+                    <div class="app-icon">&#x1F3EB;</div>
+                    <h3>Education</h3>
+                    <p>Students nested in schools. How does tutoring affect test scores when school budgets confound the relationship?</p>
+                    <div class="app-vars">
+                        <span class="var-tag">Unit: School</span>
+                        <span class="var-tag">Subunit: Student</span>
+                    </div>
+                </div>
+                <div class="app-card">
+                    <div class="app-icon">&#x1F3DB;</div>
+                    <h3>Political Science</h3>
+                    <p>Citizens within states. How do individual political preferences determine which party governs? How do state policies affect incomes?</p>
+                    <div class="app-vars">
+                        <span class="var-tag">Unit: State</span>
+                        <span class="var-tag">Subunit: Citizen</span>
+                    </div>
+                </div>
+                <div class="app-card">
+                    <div class="app-icon">&#x1F9EC;</div>
+                    <h3>Biology</h3>
+                    <p>Cells within patients. How do individual cell mutations determine cancer development? How do treatments affect cell survival?</p>
+                    <div class="app-vars">
+                        <span class="var-tag">Unit: Patient</span>
+                        <span class="var-tag">Subunit: Cell</span>
+                    </div>
+                </div>
+                <div class="app-card">
+                    <div class="app-icon">&#x269B;</div>
+                    <h3>Physical Chemistry</h3>
+                    <p>Molecules within a gas. How does individual molecular motion alter pressure? How does container temperature affect molecules?</p>
+                    <div class="app-vars">
+                        <span class="var-tag">Unit: Gas</span>
+                        <span class="var-tag">Subunit: Molecule</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Library Section -->
+    <section class="section section-dark" id="library">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">06 &mdash; Implementation</span>
+                <h2 class="section-title">Python Library</h2>
+            </div>
+            <p class="library-intro">
+                We implemented a complete Python library &mdash; <code>hierarchicalcausalmodels</code> &mdash; that turns the
+                theoretical HCM framework into a practical, end-to-end pipeline: define a hierarchical model, sample data,
+                collapse to a flat CGM, run do-calculus identification, and estimate causal effects numerically.
+            </p>
+
+            <!-- Architecture overview -->
+            <div class="arch-grid">
+                <div class="arch-card">
+                    <div class="arch-icon">
+                        <svg viewBox="0 0 48 48" width="40" height="40"><circle cx="24" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="36" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="36" cy="36" r="8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="19" y1="18" x2="14" y2="28" stroke="currentColor" stroke-width="2"/><line x1="29" y1="18" x2="34" y2="28" stroke="currentColor" stroke-width="2"/></svg>
+                    </div>
+                    <h3>HSCMParametric</h3>
+                    <span class="arch-path">models/HSCMParametric</span>
+                    <p>Core class for defining hierarchical SCMs. Manages unit/subunit node topology, predecessor graphs,
+                    parametric causal mechanisms (linear, logistic, additive, random), aggregator functions (subunit &rarr; unit),
+                    and supports hard, soft, and conditional soft interventions.</p>
+                    <ul class="arch-features">
+                        <li><code>linear_model()</code> / <code>logistic_model()</code> &mdash; parametric mechanisms with coefficient dicts</li>
+                        <li><code>additive_model()</code> &mdash; general additive mechanisms with custom noise (PPF-based)</li>
+                        <li><code>soft_intervention()</code> / <code>hard_intervention()</code> &mdash; do-operator on any node</li>
+                        <li><code>sample_data()</code> &mdash; topological sampling respecting unit/subunit structure</li>
+                        <li><code>collapse()</code> &mdash; HCM &rarr; flat CGM with Q-variables</li>
+                    </ul>
+                </div>
+                <div class="arch-card">
+                    <div class="arch-icon">
+                        <svg viewBox="0 0 48 48" width="40" height="40"><path d="M8 38 L24 8 L40 38 Z" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16" y1="28" x2="32" y2="28" stroke="currentColor" stroke-width="2"/></svg>
+                    </div>
+                    <h3>Do-Calculus Engine</h3>
+                    <span class="arch-path">do_calculus.py</span>
+                    <p>Full pipeline from hierarchical model to causal identification. Implements the paper's Algorithm 1
+                    (collapse), Algorithm 2 (augment), and marginalization procedure, then delegates to pyAgrum for
+                    automated do-calculus on the resulting flat graph.</p>
+                    <ul class="arch-features">
+                        <li><code>collapse()</code> &mdash; subunit nodes &rarr; Q-variables with paper naming (Q<sup>v</sup>, Q<sup>y|a</sup>)</li>
+                        <li><code>augment_collapsed_model()</code> &mdash; add deterministic augmentation node (Alg. 2)</li>
+                        <li><code>marginalize_augmented_model()</code> &mdash; remove eligible Q<sup>C</sup> parents</li>
+                        <li><code>identify_effect()</code> &mdash; end-to-end identification returning LaTeX formula or hedge exception</li>
+                        <li><code>suggest_augment_for_outcome()</code> &mdash; auto-suggest augmentations for a given outcome</li>
+                    </ul>
+                </div>
+                <div class="arch-card">
+                    <div class="arch-icon">
+                        <svg viewBox="0 0 48 48" width="40" height="40"><rect x="8" y="28" width="8" height="14" rx="1" fill="currentColor" opacity="0.3"/><rect x="20" y="18" width="8" height="24" rx="1" fill="currentColor" opacity="0.5"/><rect x="32" y="8" width="8" height="34" rx="1" fill="currentColor" opacity="0.7"/></svg>
+                    </div>
+                    <h3>Causal Estimators</h3>
+                    <span class="arch-path">estimation/</span>
+                    <p>Numerical evaluation of identification formulas from observed data. Parses pyAgrum AST results,
+                    fits per-unit conditional density estimators across 12+ parametric families, and computes ATE
+                    via per-unit averaging or Monte Carlo integration.</p>
+                    <ul class="arch-features">
+                        <li><code>ConditionalDensityEstimator</code> &mdash; 12+ families: Gaussian, Beta, Gamma, Bernoulli, Half-Cauchy&hellip;</li>
+                        <li><code>per_unit.py</code> &mdash; fit-per-unit regressors with joblib parallelism &amp; GPU dispatch</li>
+                        <li><code>torch_estimators.py</code> &mdash; MLP per-unit regressors (PyTorch) for nonlinear mechanisms</li>
+                        <li><code>estimate_ate_confounder()</code> &mdash; per-unit E[Y|A=1] &minus; E[Y|A=0] then aggregate</li>
+                        <li><code>sensitivity_analysis()</code> &mdash; Rosenbaum-style robustness to unmeasured confounding</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Code examples in tabs -->
+            <div class="code-tabs">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-tab="tab-model">Define &amp; Sample</button>
+                    <button class="tab-btn" data-tab="tab-identify">Collapse &amp; Identify</button>
+                    <button class="tab-btn" data-tab="tab-estimate">Estimate ATE</button>
+                </div>
+
+                <div class="code-block tab-content active" id="tab-model">
+                    <div class="code-header">
+                        <div class="code-dots"><span></span><span></span><span></span></div>
+                        <span class="code-filename">define_hscm.py</span>
+                    </div>
+                    <pre><code><span class="kw">from</span> hierarchicalcausalmodels.models.HSCMParametric <span class="kw">import</span> HSCMParametric
+
+<span class="cm"># Define a Confounder HCM: U &rarr; A, U &rarr; Y, A &rarr; Y</span>
+nodes   = {<span class="st">"U"</span>, <span class="st">"A"</span>, <span class="st">"Y"</span>}
+edges   = {(<span class="st">"U"</span>, <span class="st">"A"</span>), (<span class="st">"U"</span>, <span class="st">"Y"</span>), (<span class="st">"A"</span>, <span class="st">"Y"</span>)}
+unit    = {<span class="st">"U"</span>}           <span class="cm"># school-level (hidden budget)</span>
+subunit = {<span class="st">"A"</span>, <span class="st">"Y"</span>}     <span class="cm"># student-level (tutoring, scores)</span>
+sizes   = [<span class="num">30</span>] * <span class="num">50</span>       <span class="cm"># 50 schools, 30 students each</span>
+
+hscm = HSCMParametric(nodes, edges, unit, subunit,
+                       sizes, node_functions={}, data={})
+
+<span class="cm"># Set linear mechanisms with coefficients</span>
+hscm.linear_model({
+    <span class="st">"U"</span>: {<span class="st">"mean"</span>: <span class="num">0</span>, <span class="st">"std"</span>: <span class="num">1</span>},
+    <span class="st">"A"</span>: {<span class="st">"U"</span>: <span class="num">0.5</span>, <span class="st">"mean"</span>: <span class="num">0</span>, <span class="st">"std"</span>: <span class="num">1</span>},
+    <span class="st">"Y"</span>: {<span class="st">"U"</span>: <span class="num">0.3</span>, <span class="st">"A"</span>: <span class="num">0.7</span>, <span class="st">"mean"</span>: <span class="num">0</span>, <span class="st">"std"</span>: <span class="num">1</span>},
+})
+
+<span class="cm"># Sample hierarchical data</span>
+data = hscm.sample_data()
+hscm.cgm.draw()  <span class="cm"># visualize the causal graph</span></code></pre>
+                </div>
+
+                <div class="code-block tab-content" id="tab-identify">
+                    <div class="code-header">
+                        <div class="code-dots"><span></span><span></span><span></span></div>
+                        <span class="code-filename">do_calculus_pipeline.py</span>
+                    </div>
+                    <pre><code><span class="kw">from</span> hierarchicalcausalmodels.do_calculus <span class="kw">import</span> (
+    collapse, augment_collapsed_model,
+    suggest_augment_for_outcome, identify_effect
+)
+
+<span class="cm"># Step 1: Collapse HCM &rarr; flat CGM with Q-variables</span>
+collapsed = collapse(hscm)
+<span class="cm"># Creates Q^a, Q^{y|a} from subunit nodes A, Y</span>
+
+<span class="cm"># Step 2: Suggest &amp; apply augmentation</span>
+q_hat, parents = suggest_augment_for_outcome(hscm, <span class="st">"Y"</span>)
+augmented = augment_collapsed_model(collapsed, q_hat, parents)
+
+<span class="cm"># Step 3: Run do-calculus identification via pyAgrum</span>
+result = identify_effect(
+    augmented, Y=<span class="st">"Q^y"</span>, X=<span class="st">"Q^a"</span>,
+    unobserved={<span class="st">"U"</span>}
+)
+
+<span class="kw">print</span>(result.identifiable)    <span class="cm"># True</span>
+<span class="kw">print</span>(result.formula_latex)   <span class="cm"># P(Q^y|Q^a) identification formula</span></code></pre>
+                </div>
+
+                <div class="code-block tab-content" id="tab-estimate">
+                    <div class="code-header">
+                        <div class="code-dots"><span></span><span></span><span></span></div>
+                        <span class="code-filename">estimate_ate.py</span>
+                    </div>
+                    <pre><code><span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> LinearRegression
+<span class="kw">from</span> hierarchicalcausalmodels.estimation.per_unit <span class="kw">import</span> (
+    estimate_ate_confounder
+)
+<span class="kw">from</span> hierarchicalcausalmodels.estimation.torch_estimators <span class="kw">import</span> (
+    MLPRegressorPerUnit
+)
+
+<span class="cm"># Per-unit linear regression: E[Y|A=1] - E[Y|A=0]</span>
+ate_linear = estimate_ate_confounder(
+    A, Y, regressor_class=LinearRegression
+)
+
+<span class="cm"># Per-unit MLP (PyTorch) for nonlinear mechanisms</span>
+ate_mlp = estimate_ate_confounder(
+    A, Y, regressor_class=MLPRegressorPerUnit,
+    regressor_kwargs={<span class="st">"hidden_sizes"</span>: (<span class="num">16</span>, <span class="num">8</span>), <span class="st">"max_epochs"</span>: <span class="num">100</span>}
+)
+
+<span class="cm"># Or use parametric density estimation</span>
+<span class="kw">from</span> hierarchicalcausalmodels.estimation.causal_estimators <span class="kw">import</span> (
+    ConditionalDensityEstimator
+)
+estimator = ConditionalDensityEstimator(family=<span class="st">"gaussian"</span>)
+estimator.fit(Y, X=A)  <span class="cm"># supports 12+ parametric families</span></code></pre>
+                </div>
+            </div>
+
+            <!-- Tech stack -->
+            <div class="library-tech-bar">
+                <span class="tech-tag">Python 3.13+</span>
+                <span class="tech-tag">NumPy</span>
+                <span class="tech-tag">SciPy</span>
+                <span class="tech-tag">NetworkX</span>
+                <span class="tech-tag">pyAgrum</span>
+                <span class="tech-tag">PyTorch</span>
+                <span class="tech-tag">scikit-learn</span>
+                <span class="tech-tag">joblib</span>
+                <span class="tech-tag">Matplotlib</span>
+                <span class="tech-tag">MIT License</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Team Section -->
+    <section class="section" id="team">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">07 &mdash; Team</span>
+                <h2 class="section-title">Project Team</h2>
+            </div>
+            <div class="team-context">
+                <p>This Projet Scientifique Collectif (PSC) is conducted at <strong>&Eacute;cole Polytechnique</strong>,
+                based on the foundational work of Eli N. Weinstein and David M. Blei from the
+                Data Science Institute and Department of Computer Science at Columbia University.</p>
+            </div>
+            <div class="team-grid">
+                <div class="team-card">
+                    <div class="team-avatar">YO</div>
+                    <h4>Yasser Oufqir</h4>
+                    <p>&Eacute;cole Polytechnique</p>
+                </div>
+                <div class="team-card">
+                    <div class="team-avatar">AE</div>
+                    <h4>Anass Ettahiri</h4>
+                    <p>&Eacute;cole Polytechnique</p>
+                </div>
+                <div class="team-card">
+                    <div class="team-avatar">AO</div>
+                    <h4>Aymen El Ouadrhiri</h4>
+                    <p>&Eacute;cole Polytechnique</p>
+                </div>
+                <div class="team-card">
+                    <div class="team-avatar">SP</div>
+                    <h4>Simon Patry</h4>
+                    <p>&Eacute;cole Polytechnique</p>
+                </div>
+            </div>
+            <div class="references-section">
+                <h3>Reference Paper</h3>
+                <div class="ref-card">
+                    <p class="ref-authors">Eli N. Weinstein, David M. Blei</p>
+                    <p class="ref-title">"Hierarchical Causal Models"</p>
+                    <p class="ref-venue">Data Science Institute &amp; Department of Computer Science, Columbia University, 2024</p>
+                    <p class="ref-id">arXiv:2401.05330v2</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-icon">&#x2261;</span>
+                    <span>HCM &mdash; Hierarchical Causal Models</span>
+                </div>
+                <p class="footer-text">
+                    Projet Scientifique Collectif &mdash; &Eacute;cole Polytechnique &mdash; 2025&ndash;2026
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
