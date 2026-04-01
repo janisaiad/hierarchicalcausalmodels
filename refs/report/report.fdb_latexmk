@@ -1,0 +1,21 @@
+# Fdb version 4
+["pdflatex"] 1775050926.35564 "/home/aymen2209/hierarchicalcausalmodels/refs/report/report.tex" "report.pdf" "report" 1775050926.85023 2
+  "/etc/texmf/web2c/texmf.cnf" 1775050882.51639 475 c0e671620eb5563b2130f56340a5fde8 ""
+  "/home/aymen2209/.texlive2023/texmf-var/web2c/pdftex/pdflatex.fmt" 1775050923 6800371 d534843b2c11ad6b3144bc6a4cd094e8 ""
+  "/home/aymen2209/hierarchicalcausalmodels/refs/report/report.tex" 1775050918.83409 76918 4fd02720eba0242d206479122b00db87 ""
+  "/usr/share/texlive/texmf-dist/fonts/tfm/public/cm/cmr12.tfm" 1136768653 1288 655e228510b4c2a1abe905c368440826 ""
+  "/usr/share/texlive/texmf-dist/tex/latex/base/article.cls" 1705352648 20144 147463a6a579f4597269ef9565205cfe ""
+  "/usr/share/texlive/texmf-dist/tex/latex/base/size12.clo" 1705352648 8449 f07039d8e4e89f21078d9b5137579bfc ""
+  "/usr/share/texlive/texmf-dist/tex/latex/geometry/geometry.sty" 1578002852 41601 9cf6c5257b1bc7af01a58859749dd37a ""
+  "/usr/share/texlive/texmf-dist/tex/latex/tools/calc.sty" 1698869629 10214 547fd4d29642cb7c80bf54b49d447f01 ""
+  "/usr/share/texlive/texmf-dist/web2c/texmf.cnf" 1707919699 40399 f2c302f7d2af602abb742093540a5834 ""
+  "/usr/share/texmf/web2c/texmf.cnf" 1707919699 40399 f2c302f7d2af602abb742093540a5834 ""
+  "polytechnique.sty" 1774991636.06222 14600 a868084a5e60ebb0abc28ae19d852562 ""
+  "report.aux" 1775050926.34902 32 3985256e7290058c681f74d7a3565a19 "pdflatex"
+  "report.tex" 1775050918.83409 76918 4fd02720eba0242d206479122b00db87 ""
+  "xcolor.sty" 0 -1 0 ""
+  (generated)
+  "report.aux"
+  "report.log"
+  "report.pdf"
+  (rewritten before read)

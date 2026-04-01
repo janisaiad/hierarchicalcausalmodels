@@ -16,7 +16,7 @@
 # # HSCM Benchmark Suite — Estimated ATE vs. Ground Truth
 #
 # This notebook validates the **Hierarchical Causal Models (HCM)** framework
-# across 8 benchmark scenarios with known ATEs.
+# across 9 benchmark scenarios with known ATEs.
 # For each scenario we report:
 #
 # | Column | Description |
@@ -49,12 +49,13 @@
 # | 5 | Linear dynamics (temporal + spatial lags) | 5.0 = treatment_effect |
 # | 6 | Heterogeneous CATE per unit | E[CATE_i] ≈ 7.06 |
 #
-# **Scenarios 7–8 — Real-world inspired**
+# **Scenarios 7–9 — Real-world inspired**
 #
 # | # | Domain | Structure |
 # |---|--------|-----------|
 # | 7 | Chicago traffic (synthetic) | 29 regions × 35 segments × 7 weeks |
 # | 8 | Eight Schools — Alderman & Powers (1979) | 8 schools, real data |
+# | 9 | NLSY79 wages — Card (1995), synthetic | 50 regions × 60 individuals |
 
 # %% [markdown]
 # ---
@@ -1002,6 +1003,115 @@ ax.legend(); plt.tight_layout(); plt.show()
 
 # %% [markdown]
 # ---
+# ## Scenario 9 — NLSY79 (Card, 1995) — Synthetic
+#
+# **Source:** Inspired by Card (1995), "Using Geographic Variation in College
+# Proximity to Estimate the Return to Schooling," *Aspects of Labour Market
+# Behaviour*, Cambridge Univ. Press. National Longitudinal Survey of Youth 1979.
+#
+# **Setup:** 50 regions (states/areas), 60 individuals each (~3 000 total).
+# Treatment A = college attendance (binary), outcome Y = log wage.
+# Region-level confounder U captures latent human capital / economic conditions:
+# high-U regions have both higher college attendance rates *and* higher baseline
+# wages, creating the classic **ability-bias** in pooled OLS.
+# Region-level binary instrument Z = proximity to a 4-year college (exogenous).
+#
+# **DGP:**
+# $$U_i \sim \mathcal{N}(0,1), \quad Z_i \sim \text{Bern}(0.5)$$
+# $$P(A_{ij}=1 \mid Z_i, U_i) = \sigma(1.8\,Z_i + 0.7\,U_i - 0.5)$$
+# $$Y_{ij} = 1.5 + 0.35\,A_{ij} + 0.5\,U_i + \varepsilon, \quad
+#   \varepsilon \sim \mathcal{N}(0,\,0.09)$$
+#
+# **True ATE = 0.35** (35 % log-wage premium for college attendance).
+#
+# **Identification via HCM:** Within each region, $U_i$ is constant —
+# the within-region difference $\bar{Y}^1_i - \bar{Y}^0_i$ cancels $U_i$
+# exactly, so the per-unit estimator is unbiased.
+# Pooled OLS conflates the college effect with the regional prosperity term,
+# yielding an upward-biased (ability-bias) estimate.
+#
+# **HCM graph:** $Z\!\to\!A$, $U\!\to\!A$, $U\!\to\!Y$, $A\!\to\!Y$
+# — instrumental variable structure (same as Scenario 3, continuous outcome).
+
+# %%
+print("\n" + "=" * 62)
+print("SCENARIO 9 — NLSY79  (Card 1995, Synthetic)")
+print("=" * 62)
+
+NLSY_N   = 50    # regions / areas
+NLSY_M   = 60    # individuals per region
+NLSY_TE  = 0.35  # true log-wage premium for college (= true ATE)
+
+rng_s9 = np.random.default_rng(79)
+U_s9   = rng_s9.standard_normal(NLSY_N)          # latent regional human capital
+Z_s9   = rng_s9.binomial(1, 0.5, NLSY_N).astype(float)  # college proximity instrument
+
+rows_s9 = []
+for i in range(NLSY_N):
+    p_college = 1 / (1 + np.exp(-(1.8 * Z_s9[i] + 0.7 * U_s9[i] - 0.5)))
+    college   = rng_s9.binomial(1, p_college, NLSY_M).astype(float)
+    log_wage  = 1.5 + NLSY_TE * college + 0.5 * U_s9[i] + rng_s9.normal(0, 0.3, NLSY_M)
+    for j in range(NLSY_M):
+        rows_s9.append({"unit_id": i, "subunit_id": j, "time": 0,
+                        "treatment": college[j], "outcome": log_wage[j]})
+
+df_s9 = pd.DataFrame(rows_s9)
+
+true_ate9  = NLSY_TE
+est_ate9   = per_unit_ate(df_s9)
+naive_ate9 = naive_pooled_ate(df_s9)
+err9       = abs(est_ate9 - true_ate9)
+
+print(f"Data      : {NLSY_N} regions × {NLSY_M} individuals  ({len(df_s9):,} rows)")
+print(f"College rate (overall): {df_s9['treatment'].mean():.3f}")
+print(f"True ATE  = {true_ate9:.4f}  (log-wage premium, exact from DGP)")
+print(f"Per-unit  = {est_ate9:.4f}   |Error| = {err9:.4f}  (U_i cancels within region)")
+print(f"Naive OLS = {naive_ate9:.4f}  (upward ability-bias: high U → more college AND higher wages)")
+
+result_s9 = dict(name="9. NLSY79 wages (Card 1995)",
+                 true_ate=true_ate9, est_ate=est_ate9, naive_ate=naive_ate9, error=err9)
+
+# %% [markdown]
+# ### Figure 8 — NLSY79: ability bias in pooled OLS
+#
+# Left: higher-U regions send more individuals to college (positive selection).
+# Right: higher-U regions also have higher baseline wages (confounding source).
+# Pooled OLS cannot separate the college effect from the regional prosperity effect.
+
+# %%
+unit_s9 = df_s9.groupby("unit_id").agg(
+    college_rate=("treatment", "mean"),
+    mean_wage=("outcome", "mean"),
+).reset_index()
+unit_s9["U"] = U_s9
+unit_s9["Z"] = Z_s9
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+for ax, y_col, ylabel, title, color in [
+    (axes[0], "college_rate", "College attendance rate",
+     r"$U_i$ → selection into college (ability bias source)",  "steelblue"),
+    (axes[1], "mean_wage",    "Mean log wage",
+     r"$U_i$ → baseline wages (confounding source)",           "coral"),
+]:
+    sc = ax.scatter(unit_s9["U"], unit_s9[y_col],
+                    c=unit_s9["Z"].astype(int), cmap="coolwarm",
+                    s=60, alpha=0.85, edgecolors="white", lw=0.4,
+                    label="Z=1 (near college)" if y_col == "college_rate" else None)
+    m, b = np.polyfit(unit_s9["U"], unit_s9[y_col], 1)
+    xs = np.linspace(unit_s9["U"].min(), unit_s9["U"].max(), 100)
+    ax.plot(xs, m * xs + b, "k--", lw=1.5)
+    ax.set_xlabel(r"Region confounder $U_i$"); ax.set_ylabel(ylabel); ax.set_title(title)
+plt.colorbar(sc, ax=axes[0], label=r"$Z_i$ (college proximity)", ticks=[0, 1])
+plt.colorbar(sc, ax=axes[1], label=r"$Z_i$ (college proximity)", ticks=[0, 1])
+
+fig.suptitle(
+    f"Scenario 9: NLSY79 ability bias\n"
+    f"Per-unit HCM = {est_ate9:.3f}  |  Naive OLS = {naive_ate9:.3f}  |  True ATE = {true_ate9:.3f}",
+    fontsize=11)
+plt.tight_layout(); plt.show()
+
+# %% [markdown]
+# ---
 # # Summary
 
 # %%
@@ -1016,8 +1126,8 @@ print_benchmark_table([result_s1, result_s2, result_s3])
 print("\n── Scenarios 4–6 : ST-HCMs — per-unit vs. naive OLS ──\n")
 print_benchmark_table([result_s4, result_s5, result_s6])
 
-print("\n── Scenarios 7–8 : Real-world inspired — per-unit vs. naive OLS ──\n")
-print_benchmark_table([result_s7, result_s8])
+print("\n── Scenarios 7–9 : Real-world inspired — per-unit vs. naive OLS ──\n")
+print_benchmark_table([result_s7, result_s8, result_s9])
 
 print("""
 Notes
@@ -1046,6 +1156,10 @@ Scenario 8  (Eight Schools)
   With n=8 units, the per-unit estimator is unbiased but high-variance.
   Key result: naive OLS yields the wrong sign (−17 vs. true +8.75) due to
   school-quality confounding. Per-unit HSCM recovers the correct direction.
+
+Scenario 9  (NLSY79, Card 1995, synthetic)
+  Classic ability-bias example. Per-unit recovers the 0.35 log-wage premium
+  for college; naive OLS is upward-biased by regional human-capital confounding.
 """)
 
 # %% [markdown]
@@ -1076,27 +1190,28 @@ ax1.set_ylabel("ATE"); ax1.axhline(0, color="black", lw=0.7)
 ax1.set_title("Binary HCMs — symbolic do-calculus pipeline (Weinstein & Blei, 2024)")
 ax1.legend(loc="upper left")
 
-# ── Bottom: Scenarios 4–8 ────────────────────────────────────────────────────
+# ── Bottom: Scenarios 4–9 ────────────────────────────────────────────────────
 ax2   = fig.add_subplot(gs[1])
-x5    = np.arange(5); w5 = 0.26
-trues  = [true_ate4, true_ate5, true_ate6, true_ate7, true_ate8]
-ests   = [est_ate4,  est_ate5,  est_ate6,  est_ate7,  est_ate8]
-naives = [naive_ate4, naive_ate5, naive_ate6, naive_ate7, naive_ate8]
-ax2.bar(x5 - w5,   trues,  w5, label="True ATE",       color="steelblue", alpha=0.9)
-ax2.bar(x5,        ests,   w5, label="Per-unit (HCM)", color="coral",     alpha=0.9)
-ax2.bar(x5 + w5,   naives, w5, label="Naive OLS",      color="gray",      alpha=0.6)
-ax2.set_xticks(x5)
+x6    = np.arange(6); w6 = 0.24
+trues  = [true_ate4, true_ate5, true_ate6, true_ate7, true_ate8, true_ate9]
+ests   = [est_ate4,  est_ate5,  est_ate6,  est_ate7,  est_ate8,  est_ate9]
+naives = [naive_ate4, naive_ate5, naive_ate6, naive_ate7, naive_ate8, naive_ate9]
+ax2.bar(x6 - w6,   trues,  w6, label="True ATE",       color="steelblue", alpha=0.9)
+ax2.bar(x6,        ests,   w6, label="Per-unit (HCM)", color="coral",     alpha=0.9)
+ax2.bar(x6 + w6,   naives, w6, label="Naive OLS",      color="gray",      alpha=0.6)
+ax2.set_xticks(x6)
 ax2.set_xticklabels([
     "4. Base conf.\n(ST-HCMs)",
     "5. Dynamics\n(ST-HCMs)",
     "6. Het. CATE\n(ST-HCMs)",
     "7. Chicago\n(traffic)",
     "8. Eight\nSchools",
+    "9. NLSY79\n(wages)",
 ])
 ax2.set_ylabel("ATE"); ax2.axhline(0, color="black", lw=0.7)
 ax2.set_title("ST-HCMs + Real-world — per-unit estimator vs. naive pooled OLS\n"
-              "(Camellia et al., 2025 · Alderman & Powers, 1979)")
+              "(Camellia et al., 2025 · Alderman & Powers, 1979 · Card, 1995)")
 ax2.legend(loc="upper left")
 
-fig.suptitle("HSCM Benchmark Suite — All 8 Scenarios", fontsize=13, fontweight="bold")
+fig.suptitle("HSCM Benchmark Suite — All 9 Scenarios", fontsize=13, fontweight="bold")
 plt.tight_layout(); plt.show()
