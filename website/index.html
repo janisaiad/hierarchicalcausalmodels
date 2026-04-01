@@ -108,7 +108,7 @@
                         we move from situations where causal effects cannot be estimated to ones where they can.
                     </p>
                     <div class="card-formula">
-                        <code>&Eopf;[Y ; do(a = a<sub>*</sub>)] &approx; (1/n) &sum;<sub>i</sub> &mu;&#x0302;<sub>i</sub>(a<sub>*</sub>)</code>
+                        <code>&Eopf;[Y | do(A = a<sub>*</sub>)] &approx; (1/n) &sum;<sub>i</sub> &mu;&#x0302;<sub>i</sub>(a<sub>*</sub>)</code>
                     </div>
                 </div>
             </div>
@@ -314,12 +314,14 @@
                     <div class="motif-card">
                         <div class="motif-header">Instrument</div>
                         <div class="motif-desc">
-                            A subunit-level instrument <var>Z<sub>ij</sub></var> exogenously affects treatment,
-                            with the outcome <var>Y<sub>i</sub></var> now at the unit level.
+                            A subunit-level instrument <var>Z<sub>ij</sub></var> exogenously affects treatment
+                            <var>A<sub>ij</sub></var>, with the outcome <var>Y<sub>i</sub></var> at the unit level.
+                            <var>U<sub>i</sub></var> confounds <var>A</var> and <var>Y</var> but not <var>Z</var>.
                         </div>
                         <div class="motif-example">
-                            <strong>Example:</strong> Random tutoring incentives (instrument) affect whether a school
-                            appears on a "best schools" list.
+                            <strong>Example:</strong> A random tutoring voucher (<var>Z<sub>ij</sub></var>) nudges
+                            student attendance (<var>A<sub>ij</sub></var>), identifying the causal effect of tutoring
+                            on the school&rsquo;s average test score (<var>Y<sub>i</sub></var>).
                         </div>
                     </div>
                 </div>
@@ -379,11 +381,12 @@
             <div class="equation-highlight">
                 <div class="equation-label">Core Identification Result</div>
                 <div class="equation">
-                    <code>&Eopf;[Y ; do(a = a<sub>*</sub>)] = &int; &Eopf;[Y | A = a<sub>*</sub>, U = u] p(u) du &approx; (1/n) &sum;<sub>i=1</sub><sup>n</sup> &mu;&#x0302;<sub>i</sub>(a<sub>*</sub>)</code>
+                    <code>&Eopf;[Y | do(A = a<sub>*</sub>)] = &Eopf;[Y | do(Q<sup>a</sup> = a<sub>*</sub>)] &approx; (1/n) &sum;<sub>i=1</sub><sup>n</sup> &mu;&#x0302;<sub>i</sub>(a<sub>*</sub>)</code>
                 </div>
                 <p class="equation-desc">
-                    The causal effect is estimated by fitting per-unit predictors and averaging their predictions
-                    across units &mdash; each unit acts as its own natural experiment.
+                    The HCM collapses to a flat CGM over Q-variables; do-calculus on Q<sup>a</sup> identifies
+                    the effect. Estimation averages per-unit predictors &mu;&#x0302;<sub>i</sub> &mdash; U<sub>i</sub>
+                    is held fixed within each unit so it cancels out, without ever being observed.
                 </p>
             </div>
         </div>
@@ -658,7 +661,7 @@ estimator.fit(Y, X=A)  <span class="cm"># supports 12+ parametric families</span
                 <div class="ref-card">
                     <p class="ref-authors">Eli N. Weinstein, David M. Blei</p>
                     <p class="ref-title">"Hierarchical Causal Models"</p>
-                    <p class="ref-venue">Data Science Institute &amp; Department of Computer Science, Columbia University, 2024</p>
+                    <p class="ref-venue">Data Science Institute &amp; Department of Computer Science, Columbia University, 2023</p>
                     <p class="ref-id">arXiv:2401.05330v2</p>
                 </div>
             </div>

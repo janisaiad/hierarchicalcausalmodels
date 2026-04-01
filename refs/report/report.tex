@@ -88,9 +88,9 @@
 \author{%
 \begin{tabular}{ll}
 \textbf{Étudiant 1} & Anass Ettahiri \\[4pt]
-\textbf{Étudiant 2} & [Yasser Oufqir] \\[4pt]
-\textbf{Étudiant 3} & [Simon Patry] \\[4pt]
-\textbf{Étudiant 4} & [Aymen El Ouadrhiri] \\[4pt]
+\textbf{Étudiant 2} & Yasser Oufqir \\[4pt]
+\textbf{Étudiant 3} & Simon Patry \\[4pt]
+\textbf{Étudiant 4} & Aymen El Ouadrhiri \\[4pt]
 \textbf{Étudiant 5} & [Membre du groupe 5] \\[4pt]
 \end{tabular}\\[1.5em]
 \textit{Encadré par :} [Nom du superviseur]%
@@ -971,19 +971,21 @@ import numpy as np
 from hierarchicalcausalmodels.models.HSCMParametric import HSCMParametric
 
 hscm = HSCMParametric(
-    unit_nodes=['U'],
-    subunit_nodes=['A', 'Y'],
-    edges=[('U', 'A'), ('U', 'Y'), ('A', 'Y')],
-    structural_equations={
-        'U':  lambda n_units: np.random.normal(0, 1, n_units),
-        'A':  lambda U, eps: U + eps,
-        'Y':  lambda A, U, eps: 2*A + U + eps
-    },
-    noise_distributions={
-        'A': ('gaussian', {'std': 0.5}),
-        'Y': ('gaussian', {'std': 0.5})
-    }
+    nodes={'U', 'A', 'Y'},
+    edges={('U', 'A'), ('U', 'Y'), ('A', 'Y')},
+    unit_nodes={'U'},
+    subunit_nodes={'A', 'Y'},
+    sizes=[50] * 100,   # 100 unites, 50 sous-unites chacune
+    node_functions={},
+    data={}
 )
+
+# Definir les mecanismes lineaires avec coefficients
+hscm.linear_model({
+    'U': {'mean': 0, 'std': 1},
+    'A': {'U': 1.0, 'mean': 0, 'std': 0.5},
+    'Y': {'A': 2.0, 'U': 1.0, 'mean': 0, 'std': 0.5},
+})
 \end{lstlisting}
 
 \subsection{Pipeline complet : exemple bout-en-bout}
@@ -1004,7 +1006,7 @@ from estimation import estimate_causal_effect
 hscm = HSCMParametric(...)
 
 # 2. Generer les donnees
-data = hscm.sample(n_units=100, n_subunits=50)
+data = hscm.sample_data()
 
 # 3. Collapse
 collapsed = collapse(hscm)
