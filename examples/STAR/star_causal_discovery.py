@@ -25,6 +25,8 @@
 # - **DirectLiNGAM** (DAG linéaire, non-gaussien)
 # - **Recherche exacte BIC** (petit graphe, DAG)
 #
+# Compléments : **[CDT](https://github.com/FenTechSolutions/CausalDiscoveryToolbox)** (`cdt` sur PyPI) — on tente **toutes** les classes `cdt.causality.graph.*` utilisables via `predict` ; la plupart passent par **R** (`pcalg`, etc.). **SAM** (PyTorch) est optionnel (`RUN_CDT_SAM`). **[DoWhy](https://github.com/py-why/dowhy)** : graphe en DOT dérivé du DAG **ExactBIC** (causal-learn), puis `identify_effect` + `estimate_effect` (régression backdoor).
+#
 # *Note :* GES score-based est omis ici (incompatibilité connue `causal-learn` × NumPy 2 sur `local_score_BIC`). Les graphes sont des **estimations algorithmiques**, pas la vérité de terrain du STAR.
 
 # %%
@@ -87,6 +89,11 @@ RANDOM_STATE = 42
 ALPHA = 0.05
 MAX_ROWS = 4000
 LINGAM_THRESH = 0.08
+# SAM (CDT) : coûteux ; sous-échantillon + peu d’époques si activé
+RUN_CDT_SAM = False
+CDT_SAM_TRAIN_EPOCHS = 40
+CDT_SAM_TEST_EPOCHS = 15
+CDT_SAM_NRUNS = 1
 
 # %% [markdown]
 # ## Chargement et encodage
@@ -236,6 +243,49 @@ def jaccard(a: set, b: set) -> float:
     return len(a & b) / u if u else 0.0
 
 
+def dot_dag_string(names_list: list[str], directed: set[tuple[int, int]]) -> str:
+    """DOT pour DoWhy : guillemets pour noms de nœuds sûrs."""
+    lines = ["digraph {"]
+    for i, j in sorted(directed):
+        lines.append(f'  "{names_list[i]}" -> "{names_list[j]}";')
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def directed_edges_from_nx(G: nx.DiGraph, names_list: list[str]) -> set[tuple[int, int]]:
+    idx = {str(nm): k for k, nm in enumerate(names_list)}
+    out: set[tuple[int, int]] = set()
+    for u, v in G.edges():
+        su, sv = str(u), str(v)
+        if su in idx and sv in idx:
+            out.add((idx[su], idx[sv]))
+    return out
+
+
+def run_cdt_predict(full_method: str, df_frame: pd.DataFrame, names_list: list[str], **kwargs: object) -> dict[str, object]:
+    """Un appel CDT.predict ; retour dict serialisable pour JSON."""
+    from dowhy.graph_learners import get_library_class_object
+
+    cls = get_library_class_object(full_method)
+    model = cls(**kwargs)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+        G_out = model.predict(df_frame)
+    if isinstance(G_out, nx.DiGraph):
+        dset = directed_edges_from_nx(G_out, names_list)
+        return {
+            "status": "ok",
+            "directed_edges": edge_label(names_list, dset),
+            "n_edges": len(dset),
+            "log_tail": buf.getvalue()[-400:],
+        }
+    return {
+        "status": "unexpected_graph_type",
+        "type": type(G_out).__name__,
+        "log_tail": buf.getvalue()[-400:],
+    }
+
+
 def draw_graph(
     title: str,
     n_nodes: int,
@@ -315,6 +365,64 @@ results["ExactBIC"] = {
 }
 
 # %% [markdown]
+# ## CDT (`cdt`) — méthodes `cdt.causality.graph.*` essayées en boucle
+#
+# La plupart des implémentations CDT **appellent R** (`Rscript`, packages `pcalg`, `kpcalg`, `CAM`, etc.). Sans R, tu obtiens `ImportError` ou erreur d’exécution : c’est attendu. **SAM** est en PyTorch ; désactivé par défaut (`RUN_CDT_SAM`). **CGNN** et **SAMv1** ne sont pas lancés ici (coût prohibitif ou variante obsolète).
+
+# %%
+import cdt as _cdt_mod  # noqa: E402 — import tardif (CDT sonde GPU au chargement)
+
+_cdt_mod.SETTINGS.verbose = False
+_cdt_mod.SETTINGS.GPU = 0
+
+CDT_GRAPH_SPECS: list[tuple[str, dict[str, object]]] = [
+    ("cdt.causality.graph.PC", {"alpha": ALPHA, "CItest": "gaussian"}),
+    ("cdt.causality.graph.GES", {"score": "obs"}),
+    ("cdt.causality.graph.GIES", {}),
+    ("cdt.causality.graph.LiNGAM", {}),
+    ("cdt.causality.graph.GS", {}),
+    ("cdt.causality.graph.IAMB", {}),
+    ("cdt.causality.graph.Fast_IAMB", {}),
+    ("cdt.causality.graph.Inter_IAMB", {}),
+    ("cdt.causality.graph.MMPC", {}),
+    ("cdt.causality.graph.CAM", {"score": "linear"}),
+    ("cdt.causality.graph.CCDr", {}),
+]
+
+results["CDT"] = {"methods": {}, "note": "PC/GES/… CDT via R si disponible ; SAM optionnel PyTorch."}
+for _full, _kw in CDT_GRAPH_SPECS:
+    _short = _full.rsplit(".", 1)[-1]
+    try:
+        results["CDT"]["methods"][_short] = run_cdt_predict(_full, X_frame, names, **_kw)
+    except Exception as _e:  # noqa: BLE001 — agrégation démo
+        results["CDT"]["methods"][_short] = {
+            "status": "error",
+            "error_type": type(_e).__name__,
+            "message": str(_e)[:500],
+        }
+
+if RUN_CDT_SAM:
+    try:
+        results["CDT"]["methods"]["SAM"] = run_cdt_predict(
+            "cdt.causality.graph.SAM",
+            X_frame,
+            names,
+            train_epochs=CDT_SAM_TRAIN_EPOCHS,
+            test_epochs=CDT_SAM_TEST_EPOCHS,
+            nruns=CDT_SAM_NRUNS,
+            verbose=False,
+        )
+    except Exception as _e:  # noqa: BLE001
+        results["CDT"]["methods"]["SAM"] = {
+            "status": "error",
+            "error_type": type(_e).__name__,
+            "message": str(_e)[:500],
+        }
+
+_cdt_ok = sum(1 for m in results["CDT"]["methods"].values() if m.get("status") == "ok")
+print("CDT :", _cdt_ok, "/", len(results["CDT"]["methods"]), "méthodes ont renvoyé un graphe orienté.")
+
+# %% [markdown]
 # ## Recoupement (Jaccard sur squelettes et arcs)
 
 # %%
@@ -373,6 +481,55 @@ plt.axis("off")
 plt.tight_layout()
 plt.savefig(_FIG_DIR / "cd_graph_fci_skeleton.png", dpi=150, bbox_inches="tight")
 plt.show()
+
+# %% [markdown]
+# ## DoWhy — identification et estimation à partir du DAG ExactBIC
+#
+# On convertit le DAG **causal-learn** (ExactBIC) en **DOT** pour `CausalModel`, puis **ATE** de `stark` sur `readk` avec ajustement de backdoor suggéré par le graphe. Ce graphe est une **hypothèse algorithmique**, pas le design expérimental STAR.
+#
+# Option : `learn_graph(method_name="cdt.causality.graph.PC", …)` reproduit l’API DoWhy → CDT (échoue sans R).
+
+# %%
+from dowhy import CausalModel  # noqa: E402
+
+results["DoWhy"] = {}
+_dot_exact = dot_dag_string(names, dir_exact)
+results["DoWhy"]["graph_dot_exact_bic"] = _dot_exact
+try:
+    _cm = CausalModel(
+        data=X_frame,
+        treatment="stark",
+        outcome="readk",
+        graph=_dot_exact,
+    )
+    _idem = _cm.identify_effect()
+    _est = _cm.estimate_effect(_idem, method_name="backdoor.linear_regression")
+    results["DoWhy"]["backdoor_linear_regression"] = {
+        "status": "ok",
+        "ate_point": float(_est.value),
+        "estimand_summary": str(_idem)[:2000],
+    }
+except Exception as _e:  # noqa: BLE001
+    results["DoWhy"]["backdoor_linear_regression"] = {
+        "status": "error",
+        "error_type": type(_e).__name__,
+        "message": str(_e)[:800],
+    }
+
+try:
+    _cm2 = CausalModel(data=X_frame, treatment="stark", outcome="readk")
+    _cm2.learn_graph(method_name="cdt.causality.graph.PC", alpha=ALPHA, CItest="gaussian")
+    results["DoWhy"]["learn_graph_cdt_pc"] = {"status": "ok", "graph_dot": str(_cm2._graph)}
+except Exception as _e:  # noqa: BLE001
+    results["DoWhy"]["learn_graph_cdt_pc"] = {
+        "status": "error",
+        "error_type": type(_e).__name__,
+        "message": str(_e)[:800],
+    }
+
+if results["DoWhy"].get("backdoor_linear_regression", {}).get("status") == "ok":
+    print("DoWhy ATE (stark → readk | graphe ExactBIC) :", results["DoWhy"]["backdoor_linear_regression"]["ate_point"])
+print("DoWhy learn_graph CDT-PC :", results["DoWhy"].get("learn_graph_cdt_pc", {}).get("status"))
 
 # %% [markdown]
 # ## Export JSON

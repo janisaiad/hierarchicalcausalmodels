@@ -241,6 +241,66 @@
       "max_n_opened": 39
     }
   },
+  "CDT": {
+    "methods": {
+      "PC": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      },
+      "GES": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      },
+      "GIES": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      },
+      "LiNGAM": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      },
+      "GS": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      },
+      "IAMB": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      },
+      "Fast_IAMB": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      },
+      "Inter_IAMB": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      },
+      "MMPC": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      },
+      "CAM": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      },
+      "CCDr": {
+        "status": "error",
+        "error_type": "FileNotFoundError",
+        "message": "[Errno 2] No such file or directory: 'Rscript'"
+      }
+    },
+    "note": "PC/GES/… CDT via R si disponible ; SAM optionnel PyTorch."
+  },
   "consensus": {
     "directed_edges_all_three": [
       "ethnicity → lunchk",
@@ -319,6 +379,19 @@
         "LiNGAM": 0.3333,
         "ExactBIC": 1.0
       }
+    }
+  },
+  "DoWhy": {
+    "graph_dot_exact_bic": "digraph {\n  \"readk\" -> \"mathk\";\n  \"mathk\" -> \"lunchk\";\n  \"stark\" -> \"readk\";\n  \"gender\" -> \"readk\";\n  \"ethnicity\" -> \"mathk\";\n  \"ethnicity\" -> \"lunchk\";\n  \"ethnicity\" -> \"schoolk\";\n  \"schoolk\" -> \"readk\";\n  \"schoolk\" -> \"stark\";\n  \"schoolk\" -> \"lunchk\";\n}",
+    "backdoor_linear_regression": {
+      "status": "ok",
+      "ate_point": 2.663892124278675,
+      "estimand_summary": "Estimand type: EstimandType.NONPARAMETRIC_ATE\n\n### Estimand : 1\nEstimand name: backdoor\nEstimand expression:\n   d                      \n────────(E[readk|schoolk])\nd[stark]                  \nEstimand assumption 1, Unconfoundedness: If U→{stark} and U→readk then P(readk|stark,schoolk,U) = P(readk|stark,schoolk)\n\n### Estimand : 2\nEstimand name: iv\nNo such variable(s) found!\n\n### Estimand : 3\nEstimand name: frontdoor\nNo such variable(s) found!\n\n### Estimand : 4\nEstimand name: general_adjustment\nEstimand expression:\n   d                      \n────────(E[readk|schoolk])\nd[stark]                  \nEstimand assumption 1, Unconfoundedness: If U→{stark} and U→readk then P(readk|stark,schoolk,U) = P(readk|stark,schoolk)\n"
+    },
+    "learn_graph_cdt_pc": {
+      "status": "error",
+      "error_type": "FileNotFoundError",
+      "message": "[Errno 2] No such file or directory: 'Rscript'"
     }
   }
 }

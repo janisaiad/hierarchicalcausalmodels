@@ -25,7 +25,6 @@ import matplotlib
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import seaborn as sns
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from matplotlib import pyplot as plt
@@ -33,13 +32,40 @@ from scipy import stats
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 
 matplotlib.use("Agg")
-sns.set_theme(style="whitegrid")
+plt.style.use("ggplot")
 plt.rcParams["figure.dpi"] = 140
 plt.rcParams["savefig.dpi"] = 140
 warnings.filterwarnings("ignore", message="As of SciPy 1.17", category=FutureWarning)
 
-THIS_DIR = Path(__file__).resolve().parent
-ROOT_DIR = THIS_DIR.parents[2]
+
+def _resolve_sta207_dir() -> Path:
+    try:
+        script_path = Path(__file__).resolve()
+        if (script_path.parent / "STAR_Students.tab").exists():
+            return script_path.parent
+    except NameError:
+        pass
+    cwd = Path.cwd().resolve()
+    for base in [cwd, *cwd.parents]:
+        nested = base / "examples" / "STAR" / "STA-207"
+        if (nested / "STAR_Students.tab").exists():
+            return nested
+        if (base / "STAR_Students.tab").exists():
+            return base
+    return cwd
+
+
+def _find_repo_root(start: Path) -> Path:
+    for candidate in [start, *start.parents]:
+        if (candidate / "pyproject.toml").exists():
+            return candidate
+    if len(start.parents) >= 3:
+        return start.parents[2]
+    return start
+
+
+THIS_DIR = _resolve_sta207_dir()
+ROOT_DIR = _find_repo_root(THIS_DIR)
 TAB_PATH = THIS_DIR / "STAR_Students.tab"
 AER_PATH = ROOT_DIR / "data" / "star" / "STAR.csv"
 OUTPUT_DIR = THIS_DIR / "previous_outputs"
@@ -82,6 +108,108 @@ def to_builtin(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
     return value
+
+
+def categorical_jitter_plot(
+    ax: plt.Axes,
+    data: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    *,
+    color: str = "dimgray",
+    alpha: float = 0.7,
+    size: float = 14.0,
+) -> None:
+    categories = [str(value) for value in pd.Series(data[x_col]).dropna().astype(str).unique().tolist()]
+    position_map = {category: idx for idx, category in enumerate(categories)}
+    x_values = []
+    y_values = []
+    for _, row in data[[x_col, y_col]].dropna().iterrows():
+        category = str(row[x_col])
+        x_values.append(position_map[category] + np.random.uniform(-0.18, 0.18))
+        y_values.append(row[y_col])
+    ax.scatter(x_values, y_values, color=color, alpha=alpha, s=size)
+    ax.set_xticks(range(len(categories)))
+    ax.set_xticklabels(categories, rotation=0)
+
+
+def grouped_boxplot(
+    ax: plt.Axes,
+    data: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    hue_col: str | None = None,
+) -> None:
+    x_categories = [value for value in pd.Series(data[x_col]).dropna().astype(str).unique().tolist()]
+    if hue_col is None:
+        series = [
+            data.loc[data[x_col].astype(str) == category, y_col].dropna().to_numpy()
+            for category in x_categories
+        ]
+        ax.boxplot(series, tick_labels=x_categories, patch_artist=True, boxprops={"facecolor": "#b0b0b0"})
+        return
+
+    hue_categories = [value for value in pd.Series(data[hue_col]).dropna().astype(str).unique().tolist()]
+    width = 0.22
+    centers = np.arange(len(x_categories), dtype=float)
+    colors = ["skyblue", "tomato", "grey", "khaki"]
+    for hue_idx, hue_value in enumerate(hue_categories):
+        series = []
+        positions = []
+        for x_idx, x_value in enumerate(x_categories):
+            subset = data.loc[
+                (data[x_col].astype(str) == x_value) & (data[hue_col].astype(str) == hue_value),
+                y_col,
+            ].dropna()
+            if len(subset) == 0:
+                continue
+            series.append(subset.to_numpy())
+            positions.append(centers[x_idx] + (hue_idx - (len(hue_categories) - 1) / 2.0) * width)
+        if series:
+            artist = ax.boxplot(
+                series,
+                positions=positions,
+                widths=width * 0.9,
+                patch_artist=True,
+                manage_ticks=False,
+            )
+            for patch in artist["boxes"]:
+                patch.set_facecolor(colors[hue_idx % len(colors)])
+                patch.set_alpha(0.75)
+    ax.set_xticks(centers)
+    ax.set_xticklabels(x_categories)
+    handles = [
+        plt.Line2D([0], [0], color=colors[idx % len(colors)], lw=8, label=str(hue_value))
+        for idx, hue_value in enumerate(hue_categories)
+    ]
+    ax.legend(handles=handles, title=hue_col)
+
+
+def grouped_lineplot(
+    ax: plt.Axes,
+    data: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    group_col: str,
+) -> None:
+    x_categories = [value for value in pd.Series(data[x_col]).dropna().astype(str).unique().tolist()]
+    x_lookup = {value: idx for idx, value in enumerate(x_categories)}
+    groups = [value for value in pd.Series(data[group_col]).dropna().astype(str).unique().tolist()]
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
+    for idx, group_value in enumerate(groups):
+        subset = data.loc[data[group_col].astype(str) == group_value].copy()
+        subset["_x"] = subset[x_col].astype(str).map(x_lookup)
+        subset = subset.sort_values("_x")
+        ax.plot(
+            subset["_x"],
+            subset[y_col],
+            marker="o",
+            linewidth=1.5,
+            color=colors[idx % len(colors)],
+            label=str(group_value),
+        )
+    ax.set_xticks(range(len(x_categories)))
+    ax.set_xticklabels(x_categories)
 
 
 def make_class_level_data(star_raw: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, Any]]:
@@ -201,11 +329,11 @@ savefig("figure_1_missing_proportion.png")
 
 eda_box = class_level.copy()
 fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
-sns.boxplot(data=eda_box, x="class_type_label", y="g1tmathss", color="#b0b0b0", ax=axes[0])
+grouped_boxplot(axes[0], eda_box, "class_type_label", "g1tmathss")
 axes[0].set_title("Math scaled scores by class type")
 axes[0].set_xlabel("Class type")
 axes[0].set_ylabel("Math scaled scores")
-sns.histplot(eda_box["g1tmathss"], bins=30, color="#7f7f7f", ax=axes[1])
+axes[1].hist(eda_box["g1tmathss"].dropna(), bins=30, color="#7f7f7f", edgecolor="white")
 axes[1].set_title("Distribution of averaged math scores")
 axes[1].set_xlabel("Averaged math scores")
 axes[1].set_ylabel("Count")
@@ -277,11 +405,11 @@ diag_plot = anova_data.copy()
 diag_plot["residual"] = residuals
 diag_plot["school_id_str"] = diag_plot["school_id"].astype(str)
 fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
-sns.stripplot(data=diag_plot, x="class_type_label", y="residual", color="dimgray", alpha=0.7, ax=axes[0])
+categorical_jitter_plot(axes[0], diag_plot, "class_type_label", "residual", color="dimgray", alpha=0.7)
 axes[0].set_title("Residual vs class type")
 axes[0].set_xlabel("Class type")
 axes[0].set_ylabel("Residuals")
-sns.stripplot(data=diag_plot, x="school_id_str", y="residual", color="dimgray", alpha=0.6, size=2.5, ax=axes[1])
+categorical_jitter_plot(axes[1], diag_plot, "school_id_str", "residual", color="dimgray", alpha=0.6, size=6.0)
 axes[1].set_title("Residual vs school id")
 axes[1].set_xlabel("School id")
 axes[1].set_ylabel("Residuals")
@@ -362,31 +490,32 @@ if extension_available:
     sorted_school["schoolid1_ordered"] = pd.Categorical(sorted_school["schoolid1"], categories=school_order, ordered=True)
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.8), gridspec_kw={"width_ratios": [4, 3]})
-    sns.scatterplot(
-        data=sorted_school,
-        x="schoolid1_ordered",
-        y="math1",
-        hue="school1",
-        alpha=0.3,
-        linewidth=0.0,
-        ax=axes[0],
-    )
+    school_colors = {"inner-city": "tomato", "suburban": "goldenrod", "rural": "royalblue", "urban": "seagreen"}
+    x_codes = sorted_school["schoolid1_ordered"].cat.codes.to_numpy()
+    for school_name, subset in sorted_school.groupby("school1", observed=False):
+        mask = subset.index.to_numpy()
+        axes[0].scatter(
+            x_codes[sorted_school.index.get_indexer(mask)],
+            subset["math1"],
+            alpha=0.3,
+            s=10,
+            color=school_colors.get(str(school_name), "gray"),
+            label=str(school_name),
+            linewidths=0.0,
+        )
     axes[0].set_title("Math scores by ordered school id")
     axes[0].set_xlabel("School id")
     axes[0].set_ylabel("Math score")
     axes[0].tick_params(axis="x", labelbottom=False)
+    axes[0].legend(title="school1", fontsize=8, title_fontsize=9)
     box_area = teacher_regression.loc[teacher_regression["school_area_label"].notna()].copy()
-    sns.boxplot(
-        data=box_area,
-        x="school_area_label",
-        y="g1tmathss",
-        hue="class_type_label",
-        ax=axes[1],
-    )
+    grouped_boxplot(axes[1], box_area, "school_area_label", "g1tmathss", hue_col="class_type_label")
     axes[1].set_title("Class-level math scores by area and class type")
     axes[1].set_xlabel("Area")
     axes[1].set_ylabel("Math test scores")
-    axes[1].legend(title="Class type", fontsize=8, title_fontsize=9)
+    legend = axes[1].get_legend()
+    if legend is not None:
+        legend.set_title("Class type")
     savefig("figure_6_school_location.png")
 
     lim_data_long = aer_star.loc[:, ["gender", "birth", "star1", "star2", "star3", "math1", "math2", "math3", "school1", "school2", "school3"]].copy()
@@ -530,12 +659,14 @@ if extension_available:
         axes = [axes]
     for idx, school_value in enumerate(schools):
         school_df = loc_summary.loc[loc_summary["school"] == school_value]
-        sns.lineplot(data=school_df, x="star", y="locmean", hue="year", marker="o", ax=axes[idx])
+        grouped_lineplot(axes[idx], school_df, "star", "locmean", "year")
         axes[idx].set_title(str(school_value))
         axes[idx].set_xlabel("Class type")
         axes[idx].set_ylabel("Average math score")
-        axes[idx].legend_.remove()
-    sns.lineplot(data=star_summary, x="star", y="starmean", hue="year", marker="o", ax=axes[-1])
+        legend = axes[idx].get_legend()
+        if legend is not None:
+            legend.remove()
+    grouped_lineplot(axes[-1], star_summary, "star", "starmean", "year")
     axes[-1].set_title("average")
     axes[-1].set_xlabel("Class type")
     axes[-1].set_ylabel("")
