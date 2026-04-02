@@ -1,0 +1,898 @@
+---
+title: "A Class-level Analysis about the Effects of Class Type on Average Math Scores"
+output:
+  html_document: 
+    df_print: paged
+    fig_caption: yes
+    toc: true
+    toc_float: true
+    toc_depth: 2
+  pdf_document:
+    toc: true
+    toc_depth: 2
+always_allow_html: true
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 18px;
+  }
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE,message=FALSE,warning=FALSE)
+```
+
+***
+
+Team ID: Team 2
+
+Chen Zhang (Model result & diagnostics, additional EDA, reproducibility) 
+
+Kenneth Lee (EDA, model setup, Rshiny, reproducibility)
+
+Rong Duan (Causal Statement, extension and code cleanup) 
+
+Xialin Sang (Hypothesis testing, additional EDA, and regression model)
+
+Github repo: https://github.com/ZCheryl/STA-207
+
+***
+
+```{r load all libraries, include=FALSE}
+# Load packages
+library(multcompView)
+library(naniar)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(MASS)
+library(car)
+library(nortest)
+library(stats)
+library(AER)
+library(visdat)
+library(plotly)
+library(data.table)
+library(devtools)
+```
+
+## 1. Introduction
+
+### 1.1 Background
+
+The effects of class sizes on student achievement is an important topic for policymakers in the American K-12 education system. To study the effects of class size on student achievement in the primary grades, the State Department of Education in Tennessee launched a four-year longitudinal class-size randomized study from 1985 to 1989 called The Student/Teacher Achievement Ratio (STAR). Over 7000 students in 79 schools participated in this project. We highlight the features of the experiment process in the study below. 
+
+* All participating schools had to agree to the random assignment of teachers and students to different class conditions: small class (13 to 17 students per teacher), regular class (22 to 25 students per teacher), and regular-with-aide class (22 to 25 students with a full-time teacher's aide) [5]. 
+
+* The assignments of various class types were initiated as the students entered school in kindergarten and continued through third grade [5]. 
+
+* Each school must provide enough kindergarten students to be assigned to three numerous class types in order to participate in the project STAR [5]. 
+
+* The student achievement is measured annually via Stanford Achievement Tests (SATs) during the spring term on testing dates specified by the Tennessee state.[5]. 
+
+* Students moving from a school involved in STAR to another participating school were assigned to the same type of class as they had participated in previously. Also, it is possible that the size of a regular class can be as small as the small class type as students move out of the participating schools[5].
+
+* Besides class size and teacher aides, there were no other experimental changes involved in the study [5].
+
+* There were three schools resigned from the project STAR at the end of kindergarten, so that there were only left with 76 schools in the 1st-grade level [5].
+
+Our primary scientific question of interest is whether there is a treatment effect of assigning various class types to the average math scaled scores in a 1st-grade class level. We implement exploratory data analysis, two-way ANOVA model, model diagnostics, hypothesis testing. In the end, we will discuss any causal statements that could possibly be made based on our analysis and assumptions and the differences between a student-level and a class-level analysis on this STAR dataset.
+
+This work shows that the treatment effect of the class type does exist in a class level for this dataset. We also show that it is possible to make causal statements based on our analysis.
+
+### 1.2 Exploratory Data Analysis
+
+The original dataset has 11601 observations and 379 attributes. It describes the demographics of the students and teachers, class type assignment, the participating school and class identifiers, and test scores. We first examine if there are any missing values in the data. Then, we will explore the data with teachers as the unit for the 1st-grade students' math scaled scores. We summarize some the findings below:
+
+* ***High level of missing values for teacher identifiers: ***Before we explore the data with teachers as the unit, we have found that there are 4772 observations that are missing teacher ID in the data. As shown in `Figure 1`, above 40% of the total number of observations do not contain information related to teachers. We drop all the observations that do not have a teacher ID as we can hardly impute this identification information. Then, we are then left with 6829 observations. 
+
+* ***Missing class type information in some schools: *** We have also found that there are four schools (ID: 244728, 244796, 244736, 244839) that do not have at least one observation per class type, which contradicts with the experimental design. We then drop the observations from these schools to ensure we have at least one observation per class type in each school.
+
+* ***Small class types have higher average math scores: *** After we drop the observations that do not contain math scaled scores in a student level, we then take the average of the math scaled scores based on the remaining 6334 observations. We are then left with 325 observations with teachers as the unit. The distribution of the averaged math scores by class types is shown by `Figure 2`. We can see that the averaged math scores are higher in general. 
+
+```{r EDA1, echo=FALSE, warning=FALSE, message=FALSE, fig.width=8, fig.height=4, fig.align="center"}
+#read file
+star <- read.table("STAR_Students.tab",sep="\t", header=TRUE)
+
+# Keep the columns only relevant to the first grade students
+columns <- c("gender","g1classtype","g1schid","g1surban","g1tchid","g1tgen","g1trace","g1thighdegree","g1tcareer","g1tyears","g1tmathss")
+data <- star[,columns]
+
+# Change the colnames
+colnames(data) <- c("Gender", "Class Type in Grade 1", "School ID","School Urbanicity","Teacher ID", "Teacher Gender", "Teacher Race", "Teacher Highest Degree", "Teacher Career Ladder","Teaching Experience", "Math Scale Score in 1st Grade")
+
+#missing data
+gg_miss_var(data, show_pct = TRUE) + labs(title = "Missing values proportion",y="Missing Proportion",x="Features")
+
+```
+
+***Figure 1***: *Missing Proportion Plot.* It shows the variables that have missing values in descending order. The x-axis shows the percentage of the missing values based on the overall number of observations.
+
+```{r EDA2, echo=FALSE, warning=FALSE, message=FALSE}
+# Boxplot
+all_g1 <- c("g1classtype",'g1tmathss', "G1SCHID", "G1TCHID", "G1TGEN", "G1TRACE","g1thighdegree", "g1tcareer","g1tyears","g1classsize")
+all_g1 <- tolower(all_g1)
+boxdata<- star[, all_g1]
+
+# Drop all the observations that have missing teacher id
+boxdata <- boxdata[!is.na(boxdata$g1tchid),]
+
+# Drop the school that does not have all 3 class types
+drop_school <- c(244728, 244796, 244736, 244839)
+boxdata <- boxdata[!(boxdata$g1schid %in% drop_school),]
+
+# We will drop the observations that does not have math scores
+boxdata <- boxdata[!is.na(boxdata$g1tmathss),]
+
+# Aggregate the data by taking the average of the math scores for each teacher id 
+data <- boxdata %>%group_by(g1tchid) %>%summarize_each(funs(mean))
+
+# Convert data type to factor for plotting
+data$g1classtype <- as.factor(data$g1classtype)
+data$g1schid <- as.factor(data$g1schid)
+
+# Plot the boxplot to show the distribution of math scores by class type
+p2 <- ggplot(data, aes(x=g1classtype, y=g1tmathss)) +
+  geom_boxplot(fill='#A4A4A4', color="black")+
+  theme_classic() + xlab("Class Type")+ ylab("Math Scaled Scores")+ggtitle("Math Scaled Scores by Class Type in class level")
+```
+
+```{r EDA3, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, fig.align="center"}
+# Plot a histogram of the averaged math scores
+p3 <- qplot(data$g1tmathss, geom="histogram", main = "The distribution of the averaged math scores in class level", xlab= "Averaged Math Scores", ylab="Count") 
+
+# Put two plots together for the report format 
+require(gridExtra)
+grid.arrange(p2, p3, nrow = 1)
+```
+
+***Figure 2***: *Distribution plots.* Left panel: The distribution of average math scaled scores by class type. The class type is described on the x-axis (1: small class; 2: regular class; 3: regular class with aide). Both the highest averaged math score and the lowest math score belong to the small class type.
+Right panel: The distribution of the averaged math scaled scores. The distribution of the averaged math scores seem to be roughly normal.
+
+
+## 2. Analysis Plan
+
+### 2.1 Two-way ANOVA Model
+
+To see whether there is a treatment effect of the class type assignment in a class level, we will use a two-way ANOVA model. Our two-way ANOVA model is an additive model as specified below:
+
+$Y_{ijk} = \mu_{..} + \alpha_{i} + \beta_{j} + \epsilon_{ijk}$ where $i = 1,...,3$, $j = 1,...,72$ and $k = 1,...,n_{ij}$
+
+***Explanation of the notation***
+
+* $Y_{ijk}$ denotes the average math scaled score of the ith class type and the jth school for the $k$th teacher.
+
+* $\mu_{..}$ denotes the overall average of math scaled scores in the population across class types and schools that we try to estimate and this is an unknown parameter.
+
+* $\alpha_{i}$ denotes the main effect of the $i$th class type.
+
+* $\beta_{j}$ denotes the main effect of the $j$th school.
+
+* $\epsilon_{ijk}$ denotes the random error in the $i$th class type, $j$th school for the $k$th teacher. This is an unobserved random variable.
+
+* The index $i$ represents the levels of class type: small ($i=1$), regular ($i=2$), regular with aide ($i=3$). 
+
+* The index $j$ represents the levels of the school indicator. Since we have only 72 schools in the data, we have  $j=1,...,72$.
+
+* The index $n_{ij}$ denotes the total number of teachers in the $j$th school corresponding to the $i$th class type.
+
+***The assumptions of the two-way ANOVA model*** 
+
+* The random errors are assumed to be identically and independently distributed from a normal distribution with mean $0$ and variance $\sigma^{2}$.
+
+* The outcomes are independent normal random variables with a common variance and with means equal to the overall average of math scaled scores across class types and schools. 
+
+* The interaction effects are absent.
+
+***Justification for the model choice****
+
+We do not include the interaction term in our two-way ANOVA model because the interaction term is not of our primary interest. Another reason is that we are also concerned about the model complexity. Given that there is a limited number of observations within each combination of the class type and the school indicator via our exploratory data analysis, we may not have enough information to estimate the parameters. Also, we introduce a blocking factor $\beta_{j}$ into our model for controlling the source of varability; that is, we want to eliminate the effects due to variations among different schools while we are trying to determine the effects due to differences among class type assignments. Thus, this design of the experiment can give a greater accuracy of the model estimates [7].
+
+### 2.2 Model Diagnostics
+
+Next, our model diagnostics will confirm whether the assumptions of our two-way ANOVA model hold such that this model is appropriate for the problem setting. 
+
+* For the normality assumption, we will use a normal Q-Q plot and conduct a Shapiro–Wilk test to see if the residuals follow the normal distribution.
+
+* For equal variance assumption, we will use a residual vs. fitted value plot to see if the residuals (the differences between the actual test scores and predicted test scores) have mean zero and equal variance. 
+
+* The independence assumption will not be tested. Since the design of this ANOVA model is randomized block design, not only students are randomly assigned, teachers within each school are also randomly assigned to a certain class type. As a result, independence is satisfied.    
+
+Furthermore, we would also like to confirm our assumption about absent or ignorable interaction effect between two factors by running the Tukey’s test for additivity.  
+
+
+### 2.3 Hypothesis Testing
+
+As our primary interest is to determine whether there exists a treatment effect of the class types on the math scaled scores in class-level, we plan to use the F-test to test whether there is any main effect across class types. For our hypothesis testing, the significant level is set as 0.05. Our null hypothesis for the F-test is that $H_{0}: \alpha_{i} = 0$, no main effects across class types, with the alternative hypothesis $H_{a}:$ not all $a_{i}$ are zero, main effects exist based on some class types. Upon the rejection of the null hypothesis, we will then investigate the nature of the differences among the averaged test scores of the class types.
+
+After knowing the overall F-test is significant for testing the main effect of class types, we may proceed to find out more specific information about where the difference should be accounted by comparing the averages of mean test scores across class types in 1st grade. Subsequently, we will use a multiple comparison analysis to determine where the differences among the averages of the mean scores on class types occur. Since the dataset does not have the same number of observations for each class type, it is suggested that we should use Tukey's procedure as it can give us a more precise estimation of the difference between the averages of the mean test scores from two different class types based on a narrower confidence interval [6].
+
+## 3. Result
+
+### 3.1 Two-way ANOVA model
+
+`Table 1` shows a summary of our ANOVA model. The sum of squares of schools shows the variability among the averaged test scores across schools, which is 6.2. The more similar the average of the mean test scores of schools, the smaller this sum of squares tend to be. Across class types, we also see that the variation of the outcomes around their respective mean of the averaged test scores based on each class type is higher, which is about 22.6. The smaller this value is, the smaller error variance we have. Similar to the usage of F-value, the p-value helps us understand whether there is a difference among the main effects of each class type or the difference happens due to chance. We will leave the detailed discussion of hypothesis testing in section `3.3`, which also utilizes the information from `Table 1`.
+
+**Table 1: ANOVA Table**
+
+|   Source  of Variation  |  Degrees of Freedom  |   Sum of Squares   |    Mean Square    |    F   |  p-value    |
+|:------------|-----:|--------------:|--------------:|-------:|--------------------:|
+|  Class Type      |  *2* |  6559       |  6559       | 22.6 |  **3.35e-06**      |
+|  School  |  71  |  128366       |   1808       |    6.2    | **< 2e-16**                    |
+|  Error/Residual   |  251  |  73131       |   290.2          |        |                     |
+
+```{r anova, echo=FALSE, warning=FALSE, message=FALSE}
+# Load Data
+rawdata <- read.table("STAR_Students.tab",sep="\t", header=TRUE)
+
+# We keep only 4 columns
+keep <- c("g1classtype", 'g1tchid', 'g1schid', 'g1tmathss')
+data <- rawdata[,keep]
+
+# Finding 1: drop all the teacher id that has missing values
+# sum(is.na(data$g1tchid))# 4772 observations have missing teacher id
+
+# Drop all the observations that have missing teacher id
+data <- data[!is.na(data$g1tchid),]
+
+# Finding 2: it isn't true that every school has 3 class types
+# Check if every school has 3 class types
+#for (i in unique(data$g1schid)){
+#  if (sum(unique(data[data$g1schid==i,]$g1classtype)) != 6){
+#    print(paste("School ID: ", i))
+#    print(unique(data[data$g1schid==i,]$g1classtype))
+#    print("-------------------")
+#  }
+#}
+
+# Finding 3: it is true that every teacher only has 1 school id
+# Check if every teacher has the same school id
+#for (k in unique(data$g1tchid)){
+#  print(unique(data[data$g1tchid==k,]$g1schid))
+#  print("-------------------")
+#}
+
+# Drop the school that does not have all 3 class types
+drop_school <- c(244728, 244796, 244736, 244839)
+data <- data[!(data$g1schid %in% drop_school),]
+
+# We will drop the observations that have math scores before we take the averages
+dummy <- data[!is.na(data$g1tmathss),]
+
+# Check to see if we still have all class types for each school
+#for (i in unique(dummy$g1schid)){
+#    print(unique(dummy[dummy$g1schid==i,]$g1classtype))
+#    print("-------------------")
+#}
+
+# Get average scores by each teacher given each teacher has only 1 class type and 1 school id 
+data<- dummy %>%
+  group_by(g1tchid) %>%
+    summarize_each(funs(mean))
+
+# Convert the data type for fitting the linear regression model
+data$g1schid <- as.factor(data$g1schid)
+data$g1tchid <- as.factor(data$g1tchid)
+data$g1tchid <- as.factor(data$g1classtype)
+
+# ANOVA model fitting
+lm.fit <- lm(g1tmathss ~ g1classtype + g1schid,data=data)
+anova.fit <- aov(lm.fit)
+```
+
+```{r twowayANOVA_1, include=FALSE, result='hide'}
+# Rename columns
+names(data)[1] <- "teacher id"
+names(data)[2] <- "class types"
+names(data)[3] <- "school id"
+names(data)[4] <- "math scores"
+
+# Two-way ANOVA model additive model
+additive_model <- aov(`math scores`~`class types`+`school id`,data=data)
+trans_additive_model <- aov((`math scores`)^(-2)~`class types`+`school id`,data=data)
+
+# Two-way ANOVA model full model
+full_model<- aov(`math scores`~`class types`*`school id`,data=data)
+
+# Results
+summary(additive_model)
+summary(full_model)
+```
+
+```{r test_interactions_1, include=FALSE}
+# Test whether interaction effects are present
+anova(additive_model, full_model)
+# result is non-significant
+```
+
+```{r test_interactions_2, include=FALSE}
+# Tukey's test for interaction
+# The following is an R function to perform Tukey's test of additivity.   
+# This function was originally written by Jim Robison-Cox.
+# Source: https://rdrr.io/cran/asbio/src/R/tukey.add.test.r
+
+tukeys.add.test <- function(y,A,B){
+## Y is the response vector
+## A and B are factors used to predict the mean of y
+## Note the ORDER of arguments: Y first, then A and B
+   dname <- paste(deparse(substitute(A)), "and", deparse(substitute(B)),
+                  "on",deparse(substitute(y)) )
+   A <- factor(A); B <- factor(B)
+   ybar.. <- mean(y)
+   ybari. <- tapply(y,A,mean)
+   ybar.j <- tapply(y,B,mean)
+   len.means <- c(length(levels(A)), length(levels(B)))
+   SSAB <- sum( rep(ybari. - ybar.., len.means[2]) * 
+                rep(ybar.j - ybar.., rep(len.means[1], len.means[2])) *
+                tapply(y, interaction(A,B), mean))^2 / 
+                  ( sum((ybari. - ybar..)^2) * sum((ybar.j - ybar..)^2))
+   aovm <- anova(lm(y ~ A+B))
+   SSrem <- aovm[3,2] - SSAB
+   dfdenom <- aovm[3,1] - 1
+    STATISTIC <- SSAB/SSrem*dfdenom
+    names(STATISTIC) <- "F"
+    PARAMETER <- c(1, dfdenom)
+    names(PARAMETER) <- c("num df", "denom df")
+    D <- sqrt(SSAB/  ( sum((ybari. - ybar..)^2) * sum((ybar.j - ybar..)^2)))
+    names(D) <- "D estimate"
+    RVAL <- list(statistic = STATISTIC, parameter = PARAMETER, 
+        p.value = 1 - pf(STATISTIC, 1,dfdenom), estimate = D,
+        method = "Tukey's one df F test for Additivity", 
+        data.name = dname)
+    attr(RVAL, "class") <- "htest"
+    return(RVAL)
+   }
+```
+
+```{r test_interactions_3, include=FALSE, message=FALSE}
+## Conduct Tukey's test for interaction
+tukeys.add.test(data$`math scores`,data$`class types`,data$`school id`)
+# pvalue = 0.4235, nonsignificant. larger than 0.05. Can not reject the null hypothesis.
+# null is D = 0 no interaction. 
+# We don't want to reject the null hypothesis
+```
+
+### 3.2 Model Diagnostics
+
+**Equal Variance Assumption: **According to `Figure 3`, the residuals are scattered in between positive 50 (roughly) and negative 50 points. Visually, there seems to be more residuals lying in the positive extreme than negative extreme.  Other patterns are hard to detect from this graph. Therefore, we conducted Levene's Test for Homogeneity of Variance. From the test output, we can see that the p-value is less than 0.05. It indicates there is strong evidence suggesting that the variance across groups is different. This result makes sense because the residuals are unique, rather than the average of a group. `Figure 4` plots the residuals against each factor. From these plots, we can examine the equal variance assumption in terms of the class types and school id. The variance of residual is not constant in terms of both factors and seems to be affected by the factor level.    
+
+**Normality Assumption: **In `Figure 3`, the QQ plot shows a heavy tail on both ends, and the normal distribution assumption is questionable. To further investigate this matter, we conducted the Shapiro-Wilk normality test. Since the p-value is less than the chosen significance level $0.05$, we should reject the null hypothesis and conclude that it is unlikely for the data to come from a normally distributed population.
+
+In search for a remedy to the non-normality issue, we considered taking box-cox transformation of the response variable (math score).  However, the transformed response variable still rejects the null hypothesis at the $0.05$ significance level. Taking into account the fact that box-cox transformation undermines the interpretability of the data, we decided not to transform the response variable.
+
+**Interaction Effects: **Lastly, we further conducted Tukey’s test for additivity for the ignorable interaction assumption since it is more appropriate for a randomized block design. The final test produced a more satisfactory result. With p-value equals to $0.42$, we can not reject the null hypothesis at the significance level 0.05. It is more likely that there is  no interaction between the two factors in the ANOVA model.  
+
+
+```{r diagnostics_1, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, fig.align = "center"}
+
+# Residual against fitted values plot: checking equal variance of the error term
+p1 <- ggplot(additive_model)+ geom_point(aes(x=.fitted,y=.resid), color="dimgrey", alpha = 0.8)+ labs(title="Residual Plot", x="fitted scores", y="residuals")+theme(
+    plot.title = element_text(hjust = 0.5, size = 14),     # Center title position and size
+    plot.subtitle = element_text(hjust = 0.5),             # Center subtitle
+    plot.caption = element_text(hjust = 0, face = "italic") # move caption to the left
+  ) 
+
+# Checking normality of the error term
+p2 <- ggplot(additive_model , aes(sample = rstandard(additive_model))) + geom_qq(color = 'dimgrey', alpha = 0.8) + stat_qq_line(color = 'dimgrey')+ labs(title="QQ Plot", x="theoretical quantile", y="standardized residual quantile")+theme(
+    plot.title = element_text(hjust = 0.5, size = 14),    # Center title position and size
+    plot.subtitle = element_text(hjust = 0.5),            # Center subtitle
+    plot.caption = element_text(hjust = 0, face = "italic") # move caption to the left
+  ) 
+
+# Display plots
+grid.arrange(p1,p2, nrow = 1)
+```
+
+***Figure 3: *** *Model diagnostic plots.* Left panel: residual versus fitted values. Right panel: QQ plot with residuals.
+
+```{r diagnostics_2, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, fig.align = "center"}
+
+# Residual against fitted values plot
+data_plot <- data.frame(data)
+data_plot['residual'] = additive_model$residuals
+
+p3 <- ggplot(data_plot)+ 
+  geom_point(aes(x=class.types,y=residual), color="dimgrey", alpha = 0.8)+
+  labs(title="Residual vs. class types", x="class types", y="residuals")+
+  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+# Residual against fitted values plot
+p4 <- ggplot(data_plot)+ geom_point(aes(x=school.id,y=residual), color="dimgrey", alpha = 0.8)+ labs(title="Residual vs. school id", x="school id", y="residuals") + theme(        axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+# Display plots 
+grid.arrange(p3, p4, nrow = 1)
+```
+
+***Figure 4: *** *More residual plots.* Left panel: esidual vs. class types. Right panel: Residual vs. school id.
+
+```{r model diagnotic tests, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+
+# Levine test: checking equal variance of the error term
+data$`class types` <- as.factor(data$`class types`)
+data$`school id` <- as.factor(data$`school id`)
+leveneTest(`math scores`~`class types`*`school id`, data = data)
+# Output is less than the significance level of 0.05. This means that there is no evidence to suggest that the variance across groups is statistically significantly different. Therefore, we can assume the homogeneity of variances in the different treatment groups.
+
+# Normality test: null - > Normality -> non-significant 
+shapiro.test(x = trans_additive_model$residuals)
+shapiro.test(x = additive_model$residuals)
+#Here we get significant result.
+
+# Normality test: null -> normally distributed
+ad.test(trans_additive_model$residuals)
+ad.test(additive_model$residuals)
+# if pvalue is low then we reject the null hypothesis
+```
+
+### 3.3 Hypothesis Testing
+
+To conduct a F-test for the main effects of class types, the first step is to state the null hypothesis $H_{0}$: $\alpha_{1}=\alpha_{2}=\alpha_{3}$, where each $\alpha_{i}$ represent the average of the mean test scores within each class type. The alternative hypothesis $H_{\alpha}$: not all $\alpha_{i}$’s are equal. From `table 1`, we see that the pvalue is less than $0.05$. Therefore, we reject the null hypothesis at the significance level $0.05$ as the p-value suggests that the equality of the main effects of the class types happen less than 5% of the time. Therefore, we conclude that there is a main effect the class types. 
+
+Then, we use Tukey's procedure to find out more information where the difference may come from. In the `Figure 5`, it gives us an intuition of confidence intervals for the difference in the means for all pairs of class types, and all pairs of school indicators. For example, the confidence interval (the interval at the bottom of the `Figure 5`) that compares regular classes with regular classes with aide. As the 95% confidence interval includes zero, there is no statistically significant difference between the treatments. Then, we observe from the other two confidence intervals, again in `Figure 5`, that the main effect can be attributed to the differences between small class types and other class types.  
+
+```{r Tukey_kramer, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, fig.align = "center"}
+
+# Tukey test to study each pair of treatment
+fit1=aov(data$`math scores`~data$`class types`)
+TUKEY=TukeyHSD(fit1,ordered="TRUE" )
+
+# Tukey test representation:
+plot(TukeyHSD(fit1), col="gray31") 
+```
+
+***Figure 5:*** *The Confidence Interval of Multiple Comparisons of Means.* The confidence interval of Multiple Comparisons of the averages of the class types (1:small class, 2: regular class, 3: regular class + aide). 
+
+## 4. Discussion
+
+### 4.1 Possibility of making any causal statements
+
+Now we would like to make a causal statement based on the above analysis. If the following assumptions are examined to be qualified in the study, then we could make a causal inference based on the analysis. The assumptions are summarized below.
+
+- **Stable unit treatment value assumption (SUTVA):** SUTVA has two implications: 1) No interference. That means the class type assignment of one teacher does not affect the potential outcomes of others. A class-level average score in math is not dependent on whether other teachers are assigned to a certain class type. For example, if a teacher in the regular class is discouraged because of the assignment of class types, they would not work as harder as usual, which could interfere with the experiment outcome. 2) The treatments are consistent - there is no different version of each treatment level [1]. In STAR, this assumption means all teachers in the same class type should use a similar way to teach, which makes sure the treatment is stable and the teaching quality is not accounted for the cause. This assumption excludes the unstable treatment cases for causal inference. However, it seems very difficult to implement the same teaching method in practice.
+
+- **Randomization:**
+With the double randomization of the students and teachers, we can fairly assume that the teachers and students are independent with the 3 class types. With a large sample size, the variation of performance students and teachers would not like to interfere with our outcome. Also, with the randomization of student assignment, we could ignore the potential influences of other factors (like gender, sex, etc.). 
+
+- **Exchangeability:** 
+Randomization experiment is expected to produce exchangeability [2]. Exchangeability means the potential outcome is independent with treatment. In our case, it means that the class type which a teacher assigned to is independent with the average math score in that class. In other words, because each teacher and student are distinctive individuals, the class type assignment does not dictate a different performance in the score. But potential outcome is not observed outcome. With exchangeability, we can conclude that the differences in scores among the 3 class types would exist in the whole population. Thus, we could use the association relationship to draw some causal inferences based on this assumption.
+
+- **Positivity:**
+Positivity is the assumption that any individual has a positive probability of receiving all levels of the treatment. In STAR, we just simply check whether every school has all 3 types of classes, and drop the schools which don’t have enough class types. This also corresponds to the randomized block design of our analysis.
+
+- **Double-blind:**
+To satisfy the double-blind assumption, the teachers and students should not have any preconception that there is a treatment effect among different class types. Otherwise, this information would disturb their educational performance. In the same way, if the scientists believed the class types have treatment effects, their analysis would be interfered by this preconception.
+
+As long as the above assumptions hold and our analysis confirms that the main effects of different class types are significant, we can quantify the average causal effects due to class types. However, we recognize that there are many potential aspects of the experiment that can undermine the above assumptions. For example, missing values would invalidate the randomization. If the missing values are not randomly missing but because of some certain purpose, the exchangeability assumptions would not hold, which is difficult for us to draw a causal statement.
+
+### 4.2 Differences between student-level and class-level analysis
+
+In the project 1, we used one-way ANOVA for our model to test whether there exists a treatment effect of the class type on the math scaled scores based a student-level analysis. The causal statement was made possible assuming the implementation of completely randomized design. In fact, the Stable Unit Treatment Value Assumption (SUTVA) is not plausible in the student-level study, because students are prone to peer influences. Violations of SUTVA complicate the regression and imputation approaches considerably, and we therefore primarily focus on teacher-unit in order to draw some causal inferences [3]. In this project, with teachers as the unit, the observed values are the averages of test scores within each class. It is ensured that the class type assignment of one teacher does not affect the potential outcomes of others.
+
+In addition, we implemented a randomized block design in project 2 by adding the school identity as another factor. This is necessary because different schools would have pre-treatment effects on different levels, which interfere with the scores of each class type. Under the randomized block design setup, subjects within each block are randomly assigned to different treatments. Compared to the completely randomized design in project 1, this design reduces within-class type variability and potential confounding, producing better estimates of the treatment effects [4]. As a part of the two-way ANOVA model, we account for an additional source of variability coming from schools as the blocking factor. The previous within treatment variability is split into two sources: the reduced error variability and block variability. As a result, the treatment variability becomes larger compared to the reduced error variability. Thus, the class types can provide a better explanation to the differences in scores.
+
+## 5. Extention - Exploring Influences from Other Factors
+
+### 5.1 Exploratory Data Analysis on School Location
+
+At the beginning of re-exploration, we would like to delve into why school is designed to be the blocking factor. We believe that the location is an important source of heterogeneity of school. `Figure 6` left panel shows a scatter plot of math scores ordered by school id, where location is the main consideration. There is a clear pattern that a larger portion of school is in the rural area (blue color) and their students generally perform better in the math tests. In contrast, we can observe the red inner-city schools are clustered to the left. Collectively, the students attending inner-city schools have lower math scores compared with other locations. This trend of strong association between inner-city schools and lower math scores can be confirmed with the boxplot on the right panel of `Figure 6`.  
+
+According to project description, schools that have more than half of their students on free or reduced cost lunch were tentatively defined as inner-city, which is an indicative of a low socioeconomic background. Inner-city and suburban schools are all located in metropolitan areas. Perhaps this is a cause of low scores. The school is tentatively designed as a block factor not only because it is easy and natural to implement, but also it serves a purpose of reducing the effect of nuisance factors.    
+
+```{r scatter plot, echo=FALSE, warning=FALSE, message=FALSE}
+data("STAR")
+
+# Choose columns we are interested
+columns_long <- c("gender", "birth", "star1", "star2", "star3", "math1", "math2", "math3", "school1", "school2", "school3", "degree1", "degree2", "degree3", "ladder1", "ladder2", "ladder3", "experience1", "experience2", "experience3", "schoolid1", "schoolid2", "schoolid3", "system1", "system2", "system3")
+data_long <- STAR[, columns_long]
+
+# Drop Missing Values
+nona_long=na.omit(data_long)
+
+# Create a mean column for relevel
+sorted_school <-nona_long %>%
+  group_by(schoolid1) %>%
+  mutate(mean = mean(math1))
+
+# Relevel factor for plotting 
+sorted_school$schoolid1 <- factor(sorted_school$schoolid1, levels = unique(sorted_school$schoolid1[order(sorted_school$mean)]), ordered=TRUE)
+
+# Create the scatter plot 
+p5 <- ggplot(data = sorted_school, aes(x = schoolid1, y = math1, color=school1))+ geom_point(alpha=0.3)+ 
+  labs(x="school id", y="math score", color="school location")+
+  theme(legend.text = element_text(size=10),
+        legend.title = element_text(size=10))+
+  guides(size = 2)+
+  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+```
+
+
+```{r regression_1, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Cleanup data
+star <- read.table("STAR_Students.tab",sep="\t", header=TRUE)
+columns <- c("g1classtype","g1schid","g1surban","g1tchid","g1tgen","g1trace","g1thighdegree","g1tcareer","g1tyears","g1tmathss")
+data <- star[,columns]
+
+# Drop all the observations that have missing teacher id
+boxdata <- data[!is.na(data$g1tchid),]
+
+# Drop the school that does not have all 3 class types
+drop_school <- c(244728, 244796, 244736, 244839)
+boxdata <- boxdata[!(boxdata$g1schid %in% drop_school),]
+
+# We will drop the observations that does not have math scores
+boxdata <- boxdata[!is.na(boxdata$g1tmathss),]
+data2 <- boxdata %>%
+  group_by(g1tchid) %>%
+  summarize_each(funs(mean))
+
+# Regular 0 small 1 regular+aide 2
+data2$g1classtype[data2$g1classtype == 2] = 0    
+data2$g1classtype[data2$g1classtype == 3] = 2
+data2$g1classtype <- as.factor(data2$g1classtype)
+data2$g1classtype <- factor(data2$g1classtype,
+                         levels=c(0,1,2),
+                         labels=c("Regular", 
+                                  "Small",
+                                  "Regular+aide"))
+data2$g1schid <- as.factor(data2$g1schid)
+data2$g1tchid = as.factor(data2$g1tchid)
+
+# 0 Bachelors ;1 masters; 2 specialist; 3 doctoral
+data2$g1tcareer[data2$g1tcareer ==2] = 0     
+data2$g1tcareer[data2$g1tcareer ==3] = 1    
+data2$g1tcareer[data2$g1tcareer ==5] = 2
+data2$g1tcareer[data2$g1tcareer ==6] = 3
+data2$g1thighdegree= as.factor(data2$g1thighdegree)
+
+# 0 Male 1 Female
+data2$g1tgen[data2$g1tgen == 1] =0
+data2$g1tgen[data2$g1tgen == 2] =1
+data2$g1tgen= as.factor(data2$g1tgen)
+
+# 0:White, 1: Black
+data2$g1trace[data2$g1trace == 1] =0
+data2$g1trace[data2$g1trace == 2] =1
+data2$g1trace = as.factor(data2$g1trace)
+
+# 0 not in ;1 apprentice; 2 probation; 3 ladder level 1 ; 4 ladder level2 ;5 ladder level 3 
+data2$g1tcareer[data2$g1tcareer ==1] = 0     
+data2$g1tcareer[data2$g1tcareer ==2] = 1    
+data2$g1tcareer[data2$g1tcareer ==3] = 2
+data2$g1tcareer[data2$g1tcareer ==4] = 3
+data2$g1tcareer[data2$g1tcareer ==5] = 4
+data2$g1tcareer[data2$g1tcareer ==6] = 5
+data2$g1tcareer = as.factor(data2$g1tcareer)
+data2$g1surban = as.factor(data2$g1surban)
+data2$g1surban <- factor(data2$g1surban,  
+                         levels=c(1,2,3,4),
+                         labels=c("Inner City", 
+                                  "Surban",
+                                  "Rural",
+                                  "Urban"))
+```
+
+```{r boxplot by area, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=5, fig.align="center"}
+# Box Plot Math test scores by School Area and Class Type
+p6 <- ggplot(data2[!is.na(data2$g1surban),], aes(x=g1surban, y=g1tmathss, fill=g1classtype)) + geom_boxplot()+
+  labs(x="Area", y = "Math Test Scores")+
+  guides(fill=guide_legend(title="Class Type"))+
+  scale_fill_manual(values=c("skyblue", "tomato", "grey"))
+
+# Put the figures together on the report
+grid.arrange(p5, p6, widths=c(4,3))
+```
+
+***Figure 6***: *Math Test Scores by School ID, School Area and Class Types.* Left panel: the distribution of student math scores in all schools colored by school locations. Right panel: the boxplot of class averaged math scores grouped by school locations.  
+
+### 5.2 Exploratory Data Analysis on the Longitudinal Data
+
+Before exploring the data in a longitudinal fashion, we examined the missing value. In `Figure 7`, blackout area means the data is missing. So the pattern suggests that there are students dropping out of program and new student signing up in every year. Because we don’t have enough information of these students, we can only focus on the students who participates throughout the course of the program.
+
+```{r missing data, echo=FALSE, warning=FALSE, message=FALSE, fig.width=6, fig.height=4, fig.align="center"}
+# Choose variables we want to explore about missing value
+lim_data_long <- STAR[, c("gender", "birth", "star1", "star2", "star3", "math1", "math2", "math3", "school1", "school2", "school3")]
+
+# Rearrange order of data 
+sorted_long <-lim_data_long %>% 
+  arrange(desc(is.na(star1)),
+          desc(is.na(star2)),
+          desc(is.na(star3)), 
+          desc(is.na(math1)),
+          desc(is.na(math2)),
+          desc(is.na(math3)))
+
+## Display the missing data plot
+vis_miss(sorted_long)
+```
+
+***Figure 7***: *Missing Data Plot.* The blackout areas indicate missing entries, and the gray areas represent entries that are present. More than half of the data are not complete.
+
+Within these student, we are furthered interested in which students have continuously stayed in the same class type (small class or regular class). An alluvial diagram here can help us track the flow of student (`Figure 8`). We can see that students from regular classes are most active in switching into other classrooms and the total number of student is shrinking. Visibly, there are two streams of students from regular class, going into other class types every year. Eventually we use the students that stay in the same class type for the next plot (`Figure 9`). 
+
+```{r alluvial plot, echo=FALSE, warning=FALSE, message=FALSE, fig.width=8, fig.height=4, fig.align="center"}
+
+# Load data with some variables we are interestied in 
+columns_long <- c("gender", "birth", "star1", "star2", "star3", "math1", "math2", "math3", "school1", "school2", "school3", "degree1", "degree2", "degree3", "ladder1", "ladder2", "ladder3", "experience1", "experience2", "experience3", "schoolid1", "schoolid2", "schoolid3", "system1", "system2", "system3")
+data_long <- STAR[, columns_long]
+
+# Drop Missing Values
+nona_long=na.omit(data_long)
+
+# Count how many student enrolls in each combination of class types for 3 years
+alluvialdata <- nona_long %>% group_by(star1, star2, star3) %>%summarise(Freq = n())  
+
+# Construct new variables
+alluvial_data <- as.data.frame(alluvialdata)
+alluvial_data <- alluvial_data %>%
+  mutate(
+    star1=paste0(star1,'_1'),
+    star2=paste0(star2,'_2'),
+    star3=paste0(star3,'_3')
+  )
+
+# Set color for streams (links) in the alluvial diagram  
+alluvial_data$color = c(rep('lightblue',9), rep('salmon',7), rep('lightgray',7))
+
+# Data classification and rename columns
+alluvial_data_1 <- alluvial_data[,c(1,2,4,5)]
+alluvial_data_1 <- alluvial_data_1 %>% rename(source = star1, target = star2)
+alluvial_data_2 <- alluvial_data[,2:5]
+alluvial_data_2 <- alluvial_data_2 %>% rename(source = star2, target = star3)
+
+# Combine the data into one dataframe
+sankeydata <- rbind(alluvial_data_1, alluvial_data_2)
+sankeydata <- data.table(sankeydata)
+combined_sank = rbind(sankeydata[1:23,lapply(.SD,sum), by=list(source, target, color)], sankeydata[24:46,])
+
+# Create Links
+links <- combined_sank
+
+# Convert links as character
+links$source <- as.character(links$source)
+links$target<- as.character(links$target)
+
+# Create nodes based on links
+nodes <- data.frame(name = unique(c(links$source, links$target)))
+
+# More clean-up
+links$source <- match(links$source, nodes$name) - 1
+links$target <- match(links$target, nodes$name) - 1
+
+# Create web-based interactive charting
+fig <- plot_ly(type = "sankey",
+               orientation = "h",
+               node = list(
+                 label = c("regular", "small", "reg+aid","regular", "small", "reg+aid","regular", "small", "reg+aid"),
+                 color = rep(c("skyblue", "tomato", "khaki"),3),
+                 pad = 15,
+                 thickness = 20,
+                 line = list(color = "black", width = 0.5)),
+               link = list(source = links$source,
+                           target = links$target,
+                           value = links$Freq,
+                           color = links$color,alpha = 0.7))
+
+# Format of the plot
+fig <- fig %>% layout(title = "Continuity of Program", font = list(size = 10))
+
+# Display plot
+fig
+```
+
+***Figure 8***: *Alluvial Plot.* This plot displays the class types of students in each grade. Some students transfer to other class types as they rise in grades. 
+
+`Figure 9` shows the average score on the longitudinal scale. It clearly shows that students in small class type perform better in standardized math test in all most all grades and locations. However, average graph on the right shows that the gap between small class and other types are getting smaller in higher grades. This result might potentially overturn people’s perception that small class size always have a significant grade boosting effect, even when the student go to a higher grade. In other words, the effect of small class might only be significant in the lower grade. As students move up to higher grade, the advantage of small class size might fade away.
+
+```{r location and grade plot, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, fig.align="center"}
+
+# classify data
+final_long<-nona_long[(nona_long$star1==nona_long$star2 & nona_long$star2==nona_long$star3),]
+final_long <-final_long %>%
+  mutate(
+    year1='1',
+    year2='2',
+    year3='3',
+    id=rownames(final_long)
+  )
+# choose columns for further plots
+columns_1 <- c("gender", "birth", "id", "year1", "star1", "math1", "school1", "degree1", "ladder1", "experience1", "schoolid1", "system1")
+columns_2 <- c("gender", "birth", "id", "year2", "star2", "math2", "school2", "degree2", "ladder2", "experience2", "schoolid2", "system2")
+columns_3 <- c("gender", "birth", "id", "year3", "star3", "math3", "school3", "degree3", "ladder3", "experience3", "schoolid3", "system3")
+
+# reformat data of grade 1
+final_long_1 <- final_long[,columns_1]
+final_long_1 <- final_long_1 %>% 
+  rename(
+    year = year1,
+    star = star1,
+    math = math1,
+    school = school1,
+    degree = degree1, 
+    ladder = ladder1, 
+    experience = experience1, 
+    schoolid = schoolid1,
+    system = system1
+  )
+
+# reformat data of grade 2
+final_long_2 <- final_long[,columns_2]
+final_long_2 <- final_long_2 %>% 
+  rename(
+    year = year2,
+    star = star2,
+    math = math2,
+    school = school2,
+    degree = degree2, 
+    ladder = ladder2, 
+    experience = experience2, 
+    schoolid = schoolid2,
+    system = system2
+  )
+# reformat data of grade 3
+final_long_3 <- final_long[,columns_3]
+final_long_3 <- final_long_3 %>% 
+  rename(
+    year = year3,
+    star = star3,
+    math = math3,
+    school = school3,
+    degree = degree3, 
+    ladder = ladder3, 
+    experience = experience3, 
+    schoolid = schoolid3,
+    system = system3
+  )
+
+# Combine all 3 grades
+chrono = rbind(final_long_1, final_long_2, final_long_3)
+
+# Group by the data and create math score mean
+chrono <- chrono %>%
+  group_by(star, year) %>%
+  mutate(starmean = mean(math)) %>%
+  ungroup() %>%
+  group_by(star, year, school)%>%
+  mutate(locmean = mean(math))
+
+# Plot location-wise average in each grade
+p3 <- ggplot(data = chrono, aes(x = star, y = locmean, group=year, colour = year)) +
+  facet_wrap(~school, nrow=1)+
+  geom_line(size = 0.5, alpha = 0.9)+ 
+  geom_point()+
+  ylim(500,640)+
+  labs(
+    x = "Class Type",
+    y = "Average math score" 
+  )+  
+  theme_bw()+
+  theme(legend.position = "none")
+
+# Create a seperate dummy column for formatting 
+chrono$title <- 'average' 
+
+# Plot math score mean regardless of location
+p4 <- ggplot(data = chrono, aes(x = star, y = starmean, group=year, colour = year)) +
+  geom_line(size = 0.5, alpha = 0.9)+ 
+  facet_grid(. ~ title)+
+  geom_point()+
+  labs(
+    colour = "Grade",
+    x = ""
+  )+
+  ylim(500,640)+
+  theme_bw()+
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+  
+# Arrange the plot
+grid.arrange(p3, p4, widths=c(8,3))
+```
+
+***Figure 9***: *Comparison Scores in Different Locations and Grades.* In each subplot, small classes almost always have the highest score.
+
+
+### 5.3 Regression Model Analysis
+
+**Motivation**
+
+Although in this experiment teachers are randomly assigned to each class types, there are some missing values as presented in section 1.2. By dropping these entries, we lose some information. We are concerned that, if the missing values are not randomly missing, we cannot be confident that the remaining dataset is completely randomized. 
+
+
+**Regression Model**
+
+Considering each teacher as the individual unit, we want to examine whether the demographic features of teachers would affect the math performance in 1st grade besides class type. We propose a regression model with school fixed effect. 
+
+$Y_{jk}=\beta X_{jk}+\sum_{t=1}^{6} \gamma_{t}T_{t,jk}+\alpha_{j}+\epsilon_{jk},  t=1,...6,j=1,...72$ and $k=1,...,n_{j}$
+
+$Y_{jk}$ denotes the mean math score of teacher k at shcool j.
+
+$X_{jk}$ is a categorical variable of our primary interest, class type.
+
+$T_{t,jk}$ represents t covariates: *Teacher Gender*, *Teacher Race*, *Teacher Career Ladder Level*, *Teacher Highest Degree*, *Years of Total Teaching Experience*.
+
+$\alpha_{j}$ is the school fixed effect that can control for unobservable differences in math performance across schools. It varies across schools but is constant across teachers for each school.
+
+$\epsilon_{jk}$ is the error terms. 
+
+**Result**
+
+`Table 2` shows a summary of our regression model. All p-values for the variables teacher characteristics fall below our specified $\alpha=0.05$ and provide evidence that teacher characteristics explain relatively little in the averaged math test scores in 1st grade.
+
+**Table 2: ANOVA Table for Regression Model**
+
+|   Source  of Variation  |  Degrees of Freedom  |   Sum of Squares   |    F   |  p-value    |
+|:------------|-----:|--------------:|-------:|--------------------:|
+|  Class Type      |  *2* |  9533       | 17.76 |  **6.45e-08**      |
+|  Teaching Experience(year)      |  1 |  212       | 0.79 |  0.38      |
+|  Teacher Gender      |  1 |  105       | 0.39 |  0.53      |
+|  Teacher Race      |  1 |  99       | 0.37 |  0.54      |
+|  Teacher Career Ladder Level      |  3 |  1220       | 1.51 |  0.21      |
+|  Teacher Highest Degree      |  3 |  90       | 0.11 |  0.95      |
+|  Error/Residual   |  239  |  64151       |   290.2          |        |                     
+**Conclusion**
+
+As we explored above, teachers’ features do not have a significant influence on student scores, which also indicates that the missing value do not have a specific pattern and this dataset can be regarded as randomized. Combining the result that we explored before, small class type not only have a statistically significant effect on math scores, but can cause a higher math score in causality. Hence, we conclude that small class type can cause a higher math score.
+
+```{r regression_2, echo=FALSE, warning=FALSE, message=FALSE}
+# Regression model with school fixed effects
+grade1=lm(g1tmathss ~ g1classtype + g1tyears + g1tgen + g1tcareer+ g1trace +g1thighdegree+g1schid, data = data2)
+```
+
+
+## Appendix I. Reference
+
+[1] Marin Vlastelica Pogančić, 2019, "Causal vs. Statistical Inference", https://towardsdatascience.com/causal-vs-statistical-inference-3f2c3e617220, Max Planck Institute for Intelligent Systems
+
+[2]Miguel A. Hernán, James M. Robins(2018).Causal Inference: What If.1420076167
+
+[3]Guido W. Imbens & Donald B. Rubin, CAUSAL INFERENCE for Statistics, Social, and Biomedical Sciences An Introduction, chapter 9, ISBN 978-0-521-88588-1.
+
+[4]Hanushek, Eric A. "Some findings from an independent investigation of the Tennessee STAR experiment and from other investigations of class size effects." Educational Evaluation and Policy Analysis 21.2 (1999): 143-163.
+
+[5] C.M. Achilles; Helen Pate Bain; Fred Bellott; Jayne Boyd-Zaharias; Jeremy Finn; John Folger; John Johnston; Elizabeth Word, 2008, "Tennessee's Student Teacher Achievement Ratio (STAR) project", https://doi.org/10.7910/DVN/SIWH9F, Harvard Dataverse, V1, UNF:3:Ji2Q+9HCCZAbw3csOdMNdA== [fileUNF]
+
+[6] Kutner, Michael H., et al.Applied linear statistical models. Vol. 5. New York: McGraw-Hill Irwin, 2005.
+
+[7] (2008) Randomized Block Design. In: The Concise Encyclopedia of Statistics. Springer, New York, NY
+
+## Appendix II. Reproducibility Info
+
+### Github Repository:
+
+Original report of project 2: https://github.com/kenneth-lee-ch/STA-207/tree/master/project2
+Final report: https://github.com/ZCheryl/STA-207
+
+### RPubs:
+
+https://rpubs.com/Cherylz/projectSTAR
+
+### Session Info:
+
+```{r Reproducibility, echo=FALSE,  warning=FALSE, message=FALSE}
+## Reproducibility info
+session_info()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

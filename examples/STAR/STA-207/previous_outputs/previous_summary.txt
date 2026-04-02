@@ -1,0 +1,14 @@
+Python reproduction of final.Rmd
+Raw rows: 11601
+Missing teacher id rows: 4772
+Rows after math filter: 6334
+Teacher-level rows: 325
+Unique schools: 72
+ANOVA class type p-value: 1.7724e-09
+ANOVA school p-value: 4.21066e-29
+Tukey additivity p-value: 0.42346
+Levene p-value: 7.49466e-10
+Regression class type p-value: 1.07562e-08
+Counts match Rmd: True
+ANOVA class sumsq delta vs Rmd: 5425.027847
+Tukey additivity delta vs Rmd: -0.000040

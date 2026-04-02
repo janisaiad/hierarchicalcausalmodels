@@ -1,0 +1,343 @@
+{
+  "paths": {
+    "tab_path": "/home/janis/hcm/hierarchicalcausalmodels/examples/STAR/STA-207/STAR_Students.tab",
+    "aer_path": "/home/janis/hcm/hierarchicalcausalmodels/data/star/STAR.csv",
+    "output_dir": "/home/janis/hcm/hierarchicalcausalmodels/examples/STAR/STA-207/previous_outputs"
+  },
+  "class_level_summary": {
+    "n_raw_rows": 11601,
+    "n_missing_teacher_id": 4772,
+    "n_after_teacher_filter": 6829,
+    "n_drop_school_rows": 272,
+    "n_after_school_filter": 6557,
+    "n_after_math_filter": 6334,
+    "n_class_level_rows": 325,
+    "n_unique_schools": 72
+  },
+  "class_type_summary": [
+    {
+      "class_type_label": "Regular",
+      "count": 107,
+      "mean": 526.0561369630087,
+      "std": 23.91139755301493,
+      "min": 473.3,
+      "max": 597.6
+    },
+    {
+      "class_type_label": "Regular+Aide",
+      "count": 100,
+      "mean": 529.4997930485015,
+      "std": 24.024900032851217,
+      "min": 472.05263157894734,
+      "max": 582.3
+    },
+    {
+      "class_type_label": "Small",
+      "count": 118,
+      "mean": 540.0200350815131,
+      "std": 25.87346783939807,
+      "min": 468.2857142857143,
+      "max": 609.7142857142857
+    }
+  ],
+  "anova_table_type1": [
+    {
+      "source": "C(class_type)",
+      "df": 2.0,
+      "sum_sq": 11984.02784680172,
+      "mean_sq": 5992.01392340086,
+      "F": 21.858877945231143,
+      "PR(>F)": 1.772397759405748e-09
+    },
+    {
+      "source": "C(school_id)",
+      "df": 71.0,
+      "sum_sq": 127267.671322632,
+      "mean_sq": 1792.502412994817,
+      "F": 6.5390521389088505,
+      "PR(>F)": 4.210660286421318e-29
+    },
+    {
+      "source": "Residual",
+      "df": 251.0,
+      "sum_sq": 68804.789456347,
+      "mean_sq": 274.122667156761,
+      "F": NaN,
+      "PR(>F)": NaN
+    }
+  ],
+  "anova_additive_vs_full": [
+    {
+      "model": 0,
+      "df_resid": 251.0,
+      "ssr": 68804.789456347,
+      "df_diff": 0.0,
+      "ss_diff": NaN,
+      "F": NaN,
+      "Pr(>F)": NaN
+    },
+    {
+      "model": 1,
+      "df_resid": 109.0,
+      "ssr": 31181.473610785768,
+      "df_diff": 142.0,
+      "ss_diff": 37623.315845561236,
+      "F": 0.9261867981571584,
+      "Pr(>F)": 0.6676705670288918
+    }
+  ],
+  "tukey_additivity": {
+    "F": 0.642799286547412,
+    "p_value": 0.4234603499206082,
+    "D_estimate": 0.007694811480001484,
+    "num_df": 1.0,
+    "denom_df": 250.0
+  },
+  "diagnostics": {
+    "levene": {
+      "statistic": 3.3837769765882406,
+      "p_value": 7.494664418505557e-10
+    },
+    "shapiro_additive": {
+      "statistic": 0.9763108684429691,
+      "p_value": 3.418980046126438e-05
+    },
+    "shapiro_transformed": {
+      "statistic": 0.982491083541241,
+      "p_value": 0.000538660974622777
+    },
+    "anderson_additive": {
+      "statistic": 1.8150052033530528,
+      "critical_values": [
+        0.56,
+        0.63,
+        0.75,
+        0.871,
+        1.033
+      ],
+      "significance_levels": [
+        15.0,
+        10.0,
+        5.0,
+        2.5,
+        1.0
+      ]
+    },
+    "anderson_transformed": {
+      "statistic": 1.318294075118672,
+      "critical_values": [
+        0.56,
+        0.63,
+        0.75,
+        0.871,
+        1.033
+      ],
+      "significance_levels": [
+        15.0,
+        10.0,
+        5.0,
+        2.5,
+        1.0
+      ]
+    }
+  },
+  "tukey_hsd_table": [
+    {
+      "group1": "Regular",
+      "group2": "Regular+Aide",
+      "meandiff": 3.4437,
+      "p-adj": 0.5753,
+      "lower": -4.6378,
+      "upper": 11.5251,
+      "reject": false
+    },
+    {
+      "group1": "Regular",
+      "group2": "Small",
+      "meandiff": 13.9639,
+      "p-adj": 0.0001,
+      "lower": 6.2076,
+      "upper": 21.7202,
+      "reject": true
+    },
+    {
+      "group1": "Regular+Aide",
+      "group2": "Small",
+      "meandiff": 10.5202,
+      "p-adj": 0.0053,
+      "lower": 2.6228,
+      "upper": 18.4177,
+      "reject": true
+    }
+  ],
+  "regression_anova": [
+    {
+      "source": "C(class_type_label)",
+      "df": 2.0,
+      "sum_sq": 11134.798848353625,
+      "mean_sq": 5567.399424176812,
+      "F": 19.83782901431418,
+      "PR(>F)": 1.0756191680563072e-08
+    },
+    {
+      "source": "C(teacher_gender_label)",
+      "df": 1.0,
+      "sum_sq": 280.24745893415184,
+      "mean_sq": 280.24745893415184,
+      "F": 0.9985813390519864,
+      "PR(>F)": 0.3186689205579406
+    },
+    {
+      "source": "C(g1tcareer)",
+      "df": 5.0,
+      "sum_sq": 6205.794354516105,
+      "mean_sq": 1241.158870903221,
+      "F": 4.4225132031402445,
+      "PR(>F)": 0.0007180907700360695
+    },
+    {
+      "source": "C(teacher_race_label)",
+      "df": 2.0,
+      "sum_sq": 10426.051280327707,
+      "mean_sq": 5213.0256401638535,
+      "F": 18.575119803281776,
+      "PR(>F)": 3.19036479464291e-08
+    },
+    {
+      "source": "C(g1thighdegree)",
+      "df": 3.0,
+      "sum_sq": 504.6100010771043,
+      "mean_sq": 168.2033336923681,
+      "F": 0.5993442753427383,
+      "PR(>F)": 0.616017226830553
+    },
+    {
+      "source": "C(g1schid)",
+      "df": 71.0,
+      "sum_sq": 109010.33488563017,
+      "mean_sq": 1535.356829375073,
+      "F": 5.470803141020505,
+      "PR(>F)": 2.0730294794923194e-23
+    },
+    {
+      "source": "g1tyears",
+      "df": 1.0,
+      "sum_sq": 294.98246731646447,
+      "mean_sq": 294.98246731646447,
+      "F": 1.051085309854481,
+      "PR(>F)": 0.30629814451783594
+    },
+    {
+      "source": "Residual",
+      "df": 238.0,
+      "sum_sq": 66793.6527730925,
+      "mean_sq": 280.6455998869433,
+      "F": NaN,
+      "PR(>F)": NaN
+    }
+  ],
+  "reported_from_rmd": {
+    "counts": {
+      "n_raw_rows": 11601,
+      "n_missing_teacher_id": 4772,
+      "n_after_math_filter": 6334,
+      "n_class_level_rows": 325,
+      "n_unique_schools": 72
+    },
+    "anova_table": {
+      "class_type_sum_sq": 6559.0,
+      "class_type_F": 22.6,
+      "class_type_p_value": 3.35e-06,
+      "school_sum_sq": 128366.0,
+      "school_F": 6.2,
+      "school_p_value_upper_bound": 2e-16,
+      "residual_sum_sq": 73131.0
+    },
+    "tukey_additivity_p_value": 0.4235,
+    "regression_table": {
+      "class_type_F": 17.76,
+      "class_type_p_value": 6.45e-08,
+      "teaching_experience_F": 0.79,
+      "teaching_experience_p_value": 0.38,
+      "teacher_gender_F": 0.39,
+      "teacher_gender_p_value": 0.53,
+      "teacher_race_F": 0.37,
+      "teacher_race_p_value": 0.54,
+      "career_ladder_F": 1.51,
+      "career_ladder_p_value": 0.21,
+      "highest_degree_F": 0.11,
+      "highest_degree_p_value": 0.95,
+      "residual_df": 239.0
+    }
+  },
+  "python_vs_rmd": {
+    "counts_match": {
+      "n_raw_rows": true,
+      "n_missing_teacher_id": true,
+      "n_after_math_filter": true,
+      "n_class_level_rows": true,
+      "n_unique_schools": true
+    },
+    "anova": {
+      "class_type_sum_sq_python": 11984.02784680172,
+      "class_type_sum_sq_rmd": 6559.0,
+      "class_type_F_python": 21.858877945231143,
+      "class_type_F_rmd": 22.6,
+      "class_type_p_python": 1.772397759405748e-09,
+      "class_type_p_rmd": 3.35e-06,
+      "school_sum_sq_python": 127267.671322632,
+      "school_sum_sq_rmd": 128366.0,
+      "school_F_python": 6.5390521389088505,
+      "school_F_rmd": 6.2,
+      "residual_sum_sq_python": 68804.789456347,
+      "residual_sum_sq_rmd": 73131.0
+    },
+    "tukey_additivity": {
+      "p_value_python": 0.4234603499206082,
+      "p_value_rmd": 0.4235
+    },
+    "regression": {
+      "class_type_F_python": 19.83782901431418,
+      "class_type_F_rmd": 17.76,
+      "class_type_p_python": 1.0756191680563072e-08,
+      "class_type_p_rmd": 6.45e-08,
+      "teaching_experience_F_python": 1.051085309854481,
+      "teaching_experience_F_rmd": 0.79,
+      "teaching_experience_p_python": 0.30629814451783594,
+      "teaching_experience_p_rmd": 0.38,
+      "teacher_gender_F_python": 0.9985813390519864,
+      "teacher_gender_F_rmd": 0.39,
+      "teacher_gender_p_python": 0.3186689205579406,
+      "teacher_gender_p_rmd": 0.53,
+      "highest_degree_F_python": 0.5993442753427383,
+      "highest_degree_F_rmd": 0.11,
+      "highest_degree_p_python": 0.616017226830553,
+      "highest_degree_p_rmd": 0.95,
+      "residual_df_python": 238.0,
+      "residual_df_rmd": 239.0
+    }
+  },
+  "extension_available": true,
+  "extension_notes": [],
+  "generated_artifacts": {
+    "figures": [
+      "examples/STAR/STA-207/previous_outputs/figures/figure_1_missing_proportion.png",
+      "examples/STAR/STA-207/previous_outputs/figures/figure_2_boxplot_histogram.png",
+      "examples/STAR/STA-207/previous_outputs/figures/figure_3_diagnostics.png",
+      "examples/STAR/STA-207/previous_outputs/figures/figure_4_more_residuals.png",
+      "examples/STAR/STA-207/previous_outputs/figures/figure_5_tukey_hsd.png",
+      "examples/STAR/STA-207/previous_outputs/figures/figure_6_school_location.png",
+      "examples/STAR/STA-207/previous_outputs/figures/figure_7_missing_data_pattern.png",
+      "examples/STAR/STA-207/previous_outputs/figures/figure_9_longitudinal_scores.png"
+    ],
+    "tables": [
+      "examples/STAR/STA-207/previous_outputs/tables/anova_additive_vs_full.csv",
+      "examples/STAR/STA-207/previous_outputs/tables/anova_table_type1.csv",
+      "examples/STAR/STA-207/previous_outputs/tables/class_type_summary.csv",
+      "examples/STAR/STA-207/previous_outputs/tables/regression_anova.csv"
+    ],
+    "html": [
+      "examples/STAR/STA-207/previous_outputs/html/figure_8_alluvial.html"
+    ]
+  }
+}

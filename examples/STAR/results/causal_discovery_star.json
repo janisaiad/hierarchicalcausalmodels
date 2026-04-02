@@ -1,0 +1,324 @@
+{
+  "names": [
+    "readk",
+    "mathk",
+    "stark",
+    "gender",
+    "ethnicity",
+    "lunchk",
+    "schoolk"
+  ],
+  "n_samples": 4000,
+  "alpha": 0.05,
+  "PC": {
+    "skeleton_pairs": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        0,
+        6
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        2,
+        6
+      ],
+      [
+        4,
+        5
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        5,
+        6
+      ]
+    ],
+    "directed_edges": [
+      "ethnicity → lunchk",
+      "gender → readk",
+      "lunchk → readk",
+      "mathk → lunchk",
+      "mathk → readk",
+      "schoolk → lunchk",
+      "schoolk → readk"
+    ],
+    "undirected_edges": [
+      [
+        1,
+        4
+      ],
+      [
+        2,
+        6
+      ],
+      [
+        4,
+        6
+      ]
+    ]
+  },
+  "FCI": {
+    "skeleton_pairs": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        0,
+        6
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        2,
+        6
+      ],
+      [
+        4,
+        5
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        5,
+        6
+      ]
+    ]
+  },
+  "DirectLiNGAM": {
+    "directed_edges": [
+      "ethnicity → lunchk",
+      "ethnicity → mathk",
+      "ethnicity → schoolk",
+      "gender → mathk",
+      "gender → readk",
+      "lunchk → mathk",
+      "lunchk → readk",
+      "mathk → readk",
+      "schoolk → lunchk",
+      "stark → mathk"
+    ],
+    "skeleton_pairs": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        4,
+        5
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        5,
+        6
+      ]
+    ],
+    "threshold": 0.08
+  },
+  "ExactBIC": {
+    "directed_edges": [
+      "ethnicity → lunchk",
+      "ethnicity → mathk",
+      "ethnicity → schoolk",
+      "gender → readk",
+      "mathk → lunchk",
+      "readk → mathk",
+      "schoolk → lunchk",
+      "schoolk → readk",
+      "schoolk → stark",
+      "stark → readk"
+    ],
+    "skeleton_pairs": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        6
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        2,
+        6
+      ],
+      [
+        4,
+        5
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        5,
+        6
+      ]
+    ],
+    "search_meta": {
+      "n_parent_graphs_entries": 193,
+      "while_iter": 64,
+      "for_iter": 259,
+      "n_closed": 64,
+      "max_n_opened": 39
+    }
+  },
+  "consensus": {
+    "directed_edges_all_three": [
+      "ethnicity → lunchk",
+      "gender → readk",
+      "schoolk → lunchk"
+    ],
+    "skeleton_pairs_all_four": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        4,
+        5
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        5,
+        6
+      ]
+    ],
+    "jaccard_skeleton": {
+      "PC": {
+        "PC": 1.0,
+        "FCI": 1.0,
+        "LiNGAM": 0.6667,
+        "ExactBIC": 0.8182
+      },
+      "FCI": {
+        "PC": 1.0,
+        "FCI": 1.0,
+        "LiNGAM": 0.6667,
+        "ExactBIC": 0.8182
+      },
+      "LiNGAM": {
+        "PC": 0.6667,
+        "FCI": 0.6667,
+        "LiNGAM": 1.0,
+        "ExactBIC": 0.5385
+      },
+      "ExactBIC": {
+        "PC": 0.8182,
+        "FCI": 0.8182,
+        "LiNGAM": 0.5385,
+        "ExactBIC": 1.0
+      }
+    },
+    "jaccard_directed": {
+      "PC": {
+        "PC": 1.0,
+        "LiNGAM": 0.4167,
+        "ExactBIC": 0.4167
+      },
+      "LiNGAM": {
+        "PC": 0.4167,
+        "LiNGAM": 1.0,
+        "ExactBIC": 0.3333
+      },
+      "ExactBIC": {
+        "PC": 0.4167,
+        "LiNGAM": 0.3333,
+        "ExactBIC": 1.0
+      }
+    }
+  }
+}

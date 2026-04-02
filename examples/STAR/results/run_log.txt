@@ -1,0 +1,57 @@
+Métriques de prédiction (test) :
+  r2_test = 0.1939
+  mae_test = 20.3797
+  rmse_test = 28.5947
+
+Effectifs :
+  n_rows_raw = 11598
+  n_after_dropna_stark_readk = 5789
+  n_train = 4341
+  n_test = 1448
+  n_features_onehot = 114
+     feature  importance_mean  importance_std
+0  schoolidk         0.191339        0.009378
+1     lunchk         0.139092        0.016735
+2      stark         0.043032        0.009022
+3      birth         0.022752        0.006646
+4     gender         0.006668        0.004451
+5  ethnicity         0.006153        0.002179
+6    schoolk         0.002538        0.001319
+                  feature  mean_abs_shap
+25       cat__lunchk_free       6.359374
+113      cat__stark_small       1.626609
+26   cat__lunchk_non-free       1.534219
+16     cat__birth_1979 Q4       1.455946
+19     cat__birth_1980 Q3       1.254362
+0      cat__gender_female       1.231425
+1        cat__gender_male       1.143914
+96    cat__schoolidk_68.0       0.948259
+51    cat__schoolidk_27.0       0.858632
+83    cat__schoolidk_56.0       0.686600
+17     cat__birth_1980 Q1       0.609449
+111    cat__stark_regular       0.558040
+34    cat__schoolidk_11.0       0.542522
+55    cat__schoolidk_30.0       0.522074
+110    cat__schoolidk_9.0       0.488009
+67    cat__schoolidk_41.0       0.426320
+5     cat__ethnicity_cauc       0.409709
+71    cat__schoolidk_45.0       0.339370
+2     cat__ethnicity_afam       0.338733
+57    cat__schoolidk_32.0       0.312505
+=== DIGITS (récap) ===
+ice_mean_diff_small_minus_regular: 6.449738
+ice_mean_readk_pred_stark_regular: 434.282726
+ice_mean_readk_pred_stark_regularplusaide: 436.314960
+ice_mean_readk_pred_stark_small: 440.732464
+mae_test: 20.379699
+n_after_dropna_stark_readk: 5789
+n_features_onehot: 114
+n_rows_raw: 11598
+n_test: 1448
+n_train: 4341
+perm_importance_stark: 0.043032
+r2_test: 0.193881
+rmse_test: 28.594726
+shap_mean_abs_top1: 6.359374
+shap_n_background: 800
+Résultats exportés : examples/STAR/results/star_metrics.json
