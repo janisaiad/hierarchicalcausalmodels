@@ -88,9 +88,9 @@
 \author{%
 \begin{tabular}{ll}
 \textbf{Étudiant 1} & Anass Ettahiri \\[4pt]
-\textbf{Étudiant 2} & [Membre du groupe 2] \\[4pt]
-\textbf{Étudiant 3} & [Membre du groupe 3] \\[4pt]
-\textbf{Étudiant 4} & [Membre du groupe 4] \\[4pt]
+\textbf{Étudiant 2} & Yasser Oufqir \\[4pt]
+\textbf{Étudiant 3} & Simon Patry \\[4pt]
+\textbf{Étudiant 4} & Aymen El Ouadrhiri \\[4pt]
 \textbf{Étudiant 5} & [Membre du groupe 5] \\[4pt]
 \end{tabular}\\[1.5em]
 \textit{Encadré par :} [Nom du superviseur]%
@@ -971,19 +971,21 @@ import numpy as np
 from hierarchicalcausalmodels.models.HSCMParametric import HSCMParametric
 
 hscm = HSCMParametric(
-    unit_nodes=['U'],
-    subunit_nodes=['A', 'Y'],
-    edges=[('U', 'A'), ('U', 'Y'), ('A', 'Y')],
-    structural_equations={
-        'U':  lambda n_units: np.random.normal(0, 1, n_units),
-        'A':  lambda U, eps: U + eps,
-        'Y':  lambda A, U, eps: 2*A + U + eps
-    },
-    noise_distributions={
-        'A': ('gaussian', {'std': 0.5}),
-        'Y': ('gaussian', {'std': 0.5})
-    }
+    nodes={'U', 'A', 'Y'},
+    edges={('U', 'A'), ('U', 'Y'), ('A', 'Y')},
+    unit_nodes={'U'},
+    subunit_nodes={'A', 'Y'},
+    sizes=[50] * 100,   # 100 unites, 50 sous-unites chacune
+    node_functions={},
+    data={}
 )
+
+# Definir les mecanismes lineaires avec coefficients
+hscm.linear_model({
+    'U': {'mean': 0, 'std': 1},
+    'A': {'U': 1.0, 'mean': 0, 'std': 0.5},
+    'Y': {'A': 2.0, 'U': 1.0, 'mean': 0, 'std': 0.5},
+})
 \end{lstlisting}
 
 \subsection{Pipeline complet : exemple bout-en-bout}
@@ -1004,7 +1006,7 @@ from estimation import estimate_causal_effect
 hscm = HSCMParametric(...)
 
 # 2. Generer les donnees
-data = hscm.sample(n_units=100, n_subunits=50)
+data = hscm.sample_data()
 
 # 3. Collapse
 collapsed = collapse(hscm)
@@ -1127,6 +1129,119 @@ Les 11 cas ont produit le résultat d'identifiabilité attendu.
 \end{table}
 
 Les trois estimateurs fonctionnent bien, démontrant la correction et la généralité du pipeline implémenté.
+
+\subsection{Galerie do-calcul : estimation de l'ATE sur 13 configurations}
+\label{sec:gallery_ate}
+
+La galerie d'expériences (\texttt{gallery\_ate\_report\_autotune.csv}) évalue le pipeline do-calcul complet sur 13 configurations de graphes HCM binaires avec auto-tuning du nombre d'échantillons Monte Carlo.
+Pour chaque configuration, la vérité terrain est estimée indépendamment par un second tirage Monte Carlo convergé ; on rapporte ensuite l'ATE estimé par le pipeline et l'erreur absolue.
+
+\begin{table}[h!]
+\centering
+\caption{Résultats do-calcul sur 13 configurations de graphes HCM binaires (auto-tuning Monte Carlo). $\hat{\tau}_{\text{vrai}}$ : ATE de référence convergé ; $\hat{\tau}_{\text{est}}$ : ATE produit par le pipeline ; $|\Delta|$ : erreur absolue. Statut : \checkmark = convergé et précis ; $\dagger$ = données insuffisantes ; --- = estimands non comparables.}
+\label{tab:gallery_ate}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Configuration} & $\hat{\tau}_{\text{vrai}}$ & $\hat{\tau}_{\text{est}}$ & $|\Delta|$ & \textbf{Statut} \\
+\midrule
+\multicolumn{5}{l}{\textit{aligned\_accurate} (8 configurations)} \\
+\midrule
+Confondant (augm.)               & 0{,}202 &  0{,}241 & 0{,}038 & \checkmark \\
+Instrument (marg.)               & 0{,}542 &  0{,}522 & 0{,}020 & \checkmark \\
+Ex.~2 (augm.)                    & 0{,}000 &  0{,}000 & 0{,}000 & \checkmark \\
+Ex.~6 (coll.)                    & 0{,}000 &  0{,}002 & 0{,}002 & \checkmark \\
+Ex.~1 (marg.)                    & 0{,}000 &  0{,}000 & 0{,}000 & \checkmark \\
+Ex.~5 (marg.)                    & 0{,}000 &  0{,}000 & 0{,}000 & \checkmark \\
+Ciblé (augm.)                    & 0{,}000 & -0{,}003 & 0{,}003 & \checkmark \\
+Non-ID Ex.~1 (augm.)             & 0{,}080 &  0{,}058 & 0{,}022 & \checkmark \\
+\midrule
+\multicolumn{5}{l}{\textit{aligned\_but\_data\_limited} (4 configurations)} \\
+\midrule
+Conf.\ + Interférence (augm.)    & 0{,}011 &  0{,}193 & 0{,}182 & $\dagger$ \\
+Ex.~3 (coll.)                    & 0{,}218 & -0{,}207 & 0{,}425 & $\dagger$ \\
+Ex.~4 (augm.)                    & 0{,}382 &  0{,}591 & 0{,}209 & $\dagger$ \\
+Non-ID Ex.~5 (augm.)             & 0{,}171 &  0{,}235 & 0{,}064 & $\dagger$ \\
+\midrule
+\multicolumn{5}{l}{\textit{structurally\_non\_comparable} (1 configuration)} \\
+\midrule
+Non-ID Ex.~4 (augm.)             & 0{,}370 & -0{,}147 & 0{,}517 & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Sur les 13 configurations, 8 (62\,\%) atteignent le statut \textit{aligned\_accurate} avec une erreur absolue inférieure à 0{,}04.
+Les 4 cas \textit{data\_limited} correspondent à des régimes où la variance Monte Carlo reste élevée même après auto-tuning : l'estimateur converge mais avec peu de données par unité, d'où un biais résiduel.
+Le cas \textit{non\_comparable} (\texttt{nonID\_ex4\_aug}) met en évidence une situation où l'estimand théorique ne coïncide pas structurellement avec l'estimateur empirique — l'erreur apparente n'est pas une défaillance du pipeline mais un désaccord d'estimand.
+
+\subsection{Suite de benchmarks : 9 scénarios avec vérité terrain}
+\label{sec:benchmark_suite}
+
+Le fichier \texttt{examples/new/benchmarks.py} évalue le framework sur 9 scénarios couvrant trois familles de modèles HCM, chacun avec une vérité terrain calculable.
+
+\paragraph{Scénarios 1–3 : HCMs binaires (Weinstein \& Blei, 2024).}
+Pipeline symbolique complet do-calcul sur données binaires ($n=200$ unités, $m=100$ sous-unités, $U \sim \text{Beta}(2,2)$). La vérité terrain est obtenue par Monte Carlo sur 500\,000 tirages de $U$.
+
+\begin{table}[h!]
+\centering
+\caption{HCMs binaires ($n=200$, $m=100$, $U\sim\text{Beta}(2,2)$). Les erreurs élevées pour S2–S3 reflètent l'efficacité statistique moindre des stratégies porte-avant et IV ; elles se réduisent avec plus de données.}
+\label{tab:benchmark_binary}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Scénario} & \textbf{ATE vrai} & \textbf{ATE estimé} & $|\Delta|$ \\
+\midrule
+1.\ Confondant ($U\!\to\!A$, $U\!\to\!Y$, $A\!\to\!Y$)                         & 0{,}315 & 0{,}363 & 0{,}048 \\
+2.\ Porte avant ($U\!\to\!A$, $A\!\to\!Z$, $Z\!\to\!Y$, $U\!\to\!Y$)          & 0{,}380 & 0{,}111 & 0{,}269 \\
+3.\ Variable instrumentale ($Z\!\to\!A$, $U\!\to\!A$, $A\!\to\!Y$)            & 0{,}576 & 0{,}823 & 0{,}247 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Le scénario 1 (critère porte-arrière) converge avec une erreur de 0{,}048.
+Les scénarios 2 et 3 présentent des erreurs plus élevées : les stratégies porte-avant et IV exploitent moins d'information de Fisher par observation que le critère porte-arrière, ce qui est attendu et cohérent avec les résultats de la galerie (\S\ref{sec:gallery_ate}).
+
+\paragraph{Scénarios 4–6 : HCMs spatio-temporels (Camellia et al., 2025).}
+$N=16$ unités spatiales sur grille $4\!\times\!4$, $m=50$ sous-unités par cellule $(i,t)$, $T=8$ pas de temps ; confondant latent $U_i \sim \mathcal{N}(0,1)$.
+
+\begin{table}[h!]
+\centering
+\caption{HCMs ST ($N=16$, $m=50$, $T=8$, force de confondance $c=2{,}0$). L'estimateur par unité est quasi-sans-biais pour S4–S5 ; S6 présente un désaccord d'estimand attendu.}
+\label{tab:benchmark_st}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Scénario} & \textbf{ATE vrai} & \textbf{Par-unité} & \textbf{OLS naïf} & \textbf{Ratio naïf/vrai} \\
+\midrule
+4.\ Confondant de base        & 5{,}00 &  5{,}10 & 27{,}1 & $\times 5{,}4$ \\
+5.\ Dynamiques linéaires      & 5{,}00 &  5{,}10 & 33{,}0 & $\times 6{,}6$ \\
+6.\ CATE hétérogène           & 7{,}06 & 32{,}61 & 35{,}41 & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Pour S4 et S5, l'OLS naïf est 5 à 7 fois la vraie valeur : $U_i$ confond simultanément la probabilité de traitement et la base de l'outcome, et la régression poolée ne peut pas les séparer.
+Pour S5, les dynamiques spatio-temporelles amplifient le biais (ratio $\times 6{,}6$ contre $\times 5{,}4$ pour S4).
+Pour S6, le DGP inclut un terme d'interaction spatiale $2 \cdot s_{\text{lag},it} \cdot A_{ijt}$ dans l'outcome : l'estimateur par unité capture CATE$_i$ \emph{plus} ce terme d'interaction qui s'accumule au fil du temps.
+L'estimand de l'estimateur par unité diffère donc de $\mathbb{E}[\text{CATE}_i]$ — cet écart est attendu et illustre une limitation identifiée du framework dans les DGPs avec interactions traitement-contexte.
+
+\paragraph{Scénarios 7–9 : Benchmarks inspirés de données réelles.}
+
+\begin{table}[h!]
+\centering
+\caption{Scénarios inspirés de données réelles. S7 : trafic synthétique Chicago (Camellia et al., 2025). S8 : Huit Écoles (Alderman \& Powers, 1979). S9 : NLSY79 synthétique — biais d'aptitude (Card, 1995).}
+\label{tab:benchmark_realworld}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Scénario} & \textbf{ATE vrai} & \textbf{Par-unité} & \textbf{OLS naïf} & $|\Delta|$ \\
+\midrule
+7.\ Trafic Chicago (synthétique) & $-7{,}00$~mph &  $-7{,}04$ & $-9{,}87$ & $0{,}04$ \\
+8.\ Huit Écoles (tutoring SAT)   &  $8{,}75$~pts &   $4{,}49$ & $-17{,}04$ & $4{,}26$ \\
+9.\ NLSY79 — salaires (Card 1995) & $0{,}35$~log & $0{,}34$ & $0{,}70$ & $0{,}01$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Le scénario 7 (29 régions $\times$ 35 segments $\times$ 7 semaines, 7\,105 obs.) confirme que l'estimateur par unité récupère $-7$~mph avec une erreur de 0{,}04, là où l'OLS naïf surestime le biais de congestion régionale de 40\,\%.
+Le scénario 8 présente une forte variance d'échantillonnage ($n=8$ unités, $\mathrm{SD}\approx 81$--$108$~pts SAT) : l'erreur de 4{,}26~pts est attendue avec si peu d'unités ; l'apport essentiel est qualitatif — le signe est correct ($+4{,}49$) là où l'OLS naïf donne $-17$.
+Le scénario 9 (NLSY79 synthétique, 50 régions $\times$ 60 individus) illustre le biais d'aptitude classique de Card (1995) : la prime salariale vraie de l'enseignement supérieur est 0{,}35 en log-salaire, l'estimateur par unité la récupère à 0{,}34 ($|\Delta|=0{,}01$), tandis que l'OLS naïf double l'effet ($+0{,}70$) en confondant le capital humain régional $U_i$ avec l'effet du diplôme.
 
 %% ========================================================
 \section{Discussion}
