@@ -1,0 +1,349 @@
+{
+  "schema": {
+    "unit_nodes": [
+      "S",
+      "U"
+    ],
+    "subunit_nodes": [
+      "A",
+      "E",
+      "G",
+      "L",
+      "M",
+      "Y"
+    ],
+    "latent_unit_node": "U",
+    "meta": {
+      "source_table": "examples/STAR/STA-207/STAR_Students.tab",
+      "grade": "kindergarten",
+      "n_rows_after_dropna": 5745,
+      "n_units_classes": 322,
+      "balanced_students_per_class": 10,
+      "regressor_choice_rationale": [
+        "Keep the same discovery notebook variables for comparability.",
+        "Move only school urbanicity to the unit level.",
+        "Keep math, gender, ethnicity, and lunch at the student level.",
+        "Use binary codings for categorical student regressors to stabilize first-pass HCM estimation."
+      ],
+      "variable_mapping": {
+        "A": "1{gkclasstype == 1} = small class",
+        "Y": "gktreadss",
+        "M": "gktmathss",
+        "G": "1{gender == female}",
+        "E": "1{race in {white, asian}}",
+        "L": "1{free lunch}",
+        "S": "gksurban",
+        "unit_id": "gktchid"
+      }
+    }
+  },
+  "results": [
+    {
+      "graph_name": "PC",
+      "note": "PC + orientation heuristique des arêtes non orientées.",
+      "edges_hcm": [
+        [
+          "S",
+          "_A"
+        ],
+        [
+          "S",
+          "_L"
+        ],
+        [
+          "S",
+          "_Y"
+        ],
+        [
+          "U",
+          "_A"
+        ],
+        [
+          "U",
+          "_Y"
+        ],
+        [
+          "_E",
+          "S"
+        ],
+        [
+          "_E",
+          "_L"
+        ],
+        [
+          "_E",
+          "_M"
+        ],
+        [
+          "_G",
+          "_Y"
+        ],
+        [
+          "_L",
+          "_Y"
+        ],
+        [
+          "_M",
+          "_L"
+        ],
+        [
+          "_M",
+          "_Y"
+        ]
+      ],
+      "dag_ok": true,
+      "identifiable": true,
+      "formula_latex": "P\\left(Qy\\right)",
+      "explanation": "Do-calculus identification succeeded.",
+      "status": "ok",
+      "estimand": "E[Q^y | do(Q^a)]",
+      "E_do_1": 436.88043478260903,
+      "E_do_0": 436.88043478260903,
+      "ATE": 0.0
+    },
+    {
+      "graph_name": "FCI",
+      "note": "FCI squelette seulement; orientation heuristique imposée.",
+      "edges_hcm": [
+        [
+          "S",
+          "_A"
+        ],
+        [
+          "S",
+          "_L"
+        ],
+        [
+          "S",
+          "_Y"
+        ],
+        [
+          "U",
+          "_A"
+        ],
+        [
+          "U",
+          "_Y"
+        ],
+        [
+          "_E",
+          "S"
+        ],
+        [
+          "_E",
+          "_L"
+        ],
+        [
+          "_E",
+          "_M"
+        ],
+        [
+          "_G",
+          "_Y"
+        ],
+        [
+          "_L",
+          "_M"
+        ],
+        [
+          "_L",
+          "_Y"
+        ],
+        [
+          "_M",
+          "_Y"
+        ]
+      ],
+      "dag_ok": true,
+      "identifiable": true,
+      "formula_latex": "P\\left(Qy\\right)",
+      "explanation": "Do-calculus identification succeeded.",
+      "status": "ok",
+      "estimand": "E[Q^y | do(Q^a)]",
+      "E_do_1": 436.88043478260903,
+      "E_do_0": 436.88043478260903,
+      "ATE": 0.0
+    },
+    {
+      "graph_name": "DirectLiNGAM",
+      "note": "Arcs dirigés repris de DirectLiNGAM.",
+      "edges_hcm": [
+        [
+          "S",
+          "_L"
+        ],
+        [
+          "U",
+          "_A"
+        ],
+        [
+          "U",
+          "_Y"
+        ],
+        [
+          "_A",
+          "_M"
+        ],
+        [
+          "_E",
+          "S"
+        ],
+        [
+          "_E",
+          "_L"
+        ],
+        [
+          "_E",
+          "_M"
+        ],
+        [
+          "_G",
+          "_M"
+        ],
+        [
+          "_G",
+          "_Y"
+        ],
+        [
+          "_L",
+          "_M"
+        ],
+        [
+          "_L",
+          "_Y"
+        ],
+        [
+          "_M",
+          "_Y"
+        ]
+      ],
+      "dag_ok": true,
+      "identifiable": true,
+      "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_g_l_m\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "explanation": "Do-calculus identification succeeded.",
+      "status": "error",
+      "error_type": "ValueError",
+      "error": "X has 6 features, but LinearRegression is expecting 4 features as input."
+    },
+    {
+      "graph_name": "ExactBIC",
+      "note": "DAG score-based repris de ExactBIC.",
+      "edges_hcm": [
+        [
+          "S",
+          "_A"
+        ],
+        [
+          "S",
+          "_L"
+        ],
+        [
+          "S",
+          "_Y"
+        ],
+        [
+          "U",
+          "_A"
+        ],
+        [
+          "U",
+          "_Y"
+        ],
+        [
+          "_A",
+          "_Y"
+        ],
+        [
+          "_E",
+          "S"
+        ],
+        [
+          "_E",
+          "_L"
+        ],
+        [
+          "_E",
+          "_M"
+        ],
+        [
+          "_G",
+          "_Y"
+        ],
+        [
+          "_M",
+          "_L"
+        ],
+        [
+          "_Y",
+          "_M"
+        ]
+      ],
+      "dag_ok": true,
+      "identifiable": true,
+      "formula_latex": "\\sum_{Qe,Qg,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qg,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "explanation": "Do-calculus identification succeeded.",
+      "status": "error",
+      "error_type": "ValueError",
+      "error": "X has 3 features, but LinearRegression is expecting 2 features as input."
+    },
+    {
+      "graph_name": "ConsensusMean",
+      "note": "Graphe moyen majoritaire de `preliminar_results.md`.",
+      "edges_hcm": [
+        [
+          "S",
+          "_L"
+        ],
+        [
+          "S",
+          "_Y"
+        ],
+        [
+          "U",
+          "_A"
+        ],
+        [
+          "U",
+          "_Y"
+        ],
+        [
+          "_E",
+          "S"
+        ],
+        [
+          "_E",
+          "_L"
+        ],
+        [
+          "_E",
+          "_M"
+        ],
+        [
+          "_G",
+          "_Y"
+        ],
+        [
+          "_L",
+          "_Y"
+        ],
+        [
+          "_M",
+          "_L"
+        ],
+        [
+          "_M",
+          "_Y"
+        ]
+      ],
+      "dag_ok": true,
+      "identifiable": true,
+      "formula_latex": "P\\left(Qy\\right)",
+      "explanation": "Do-calculus identification succeeded.",
+      "status": "ok",
+      "estimand": "E[Q^y | do(Q^a)]",
+      "E_do_1": 436.88043478260903,
+      "E_do_0": 436.88043478260903,
+      "ATE": 0.0
+    }
+  ]
+}

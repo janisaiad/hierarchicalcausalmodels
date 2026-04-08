@@ -1,0 +1,425 @@
+{
+  "schema": {
+    "unit_nodes": [
+      "E",
+      "G",
+      "L",
+      "M",
+      "S",
+      "U"
+    ],
+    "subunit_nodes": [
+      "A",
+      "Y"
+    ],
+    "latent_unit_node": "U",
+    "meta": {
+      "n_rows_after_dropna": 5768,
+      "n_units_schools": 79,
+      "balanced_subunits_per_school": 34,
+      "school_ids_sampled": [
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        6.0,
+        7.0,
+        8.0,
+        9.0,
+        10.0,
+        11.0,
+        12.0,
+        13.0,
+        14.0,
+        15.0,
+        16.0,
+        17.0,
+        18.0,
+        19.0,
+        20.0,
+        21.0,
+        22.0,
+        23.0,
+        24.0,
+        25.0,
+        26.0,
+        27.0,
+        28.0,
+        29.0,
+        30.0,
+        31.0,
+        32.0,
+        33.0,
+        34.0,
+        35.0,
+        36.0,
+        37.0,
+        38.0,
+        39.0,
+        40.0,
+        41.0,
+        42.0,
+        43.0,
+        44.0,
+        45.0,
+        46.0,
+        47.0,
+        48.0,
+        49.0,
+        50.0,
+        51.0,
+        52.0,
+        53.0,
+        54.0,
+        55.0,
+        56.0,
+        57.0,
+        58.0,
+        59.0,
+        60.0,
+        61.0,
+        62.0,
+        63.0,
+        64.0,
+        65.0,
+        66.0,
+        67.0,
+        68.0,
+        69.0,
+        70.0,
+        71.0,
+        72.0,
+        73.0,
+        74.0,
+        75.0,
+        76.0,
+        78.0,
+        79.0,
+        80.0
+      ],
+      "regressor_choices": {
+        "A": "binary treatment: 1 if stark == 'small', else 0",
+        "Y": "student-level readk",
+        "S": "schoolk encoded as 0..3 at unit level",
+        "M": "per-school mean mathk",
+        "G": "per-school proportion female",
+        "E": "per-school proportion white_or_asian",
+        "L": "per-school proportion free lunch"
+      }
+    }
+  },
+  "results": [
+    {
+      "graph_name": "PC",
+      "note": "PC avec orientation heuristique des arêtes non orientées selon un ordre causal fixe.",
+      "edges_hcm": [
+        [
+          "E",
+          "L"
+        ],
+        [
+          "E",
+          "M"
+        ],
+        [
+          "E",
+          "S"
+        ],
+        [
+          "G",
+          "_Y"
+        ],
+        [
+          "L",
+          "_Y"
+        ],
+        [
+          "M",
+          "L"
+        ],
+        [
+          "M",
+          "_Y"
+        ],
+        [
+          "S",
+          "L"
+        ],
+        [
+          "S",
+          "_A"
+        ],
+        [
+          "S",
+          "_Y"
+        ],
+        [
+          "U",
+          "_A"
+        ],
+        [
+          "U",
+          "_Y"
+        ]
+      ],
+      "dag_ok": true,
+      "identifiable": true,
+      "formula_latex": "P\\left(Qy\\right)",
+      "explanation": "Do-calculus identification succeeded.",
+      "status": "ok",
+      "estimand": "E[Q^y | do(Q^a)]",
+      "E_do_1": 436.14743112434843,
+      "E_do_0": 436.14743112434843,
+      "ATE": 0.0
+    },
+    {
+      "graph_name": "FCI",
+      "note": "FCI ne fournit ici qu’un squelette; orientation heuristique imposée pour obtenir un DAG HCM exécutable.",
+      "edges_hcm": [
+        [
+          "E",
+          "L"
+        ],
+        [
+          "E",
+          "M"
+        ],
+        [
+          "E",
+          "S"
+        ],
+        [
+          "G",
+          "_Y"
+        ],
+        [
+          "L",
+          "M"
+        ],
+        [
+          "L",
+          "_Y"
+        ],
+        [
+          "M",
+          "_Y"
+        ],
+        [
+          "S",
+          "L"
+        ],
+        [
+          "S",
+          "_A"
+        ],
+        [
+          "S",
+          "_Y"
+        ],
+        [
+          "U",
+          "_A"
+        ],
+        [
+          "U",
+          "_Y"
+        ]
+      ],
+      "dag_ok": true,
+      "identifiable": true,
+      "formula_latex": "P\\left(Qy\\right)",
+      "explanation": "Do-calculus identification succeeded.",
+      "status": "ok",
+      "estimand": "E[Q^y | do(Q^a)]",
+      "E_do_1": 436.14743112434843,
+      "E_do_0": 436.14743112434843,
+      "ATE": 0.0
+    },
+    {
+      "graph_name": "DirectLiNGAM",
+      "note": "Arcs dirigés repris directement de DirectLiNGAM.",
+      "edges_hcm": [
+        [
+          "E",
+          "L"
+        ],
+        [
+          "E",
+          "M"
+        ],
+        [
+          "E",
+          "S"
+        ],
+        [
+          "G",
+          "M"
+        ],
+        [
+          "G",
+          "_Y"
+        ],
+        [
+          "L",
+          "M"
+        ],
+        [
+          "L",
+          "_Y"
+        ],
+        [
+          "M",
+          "_Y"
+        ],
+        [
+          "S",
+          "L"
+        ],
+        [
+          "U",
+          "_A"
+        ],
+        [
+          "U",
+          "_Y"
+        ],
+        [
+          "_A",
+          "M"
+        ]
+      ],
+      "dag_ok": true,
+      "identifiable": true,
+      "formula_latex": "\\sum_{E,G,L,M,S}{P\\left(S\\mid E\\right) \\cdot \\left(\\sum_{Qa}{P\\left(Qa\\right) \\cdot P\\left(Qy\\mid G,L,M,Qa\\right)}\\right) \\cdot P\\left(M\\mid E,G,L,Qa\\right) \\cdot P\\left(L\\mid E,S\\right) \\cdot P\\left(G\\right) \\cdot P\\left(E\\right)}",
+      "explanation": "Do-calculus identification succeeded.",
+      "status": "ok",
+      "estimand": "E[Q^y | do(Q^a)]",
+      "E_do_1": 41094.659604473025,
+      "E_do_0": 42979.482846494684,
+      "ATE": -1884.823242021659
+    },
+    {
+      "graph_name": "ExactBIC",
+      "note": "DAG score-based repris directement de ExactBIC.",
+      "edges_hcm": [
+        [
+          "E",
+          "L"
+        ],
+        [
+          "E",
+          "M"
+        ],
+        [
+          "E",
+          "S"
+        ],
+        [
+          "G",
+          "_Y"
+        ],
+        [
+          "M",
+          "L"
+        ],
+        [
+          "S",
+          "L"
+        ],
+        [
+          "S",
+          "_A"
+        ],
+        [
+          "S",
+          "_Y"
+        ],
+        [
+          "U",
+          "_A"
+        ],
+        [
+          "U",
+          "_Y"
+        ],
+        [
+          "_A",
+          "_Y"
+        ],
+        [
+          "_Y",
+          "M"
+        ]
+      ],
+      "dag_ok": true,
+      "identifiable": true,
+      "formula_latex": "\\sum_{E,G,Qy_a,S}{P\\left(S\\mid E\\right) \\cdot P\\left(Qy_a\\mid G,S\\right) \\cdot P\\left(Qy\\mid Qa,Qy_a\\right) \\cdot P\\left(G\\right) \\cdot P\\left(E\\right)}",
+      "explanation": "Do-calculus identification succeeded.",
+      "status": "ok",
+      "estimand": "E[Q^y | do(Q^a)]",
+      "E_do_1": 426106.0221599421,
+      "E_do_0": 405421.8973481176,
+      "ATE": 20684.12481182447
+    },
+    {
+      "graph_name": "ConsensusMean",
+      "note": "Graphe moyen majoritaire d’après `preliminar_results.md`.",
+      "edges_hcm": [
+        [
+          "E",
+          "L"
+        ],
+        [
+          "E",
+          "M"
+        ],
+        [
+          "E",
+          "S"
+        ],
+        [
+          "G",
+          "_Y"
+        ],
+        [
+          "L",
+          "_Y"
+        ],
+        [
+          "M",
+          "L"
+        ],
+        [
+          "M",
+          "_Y"
+        ],
+        [
+          "S",
+          "L"
+        ],
+        [
+          "S",
+          "_Y"
+        ],
+        [
+          "U",
+          "_A"
+        ],
+        [
+          "U",
+          "_Y"
+        ]
+      ],
+      "dag_ok": true,
+      "identifiable": true,
+      "formula_latex": "P\\left(Qy\\right)",
+      "explanation": "Do-calculus identification succeeded.",
+      "status": "ok",
+      "estimand": "E[Q^y | do(Q^a)]",
+      "E_do_1": 436.14743112434843,
+      "E_do_0": 436.14743112434843,
+      "ATE": 0.0
+    }
+  ]
+}
