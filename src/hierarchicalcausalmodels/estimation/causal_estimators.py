@@ -29,6 +29,16 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+from .parallel import ParallelBackend, parallel_map
+from .torch_estimators import (
+    torch_compute_subunit_params,
+    torch_conditional_expectations_per_unit,
+    torch_fit_batched_bernoulli,
+    torch_fit_batched_gaussian,
+    torch_predict_batched_bernoulli,
+    torch_predict_batched_gaussian,
+)
+
 try:
     from scipy import stats as _sp_stats
     SCIPY_AVAILABLE = True
@@ -69,6 +79,31 @@ SUPPORTED_FAMILIES = {
     # Non-parametric fallback
     "nonparametric",
 }
+
+
+def _fit_q_from_subunit_task(
+    task: tuple[str, np.ndarray, str],
+) -> tuple[str, np.ndarray]:
+    """Fit one Q-summary array from one raw subunit matrix."""
+    q_key, arr_np, family = task
+    est = SubunitParamEstimator(family=family)
+    return q_key, est.fit(arr_np)
+
+
+def _fit_conditional_q_row_task(
+    task: tuple[np.ndarray, np.ndarray, np.ndarray, str],
+) -> np.ndarray:
+    """Fit one per-unit conditional Q profile."""
+    y_i, a_i, eval_vals, family_outcome = task
+    est = ConditionalDensityEstimator(family=family_outcome)
+    est.fit(y_i, a_i.reshape(-1, 1))
+    return np.array(
+        [
+            float(est.expectation(np.array([[cval]], dtype=float)))
+            for cval in eval_vals
+        ],
+        dtype=float,
+    )
 
 _FAMILY_ALIASES: Dict[str, str] = {
     "normal": "gaussian",
@@ -149,10 +184,22 @@ class ConditionalDensityEstimator:
         Continuous Y → Gaussian KDE.
     """
 
-    def __init__(self, family: str = "nonparametric", regularization: float = 1e4):
+    def __init__(
+        self,
+        family: str = "nonparametric",
+        regularization: float = 1e4,
+        backend: str = "numpy",
+        torch_kwargs: Optional[Dict[str, Any]] = None,
+    ):
         family = family.lower().strip()
         self.family = _FAMILY_ALIASES.get(family, family)
         self.regularization = regularization
+        self.backend = backend.lower().strip()
+        if self.backend not in {"numpy", "torch"}:
+            raise ValueError(
+                f"Unsupported backend {backend!r}. Choose from 'numpy' or 'torch'."
+            )
+        self.torch_kwargs = dict(torch_kwargs or {})
         self._fitted = False
 
     # ------------------------------------------------------------------ fit --
@@ -209,6 +256,17 @@ class ConditionalDensityEstimator:
         is_binary = set(np.unique(Y).tolist()).issubset({0.0, 1.0})
         if X is None or X.shape[1] == 0:
             pass  # _p_marginal already set
+        elif self.backend == "torch":
+            state = torch_fit_batched_bernoulli(
+                x_batch=X[None, :, :],
+                y_batch=Y[None, :],
+                device=self.torch_kwargs.get("device", "cpu"),
+                devices=self.torch_kwargs.get("devices"),
+                max_iter=int(self.torch_kwargs.get("max_iter", 200)),
+                lr=float(self.torch_kwargs.get("lr", 5e-2)),
+                weight_decay=float(self.torch_kwargs.get("weight_decay", 1e-4)),
+            )
+            self._torch_bernoulli_state = state
         elif SKLEARN_AVAILABLE and is_binary and len(np.unique(Y)) == 2:
             lr = LogisticRegression(max_iter=1000, solver="lbfgs", C=self.regularization)
             lr.fit(X, Y.astype(int))
@@ -228,6 +286,9 @@ class ConditionalDensityEstimator:
         return p if y_int == 1 else (1.0 - p)
 
     def _expect_bernoulli(self, x_query) -> float:
+        if hasattr(self, "_torch_bernoulli_state"):
+            x2d = np.atleast_2d(np.asarray(x_query, dtype=np.float32))[None, :, :]
+            return float(torch_predict_batched_bernoulli(self._torch_bernoulli_state, x2d)[0, 0])
         if self._lr_model is None:
             return self._p_marginal
         x2d = np.atleast_2d(x_query)
@@ -244,6 +305,16 @@ class ConditionalDensityEstimator:
         self._sigma = float(np.std(Y) + 1e-9)      # always set
         if X is None or X.shape[1] == 0:
             pass  # marginal params already set
+        elif self.backend == "torch":
+            state = torch_fit_batched_gaussian(
+                x_batch=X[None, :, :],
+                y_batch=Y[None, :],
+                device=self.torch_kwargs.get("device", "cpu"),
+                devices=self.torch_kwargs.get("devices"),
+                ridge=float(self.torch_kwargs.get("ridge", 1e-4)),
+            )
+            self._torch_gaussian_state = state
+            self._sigma = float(state.sigma[0])
         else:
             if SKLEARN_AVAILABLE:
                 lr = LinearRegression()
@@ -264,6 +335,9 @@ class ConditionalDensityEstimator:
         return float(np.exp(-0.5 * z * z) / (self._sigma * np.sqrt(2 * np.pi)))
 
     def _predict_mu_gaussian(self, x_query) -> float:
+        if hasattr(self, "_torch_gaussian_state"):
+            x2d = np.atleast_2d(np.asarray(x_query, dtype=np.float32))[None, :, :]
+            return float(torch_predict_batched_gaussian(self._torch_gaussian_state, x2d)[0, 0])
         if self._lr_gauss is not None:
             return float(self._lr_gauss.predict(np.atleast_2d(x_query))[0])
         return self._mu_marginal
@@ -1175,6 +1249,10 @@ class QDensityEstimator:
 def compute_q_from_subunit_data(
     data: Dict[str, np.ndarray],
     families: Optional[Dict[str, str]] = None,
+    n_jobs: int = 1,
+    parallel_backend: ParallelBackend = "threads",
+    estimator_backend: str = "numpy",
+    torch_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, np.ndarray]:
     """
     Enrich *data* with Q-variable arrays from raw subunit observations.
@@ -1203,6 +1281,9 @@ def compute_q_from_subunit_data(
     """
     families = families or {}
     result = dict(data)
+    tasks: list[tuple[str, np.ndarray, str]] = []
+    torch_kwargs = dict(torch_kwargs or {})
+    estimator_backend = estimator_backend.lower().strip()
 
     for key, arr in data.items():
         arr_np = np.asarray(arr)
@@ -1224,8 +1305,25 @@ def compute_q_from_subunit_data(
             continue  # already provided by user
 
         family = families.get(key, families.get(q_key, "bernoulli"))
-        est = SubunitParamEstimator(family=family)
-        result[q_key] = est.fit(arr_np)
+        if estimator_backend == "torch" and family in {"bernoulli", "gaussian", "normal"}:
+            if q_key not in result:
+                result[q_key] = torch_compute_subunit_params(
+                    arr_np,
+                    family=family,
+                    device=torch_kwargs.get("device", "cpu"),
+                    devices=torch_kwargs.get("devices"),
+                )
+            continue
+        tasks.append((q_key, arr_np, family))
+
+    for q_key, q_values in parallel_map(
+        tasks,
+        _fit_q_from_subunit_task,
+        n_jobs=n_jobs,
+        backend=parallel_backend,
+    ):
+        if q_key not in result:
+            result[q_key] = q_values
 
     return result
 
@@ -1624,11 +1722,17 @@ def _batch_expectation(est: ConditionalDensityEstimator, X_batch: np.ndarray) ->
     fam = est.family
 
     if fam == "gaussian":
+        if hasattr(est, "_torch_gaussian_state"):
+            x3 = np.asarray(X_batch, dtype=np.float32)[None, :, :]
+            return torch_predict_batched_gaussian(est._torch_gaussian_state, x3)[0]
         pred = _linreg_predict("_lr_gauss")
         arr = pred if pred is not None else np.full(n, est._mu_marginal)
         return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "bernoulli":
+        if hasattr(est, "_torch_bernoulli_state"):
+            x3 = np.asarray(X_batch, dtype=np.float32)[None, :, :]
+            return torch_predict_batched_bernoulli(est._torch_bernoulli_state, x3)[0]
         if est._lr_model is None:
             arr = np.full(n, est._p_marginal)
         elif hasattr(est._lr_model, "predict_proba"):
@@ -1870,6 +1974,10 @@ def _precompute_conditional_q_vars(
     formula: _ASTFormula,
     families: Dict[str, str],
     iv_val: float,
+    n_jobs: int = 1,
+    parallel_backend: ParallelBackend = "threads",
+    estimator_backend: str = "numpy",
+    torch_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, np.ndarray]:
     """
     Precompute conditional Q-variables (e.g. Q^{y|a}) found in the formula.
@@ -1897,6 +2005,8 @@ def _precompute_conditional_q_vars(
     seen: set = set()
     deduped_vars = [v for v in all_vars if v not in seen and not seen.add(v)]  # type: ignore
     new_entries: Dict[str, np.ndarray] = {}
+    torch_kwargs = dict(torch_kwargs or {})
+    estimator_backend = estimator_backend.lower().strip()
 
     for sv in deduped_vars:
         m = re.match(r'^Q([a-zA-Z]+)_([a-zA-Z]+)$', sv)
@@ -1951,23 +2061,63 @@ def _precompute_conditional_q_vars(
         else:
             eval_vals = np.array([iv_val])
 
-        n_eval = len(eval_vals)
-        per_unit_arr = np.zeros((n_units, n_eval))
-        for i in range(n_units):
-            Y_i = outcome_arr[i]
-            A_i = cond_arr[i]
-            est = ConditionalDensityEstimator(family=family_outcome)
-            est.fit(Y_i, A_i.reshape(-1, 1))
-            for k, cval in enumerate(eval_vals):
-                per_unit_arr[i, k] = est.expectation(np.array([[cval]]))
+        if estimator_backend == "torch" and family_outcome in {"bernoulli", "gaussian", "normal"}:
+            per_unit_arr = torch_conditional_expectations_per_unit(
+                y=outcome_arr,
+                x=cond_arr,
+                eval_values=eval_vals,
+                family=family_outcome,
+                device=torch_kwargs.get("device", "cpu"),
+                devices=torch_kwargs.get("devices"),
+                ridge=float(torch_kwargs.get("ridge", 1e-4)),
+                max_iter=int(torch_kwargs.get("max_iter", 200)),
+                lr=float(torch_kwargs.get("lr", 5e-2)),
+                weight_decay=float(torch_kwargs.get("weight_decay", 1e-4)),
+            )
+        else:
+            unit_tasks = [
+                (outcome_arr[i], cond_arr[i], eval_vals, family_outcome)
+                for i in range(n_units)
+            ]
+            per_unit_rows = parallel_map(
+                unit_tasks,
+                _fit_conditional_q_row_task,
+                n_jobs=n_jobs,
+                backend=parallel_backend,
+            )
+            per_unit_arr = np.vstack(per_unit_rows) if per_unit_rows else np.zeros((0, len(eval_vals)))
 
         # Always collapse to 1D when there is only one evaluation point.
-        result_arr: np.ndarray = per_unit_arr[:, 0] if n_eval == 1 else per_unit_arr
+        result_arr: np.ndarray = (
+            per_unit_arr[:, 0] if len(eval_vals) == 1 else per_unit_arr
+        )
 
         new_entries[paper_key] = result_arr
         new_entries[sanitized_key] = result_arr
 
     return new_entries
+
+
+def _build_unit_context(
+    enriched: Dict[str, np.ndarray],
+    all_outcome_vars: set[str],
+    context: Dict[str, float],
+    unit_index: int,
+) -> Dict[str, float]:
+    """Build one unit-specific evaluation context."""
+    unit_ctx: Dict[str, float] = {}
+    for key_d, arr_d in enriched.items():
+        if key_d in all_outcome_vars or key_d in context:
+            continue
+        arr_np = np.asarray(arr_d, dtype=float)
+        if arr_np.ndim == 1 and unit_index < len(arr_np):
+            unit_ctx[key_d] = float(arr_np[unit_index])
+        elif arr_np.ndim == 2 and unit_index < arr_np.shape[0]:
+            for j, pval in enumerate(arr_np[unit_index]):
+                unit_ctx[f"{key_d}__{j}"] = float(pval)
+            unit_ctx[key_d] = float(arr_np[unit_index, 0])
+    unit_ctx.update(context)
+    return unit_ctx
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1981,6 +2131,10 @@ def ast_to_estimator(
     distribution_families: Optional[Dict[str, str]] = None,
     n_mc_samples: int = 1000,
     random_seed: Optional[int] = 0,
+    n_jobs: int = 1,
+    parallel_backend: ParallelBackend = "threads",
+    estimator_backend: str = "numpy",
+    torch_kwargs: Optional[Dict[str, Any]] = None,
 ) -> float:
     """
     Numerically evaluate a causal estimand from a pyAgrum identification formula.
@@ -2035,6 +2189,15 @@ def ast_to_estimator(
         Number of Monte Carlo samples for continuous marginalisation.
     random_seed : int or None, default 0
         Seed for the Monte Carlo sampler (``None`` → non-deterministic).
+    n_jobs : int, default 1
+        Number of workers for repeated independent per-unit fits/evaluations.
+    parallel_backend : {"threads", "processes"}, default "threads"
+        Backend used when ``n_jobs`` requests parallel work.
+    estimator_backend : {"numpy", "torch"}, default "numpy"
+        Backend for supported estimators inside the HCM estimation path.
+    torch_kwargs : dict[str, Any], optional
+        Torch backend options such as ``device``, ``devices``, ``ridge``,
+        ``max_iter``, ``lr``, and ``weight_decay``.
 
     Returns
     -------
@@ -2075,7 +2238,14 @@ def ast_to_estimator(
 
     # ── 1. Enrich data: add Q-variables computed from subunit data ────────────
     # SubunitParamEstimator is used per variable according to the families dict.
-    enriched = compute_q_from_subunit_data(data, families=families)
+    enriched = compute_q_from_subunit_data(
+        data,
+        families=families,
+        n_jobs=n_jobs,
+        parallel_backend=parallel_backend,
+        estimator_backend=estimator_backend,
+        torch_kwargs=torch_kwargs,
+    )
 
     # ── 2. Resolve intervention map ───────────────────────────────────────────
     if isinstance(intervention_value, dict):
@@ -2088,7 +2258,16 @@ def ast_to_estimator(
 
     # ── 3. Parse formula and precompute conditional Q-variables ───────────────
     formula = _extract_formula(ast)
-    q_cond_entries = _precompute_conditional_q_vars(data, formula, families, _iv_scalar)
+    q_cond_entries = _precompute_conditional_q_vars(
+        data,
+        formula,
+        families,
+        _iv_scalar,
+        n_jobs=n_jobs,
+        parallel_backend=parallel_backend,
+        estimator_backend=estimator_backend,
+        torch_kwargs=torch_kwargs,
+    )
     for k, v in q_cond_entries.items():
         if k not in enriched:
             enriched[k] = v
@@ -2182,7 +2361,11 @@ def ast_to_estimator(
             Y_arr = Y_data.ravel()
             if X_arr is not None and X_arr.shape[0] != len(Y_arr):
                 X_arr = None
-            est = ConditionalDensityEstimator(family=family)
+            est = ConditionalDensityEstimator(
+                family=family,
+                backend=estimator_backend,
+                torch_kwargs=torch_kwargs,
+            )
             est.fit(Y_arr, X_arr)
 
         fitted[key] = est
@@ -2208,26 +2391,59 @@ def ast_to_estimator(
     # ── 10. Evaluate: per-unit average if unit-level data present ─────────────
     n_units = _infer_n_units(enriched)
     if n_units > 1:
-        unit_vals = []
-        for i in range(n_units):
-            unit_ctx: Dict[str, float] = {}
-            for key_d, arr_d in enriched.items():
-                if key_d in all_outcome_vars or key_d in context:
-                    continue
-                arr_np = np.asarray(arr_d, dtype=float)
-                if arr_np.ndim == 1 and i < len(arr_np):
-                    unit_ctx[key_d] = float(arr_np[i])
-                elif arr_np.ndim == 2 and i < arr_np.shape[0]:
-                    # Multi-param Q-variable: expose each param as a separate
-                    # key suffix __0, __1, … and the primary param under the
-                    # original key so conditioning works in _eval_formula.
-                    for j, pval in enumerate(arr_np[i]):
-                        unit_ctx[f"{key_d}__{j}"] = float(pval)
-                    unit_ctx[key_d] = float(arr_np[i, 0])  # primary param
-            unit_ctx.update(context)  # intervention overwrites observation
-            unit_vals.append(
-                _eval_formula(formula, unit_ctx, fitted, enriched, resolve,
-                              n_mc_samples, rng, n_units)
+        if n_jobs is None or n_jobs == 1:
+            unit_vals = []
+            for i in range(n_units):
+                unit_ctx = _build_unit_context(
+                    enriched,
+                    all_outcome_vars,
+                    context,
+                    i,
+                )
+                unit_vals.append(
+                    _eval_formula(
+                        formula,
+                        unit_ctx,
+                        fitted,
+                        enriched,
+                        resolve,
+                        n_mc_samples,
+                        rng,
+                        n_units,
+                    )
+                )
+        else:
+            if random_seed is None:
+                child_sequences = [np.random.SeedSequence() for _ in range(n_units)]
+            else:
+                child_sequences = np.random.SeedSequence(random_seed).spawn(n_units)
+
+            def _eval_one_unit(i: int) -> float:
+                unit_ctx = _build_unit_context(
+                    enriched,
+                    all_outcome_vars,
+                    context,
+                    i,
+                )
+                unit_rng = np.random.default_rng(child_sequences[i])
+                return float(
+                    _eval_formula(
+                        formula,
+                        unit_ctx,
+                        fitted,
+                        enriched,
+                        resolve,
+                        n_mc_samples,
+                        unit_rng,
+                        n_units,
+                    )
+                )
+
+            unit_vals = parallel_map(
+                range(n_units),
+                _eval_one_unit,
+                n_jobs=n_jobs,
+                backend=parallel_backend,
             )
         return float(np.mean(unit_vals))
     else:
@@ -2258,6 +2474,10 @@ def estimate_causal_effect(
     distribution_families: Optional[Dict[str, str]] = None,
     n_mc_samples: int = 1000,
     random_seed: Optional[int] = 0,
+    n_jobs: int = 1,
+    parallel_backend: ParallelBackend = "threads",
+    estimator_backend: str = "numpy",
+    torch_kwargs: Optional[Dict[str, Any]] = None,
 ) -> float:
     """
     Estimate ``E[Y | do(X = x*)]`` from an identified causal formula and data.
@@ -2333,6 +2553,15 @@ def estimate_causal_effect(
     n_mc_samples : int, default 1000
         Monte Carlo samples for continuous marginalisation.
     random_seed : int or None, default 0
+    n_jobs : int, default 1
+        Number of workers for repeated independent per-unit fits/evaluations.
+    parallel_backend : {"threads", "processes"}, default "threads"
+        Backend used when ``n_jobs`` requests parallel work.
+    estimator_backend : {"numpy", "torch"}, default "numpy"
+        Backend for supported estimators inside the HCM estimation path.
+    torch_kwargs : dict[str, Any], optional
+        Torch backend options such as ``device``, ``devices``, ``ridge``,
+        ``max_iter``, ``lr``, and ``weight_decay``.
 
     Returns
     -------
@@ -2384,6 +2613,10 @@ def estimate_causal_effect(
         distribution_families=distribution_families,
         n_mc_samples=n_mc_samples,
         random_seed=random_seed,
+        n_jobs=n_jobs,
+        parallel_backend=parallel_backend,
+        estimator_backend=estimator_backend,
+        torch_kwargs=torch_kwargs,
     )
 
 

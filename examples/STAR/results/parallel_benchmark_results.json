@@ -1,0 +1,45 @@
+{
+  "data": {
+    "n_rows": 5725,
+    "n_ols_specs": 24,
+    "n_iv_specs": 10
+  },
+  "seq": {
+    "ols_seconds": 12.324245912008337,
+    "iv_seconds": 21.42962143299519,
+    "ols_small_first": 6.508425193712797,
+    "iv_classsize_first": -0.8182256773277492
+  },
+  "threads4": {
+    "ols_seconds": 6.705398311998579,
+    "iv_seconds": 14.868323064001743,
+    "ols_small_first": 6.508425193712797,
+    "iv_classsize_first": -0.8182256773277492
+  },
+  "proc4": {
+    "ols_seconds": 0.460374251997564,
+    "iv_seconds": 2.0456590700050583,
+    "ols_small_first": 6.508425193712797,
+    "iv_classsize_first": -0.8182256773287728
+  },
+  "per_unit_linear": {
+    "seq": {
+      "fit_regressors_seconds": 0.14429889600432944,
+      "estimate_ate_seconds": 0.13416492300166283,
+      "n_regressors": 400,
+      "ate": 0.45036892041624194
+    },
+    "threads4": {
+      "fit_regressors_seconds": 0.25381100199592765,
+      "estimate_ate_seconds": 0.2624274799891282,
+      "n_regressors": 400,
+      "ate": 0.45036892041624194
+    },
+    "proc4": {
+      "fit_regressors_seconds": 0.22770816800766625,
+      "estimate_ate_seconds": 0.2447307649999857,
+      "n_regressors": 400,
+      "ate": 0.45036892041624194
+    }
+  }
+}

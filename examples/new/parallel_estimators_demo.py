@@ -26,6 +26,7 @@ from hierarchicalcausalmodels.estimation import (
     aggregate_per_unit_outputs,
     fit_regressors_per_unit,
     estimate_ate_confounder,
+    estimate_ate_confounder_torch_batched,
     device_kwargs_for_workers,
 )
 
@@ -43,16 +44,31 @@ n, m = 10, 30
 A = rng.binomial(1, 0.5, (n, m))
 Y = rng.binomial(1, 0.3 + 0.4 * A, (n, m))
 unit_data = [(A[i], Y[i]) for i in range(n)]
-fits = fit_per_unit_estimators(unit_data, _fit_unit_confounder_style, n_jobs=1)
+fits = fit_per_unit_estimators(
+    unit_data,
+    _fit_unit_confounder_style,
+    n_jobs=2,
+    parallel_backend="threads",
+)
 ate = aggregate_per_unit_outputs(fits, "mean", extract_fn=lambda x: x[1] - x[0])
 print("Per-unit fit + aggregate ATE:", round(ate, 4))
 
 # %%
 from sklearn.linear_model import LinearRegression
-regs = fit_regressors_per_unit(A, Y, LinearRegression, n_jobs=1)
-ate2 = estimate_ate_confounder(A, Y, LinearRegression, n_jobs=1)
+regs = fit_regressors_per_unit(A, Y, LinearRegression, n_jobs=2, parallel_backend="threads")
+ate2 = estimate_ate_confounder(A, Y, LinearRegression, n_jobs=2, parallel_backend="threads")
 print("fit_regressors_per_unit: {} regressors".format(len(regs)))
 print("estimate_ate_confounder ATE:", round(ate2, 4))
+
+# %%
+ate_torch = estimate_ate_confounder_torch_batched(
+    A,
+    Y,
+    family="bernoulli",
+    device="cpu",
+    max_iter=100,
+)
+print("estimate_ate_confounder_torch_batched (CPU) ATE:", round(ate_torch, 4))
 
 # %%
 kwargs_list = device_kwargs_for_workers(4, backend="torch", use_cuda=False)
@@ -66,10 +82,17 @@ print("device_kwargs_for_workers(torch, n_gpus=2):", [d["device"] for d in kwarg
 try:
     from hierarchicalcausalmodels.estimation.torch_estimators import MLPRegressorPerUnit
     regs_mlp = fit_regressors_per_unit(
-        A, Y, MLPRegressorPerUnit, n_jobs=1,
+        A, Y, MLPRegressorPerUnit, n_jobs=2, parallel_backend="threads",
         regressor_kwargs={"device": "cpu", "max_epochs": 10, "hidden_sizes": (8,)},
     )
-    ate_mlp = estimate_ate_confounder(A, Y, MLPRegressorPerUnit, n_jobs=1, regressor_kwargs={"device": "cpu", "max_epochs": 10})
+    ate_mlp = estimate_ate_confounder(
+        A,
+        Y,
+        MLPRegressorPerUnit,
+        n_jobs=2,
+        parallel_backend="threads",
+        regressor_kwargs={"device": "cpu", "max_epochs": 10},
+    )
     print("MLPRegressorPerUnit (CPU) ATE:", round(ate_mlp, 4))
 except Exception as e:
     print("MLP demo skipped:", e)

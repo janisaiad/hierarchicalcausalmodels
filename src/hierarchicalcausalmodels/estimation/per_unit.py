@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
-import typing
 from typing import Any, Callable, Optional, TypeVar
 
 import numpy as np
+
+from .parallel import ParallelBackend, parallel_map
+from .torch_estimators import (
+    TorchBatchedBernoulliState,
+    TorchBatchedGaussianState,
+    estimate_ate_confounder_torch_batched as _estimate_ate_confounder_torch_batched,
+    torch_fit_batched_bernoulli,
+    torch_fit_batched_gaussian,
+)
 
 T = TypeVar("T")
 
@@ -14,15 +22,15 @@ def fit_per_unit_estimators(
     unit_data: list[tuple[np.ndarray, np.ndarray]],
     fit_fn: Callable[[tuple[np.ndarray, np.ndarray]], T],
     n_jobs: int = 1,
+    parallel_backend: ParallelBackend = "threads",
 ) -> list[T]:
     """Run fit_fn on each unit's (a, y) and return list of results."""
-    if n_jobs is None or n_jobs <= 1:
-        return [fit_fn(d) for d in unit_data]
-    try:
-        from joblib import Parallel, delayed
-        return list(Parallel(n_jobs=n_jobs)(delayed(fit_fn)(d) for d in unit_data))
-    except ImportError:
-        return [fit_fn(d) for d in unit_data]
+    return parallel_map(
+        unit_data,
+        fit_fn,
+        n_jobs=n_jobs,
+        backend=parallel_backend,
+    )
 
 
 def aggregate_per_unit_outputs(
@@ -47,6 +55,7 @@ def fit_regressors_per_unit(
     regressor_class: type,
     n_jobs: int = 1,
     regressor_kwargs: Optional[dict[str, Any]] = None,
+    parallel_backend: ParallelBackend = "threads",
 ) -> list[Any]:
     """Fit one regressor per unit (row). A, Y shape (n_units, n_obs). Returns list of fitted regressors."""
     n = A.shape[0]
@@ -59,13 +68,12 @@ def fit_regressors_per_unit(
         reg.fit(a_i, y_i)
         return reg
 
-    if n_jobs is None or n_jobs <= 1:
-        return [fit_one(i) for i in range(n)]
-    try:
-        from joblib import Parallel, delayed
-        return list(Parallel(n_jobs=n_jobs)(delayed(fit_one)(i) for i in range(n)))
-    except ImportError:
-        return [fit_one(i) for i in range(n)]
+    return parallel_map(
+        range(n),
+        fit_one,
+        n_jobs=n_jobs,
+        backend=parallel_backend,
+    )
 
 
 def estimate_ate_confounder(
@@ -74,9 +82,17 @@ def estimate_ate_confounder(
     regressor_class: type,
     n_jobs: int = 1,
     regressor_kwargs: Optional[dict[str, Any]] = None,
+    parallel_backend: ParallelBackend = "threads",
 ) -> float:
     """Per-unit E[Y|A=1] - E[Y|A=0] then average over units."""
-    regs = fit_regressors_per_unit(A, Y, regressor_class, n_jobs=n_jobs, regressor_kwargs=regressor_kwargs)
+    regs = fit_regressors_per_unit(
+        A,
+        Y,
+        regressor_class,
+        n_jobs=n_jobs,
+        regressor_kwargs=regressor_kwargs,
+        parallel_backend=parallel_backend,
+    )
     n = A.shape[0]
     ate_list: list[float] = []
     for i in range(n):
@@ -85,6 +101,67 @@ def estimate_ate_confounder(
         pred_1 = float(reg.predict([[1.0]])[0])
         ate_list.append(pred_1 - pred_0)
     return float(np.mean(ate_list))
+
+
+def fit_torch_batched_regressor_per_unit(
+    A: np.ndarray,
+    Y: np.ndarray,
+    family: str = "gaussian",
+    device: str = "cpu",
+    devices: Optional[list[str]] = None,
+    ridge: float = 1e-4,
+    max_iter: int = 200,
+    lr: float = 5e-2,
+    weight_decay: float = 1e-4,
+) -> TorchBatchedGaussianState | TorchBatchedBernoulliState:
+    """Fit one Torch batched regressor per unit on CPU or CUDA."""
+    family_l = family.lower().strip()
+    if family_l in {"gaussian", "normal"}:
+        return torch_fit_batched_gaussian(
+            x_batch=A,
+            y_batch=Y,
+            device=device,
+            devices=devices,
+            ridge=ridge,
+        )
+    if family_l == "bernoulli":
+        return torch_fit_batched_bernoulli(
+            x_batch=A,
+            y_batch=Y,
+            device=device,
+            devices=devices,
+            max_iter=max_iter,
+            lr=lr,
+            weight_decay=weight_decay,
+        )
+    raise NotImplementedError(
+        f"Torch batched per-unit estimation is currently implemented for 'bernoulli' and 'gaussian', got {family!r}."
+    )
+
+
+def estimate_ate_confounder_torch_batched(
+    A: np.ndarray,
+    Y: np.ndarray,
+    family: str = "gaussian",
+    device: str = "cpu",
+    devices: Optional[list[str]] = None,
+    ridge: float = 1e-4,
+    max_iter: int = 200,
+    lr: float = 5e-2,
+    weight_decay: float = 1e-4,
+) -> float:
+    """Estimate per-unit ATE with a Torch batched backend on CPU or CUDA."""
+    return _estimate_ate_confounder_torch_batched(
+        a=A,
+        y=Y,
+        family=family,
+        device=device,
+        devices=devices,
+        ridge=ridge,
+        max_iter=max_iter,
+        lr=lr,
+        weight_decay=weight_decay,
+    )
 
 
 def device_kwargs_for_workers(
