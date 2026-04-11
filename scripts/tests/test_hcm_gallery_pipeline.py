@@ -124,6 +124,18 @@ def test_estimate_runs_when_paper_identifiable_confounder_aug():
     )
     data = simulate_binary_hscm(hscm, nu, ns, rng)
     fam = {k: "bernoulli" for k in data}
-    e1 = estimate_causal_effect(res, data=data, intervention={x_n: 1.0}, distribution_families=fam)
-    e0 = estimate_causal_effect(res, data=data, intervention={x_n: 0.0}, distribution_families=fam)
+    try:
+        import torch as _torch
+
+        _dev = "cuda" if _torch.cuda.is_available() else "cpu"
+    except ImportError:
+        _dev = "cpu"
+    _kw = dict(
+        distribution_families=fam,
+        n_mc_samples=800,
+        estimator_backend="torch",
+        torch_kwargs={"device": _dev},
+    )
+    e1 = estimate_causal_effect(res, data=data, intervention={x_n: 1.0}, **_kw)
+    e0 = estimate_causal_effect(res, data=data, intervention={x_n: 0.0}, **_kw)
     assert np.isfinite(e1) and np.isfinite(e0)

@@ -29,14 +29,32 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+from .numba_kernels import (
+    expit_array,
+    linear_predict_batch,
+    logistic_positive_proba_batch,
+)
 from .parallel import ParallelBackend, parallel_map
 from .torch_estimators import (
+    torch_fit_batched_beta,
     torch_compute_subunit_params,
     torch_conditional_expectations_per_unit,
     torch_fit_batched_bernoulli,
     torch_fit_batched_gaussian,
+    torch_fit_batched_gamma,
+    torch_fit_batched_poisson,
+    torch_predict_batched_beta_mean,
     torch_predict_batched_bernoulli,
     torch_predict_batched_gaussian,
+    torch_predict_batched_gamma_mean,
+    torch_predict_batched_poisson,
+)
+from .variational_estimators import (
+    VariationalConditionalState,
+    fit_variational_conditional_estimator,
+    variational_credible_interval,
+    variational_density_samples,
+    variational_mean_prediction,
 )
 
 try:
@@ -52,6 +70,13 @@ try:
 except ImportError:
     SKLEARN_AVAILABLE = False
 
+try:
+    from sklearn.mixture import GaussianMixture
+    SKLEARN_MIXTURE_AVAILABLE = True
+except ImportError:
+    GaussianMixture = None  # type: ignore
+    SKLEARN_MIXTURE_AVAILABLE = False
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Low-level conditional density estimator
@@ -64,6 +89,7 @@ SUPPORTED_FAMILIES = {
     "poisson",
     # Continuous unbounded
     "gaussian", "normal",
+    "gaussian_mixture", "gmm",
     "laplace",
     "student_t", "t",
     # Continuous positive
@@ -80,22 +106,29 @@ SUPPORTED_FAMILIES = {
     "nonparametric",
 }
 
+DEFAULT_GAUSSIAN_MIXTURE_COMPONENTS = 2
+
 
 def _fit_q_from_subunit_task(
-    task: tuple[str, np.ndarray, str],
+    task: tuple[str, np.ndarray, str, Optional[Dict[str, Any]]],
 ) -> tuple[str, np.ndarray]:
     """Fit one Q-summary array from one raw subunit matrix."""
-    q_key, arr_np, family = task
-    est = SubunitParamEstimator(family=family)
+    q_key, arr_np, family, estimator_kwargs = task
+    est = SubunitParamEstimator(family=family, estimator_kwargs=estimator_kwargs)
     return q_key, est.fit(arr_np)
 
 
 def _fit_conditional_q_row_task(
-    task: tuple[np.ndarray, np.ndarray, np.ndarray, str],
+    task: tuple[np.ndarray, np.ndarray, np.ndarray, str, str, Optional[Dict[str, Any]], Optional[Dict[str, Any]]],
 ) -> np.ndarray:
     """Fit one per-unit conditional Q profile."""
-    y_i, a_i, eval_vals, family_outcome = task
-    est = ConditionalDensityEstimator(family=family_outcome)
+    y_i, a_i, eval_vals, family_outcome, estimator_backend, torch_kwargs, estimator_kwargs = task
+    est = ConditionalDensityEstimator(
+        family=family_outcome,
+        backend=estimator_backend,
+        torch_kwargs=torch_kwargs,
+        estimator_kwargs=estimator_kwargs,
+    )
     est.fit(y_i, a_i.reshape(-1, 1))
     return np.array(
         [
@@ -105,13 +138,61 @@ def _fit_conditional_q_row_task(
         dtype=float,
     )
 
+
+def _log_gaussian_density(x: np.ndarray, mean: np.ndarray, cov: np.ndarray) -> float:
+    """Stable log-density for a multivariate Gaussian."""
+    x_v = np.asarray(x, dtype=float).reshape(-1)
+    mean_v = np.asarray(mean, dtype=float).reshape(-1)
+    cov_m = np.asarray(cov, dtype=float)
+    cov_m = cov_m + 1e-8 * np.eye(cov_m.shape[0], dtype=float)
+    diff = x_v - mean_v
+    sign, logdet = np.linalg.slogdet(cov_m)
+    if sign <= 0:
+        cov_m = cov_m + 1e-6 * np.eye(cov_m.shape[0], dtype=float)
+        sign, logdet = np.linalg.slogdet(cov_m)
+    inv = np.linalg.pinv(cov_m)
+    quad = float(diff.T @ inv @ diff)
+    dim = len(x_v)
+    return float(-0.5 * (dim * np.log(2.0 * np.pi) + logdet + quad))
+
 _FAMILY_ALIASES: Dict[str, str] = {
     "normal": "gaussian",
+    "gmm": "gaussian_mixture",
     "t": "student_t",
     "log_normal": "lognormal",
     "wald": "inverse_gaussian",
     "halfcauchy": "half_cauchy",
 }
+
+
+def _canonical_family_name(family: str) -> str:
+    family_l = family.lower().strip()
+    return _FAMILY_ALIASES.get(family_l, family_l)
+
+
+def _resolve_estimator_kwargs(
+    estimator_kwargs: Optional[Dict[str, Any]],
+    *,
+    variable_name: Optional[str] = None,
+    family: Optional[str] = None,
+) -> Dict[str, Any]:
+    if not estimator_kwargs:
+        return {}
+    if not any(isinstance(value, dict) for value in estimator_kwargs.values()):
+        return dict(estimator_kwargs)
+    merged: Dict[str, Any] = {}
+    default_kwargs = estimator_kwargs.get("__default__")
+    if isinstance(default_kwargs, dict):
+        merged.update(default_kwargs)
+    if family is not None:
+        family_kwargs = estimator_kwargs.get(_canonical_family_name(family))
+        if isinstance(family_kwargs, dict):
+            merged.update(family_kwargs)
+    if variable_name is not None:
+        var_kwargs = estimator_kwargs.get(variable_name)
+        if isinstance(var_kwargs, dict):
+            merged.update(var_kwargs)
+    return merged
 
 
 class ConditionalDensityEstimator:
@@ -190,16 +271,18 @@ class ConditionalDensityEstimator:
         regularization: float = 1e4,
         backend: str = "numpy",
         torch_kwargs: Optional[Dict[str, Any]] = None,
+        estimator_kwargs: Optional[Dict[str, Any]] = None,
     ):
         family = family.lower().strip()
         self.family = _FAMILY_ALIASES.get(family, family)
         self.regularization = regularization
         self.backend = backend.lower().strip()
-        if self.backend not in {"numpy", "torch"}:
+        if self.backend not in {"numpy", "torch", "numpyro"}:
             raise ValueError(
-                f"Unsupported backend {backend!r}. Choose from 'numpy' or 'torch'."
+                f"Unsupported backend {backend!r}. Choose from 'numpy', 'torch', or 'numpyro'."
             )
         self.torch_kwargs = dict(torch_kwargs or {})
+        self.estimator_kwargs = dict(estimator_kwargs or {})
         self._fitted = False
 
     # ------------------------------------------------------------------ fit --
@@ -230,6 +313,7 @@ class ConditionalDensityEstimator:
             "bernoulli":        self._fit_bernoulli,
             "poisson":          self._fit_poisson,
             "gaussian":         self._fit_gaussian,
+            "gaussian_mixture": self._fit_gaussian_mixture,
             "laplace":          self._fit_laplace,
             "student_t":        self._fit_student_t,
             "exponential":      self._fit_exponential,
@@ -286,6 +370,8 @@ class ConditionalDensityEstimator:
         return p if y_int == 1 else (1.0 - p)
 
     def _expect_bernoulli(self, x_query) -> float:
+        if hasattr(self, "_variational_state"):
+            return float(variational_mean_prediction(self._variational_state, np.atleast_2d(np.asarray(x_query, dtype=float)))[0])
         if hasattr(self, "_torch_bernoulli_state"):
             x2d = np.atleast_2d(np.asarray(x_query, dtype=np.float32))[None, :, :]
             return float(torch_predict_batched_bernoulli(self._torch_bernoulli_state, x2d)[0, 0])
@@ -335,6 +421,8 @@ class ConditionalDensityEstimator:
         return float(np.exp(-0.5 * z * z) / (self._sigma * np.sqrt(2 * np.pi)))
 
     def _predict_mu_gaussian(self, x_query) -> float:
+        if hasattr(self, "_variational_state"):
+            return float(variational_mean_prediction(self._variational_state, np.atleast_2d(np.asarray(x_query, dtype=float)))[0])
         if hasattr(self, "_torch_gaussian_state"):
             x2d = np.atleast_2d(np.asarray(x_query, dtype=np.float32))[None, :, :]
             return float(torch_predict_batched_gaussian(self._torch_gaussian_state, x2d)[0, 0])
@@ -342,12 +430,161 @@ class ConditionalDensityEstimator:
             return float(self._lr_gauss.predict(np.atleast_2d(x_query))[0])
         return self._mu_marginal
 
+    # -------- Gaussian mixture -----------------------------------------------
+
+    def _fit_gaussian_mixture(self, Y, X):
+        if self.backend == "numpyro":
+            self._variational_state = fit_variational_conditional_estimator(
+                y=Y,
+                x=X,
+                family="gaussian_mixture",
+                n_components=int(self.estimator_kwargs.get("n_components", DEFAULT_GAUSSIAN_MIXTURE_COMPONENTS)),
+                num_steps=int(self.estimator_kwargs.get("num_steps", 3500)),
+                learning_rate=float(self.estimator_kwargs.get("learning_rate", 8e-3)),
+                num_posterior_samples=int(self.estimator_kwargs.get("num_posterior_samples", 320)),
+                seed=int(self.estimator_kwargs.get("seed", 0)),
+                device=self.estimator_kwargs.get("device"),
+            )
+            self._gmm_x_dim = 0 if X is None or X.shape[1] == 0 else int(X.shape[1])
+            self._gmm_is_conditional = self._gmm_x_dim > 0
+            self._gmm_components = int(self.estimator_kwargs.get("n_components", DEFAULT_GAUSSIAN_MIXTURE_COMPONENTS))
+            self._mu_marginal = float(variational_mean_prediction(self._variational_state, None)[0])
+            return
+        if not SKLEARN_MIXTURE_AVAILABLE:
+            raise RuntimeError("GaussianMixture requires scikit-learn to be installed.")
+        n_components = int(self.estimator_kwargs.get("n_components", DEFAULT_GAUSSIAN_MIXTURE_COMPONENTS))
+        max_iter = int(self.estimator_kwargs.get("max_iter_gmm", 300))
+        random_state = int(self.estimator_kwargs.get("random_state_gmm", 0))
+        reg_covar = float(self.estimator_kwargs.get("reg_covar_gmm", 1e-6))
+        self._gmm_x_dim = 0 if X is None or X.shape[1] == 0 else int(X.shape[1])
+        self._gmm_is_conditional = self._gmm_x_dim > 0
+        self._gmm_components = n_components
+
+        if not self._gmm_is_conditional:
+            try:
+                gmm = GaussianMixture(
+                    n_components=n_components,
+                    covariance_type="full",
+                    reg_covar=reg_covar,
+                    max_iter=max_iter,
+                    random_state=random_state,
+                )
+                gmm.fit(Y.reshape(-1, 1))
+                self._gmm_model = gmm
+                self._gmm_weights = gmm.weights_.copy()
+                self._gmm_means = gmm.means_.reshape(-1)
+                self._gmm_vars = gmm.covariances_.reshape(-1).clip(min=1e-9)
+            except Exception:
+                self._gmm_model = None
+                self._gmm_weights = np.array([1.0], dtype=float)
+                self._gmm_means = np.array([float(np.mean(Y))], dtype=float)
+                self._gmm_vars = np.array([float(max(np.var(Y), 1e-9))], dtype=float)
+            self._mu_marginal = float(np.sum(self._gmm_weights * self._gmm_means))
+            return
+
+        joint = np.column_stack([X, Y])
+        try:
+            gmm = GaussianMixture(
+                n_components=n_components,
+                covariance_type="full",
+                reg_covar=reg_covar,
+                max_iter=max_iter,
+                random_state=random_state,
+            )
+            gmm.fit(joint)
+            self._gmm_model = gmm
+            self._gmm_weights = gmm.weights_.copy()
+            self._gmm_joint_means = gmm.means_.copy()
+            self._gmm_joint_covs = gmm.covariances_.copy()
+        except Exception:
+            self._gmm_model = None
+            self._gmm_weights = np.array([1.0], dtype=float)
+            self._gmm_joint_means = np.column_stack([np.mean(X, axis=0, keepdims=True), np.array([[float(np.mean(Y))]])]).reshape(1, -1)
+            cov = np.cov(joint.T) if joint.shape[0] > 1 else np.eye(joint.shape[1], dtype=float)
+            if np.ndim(cov) == 0:
+                cov = np.array([[float(cov)]], dtype=float)
+            self._gmm_joint_covs = cov.reshape(1, cov.shape[0], cov.shape[1])
+        self._mu_marginal = float(np.mean(Y))
+
+    def _conditional_gmm_terms(self, x_query: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        x_arr = np.asarray(x_query, dtype=float).reshape(-1)
+        if x_arr.size != self._gmm_x_dim:
+            raise ValueError(
+                f"Expected x_query with {self._gmm_x_dim} features, got {x_arr.size}."
+            )
+        log_weights: list[float] = []
+        cond_means: list[float] = []
+        cond_vars: list[float] = []
+        for k in range(self._gmm_components):
+            weight_k = float(self._gmm_weights[k])
+            mean_joint = self._gmm_joint_means[k]
+            cov_joint = self._gmm_joint_covs[k]
+            mu_x = mean_joint[: self._gmm_x_dim]
+            mu_y = float(mean_joint[self._gmm_x_dim])
+            sigma_xx = cov_joint[: self._gmm_x_dim, : self._gmm_x_dim]
+            sigma_xy = cov_joint[: self._gmm_x_dim, self._gmm_x_dim : self._gmm_x_dim + 1]
+            sigma_yx = cov_joint[self._gmm_x_dim : self._gmm_x_dim + 1, : self._gmm_x_dim]
+            sigma_yy = float(cov_joint[self._gmm_x_dim, self._gmm_x_dim])
+            sigma_xx_inv = np.linalg.pinv(sigma_xx + 1e-8 * np.eye(self._gmm_x_dim))
+            diff = x_arr - mu_x
+            cond_mean = mu_y + float((sigma_yx @ sigma_xx_inv @ diff.reshape(-1, 1)).ravel()[0])
+            cond_var = sigma_yy - float((sigma_yx @ sigma_xx_inv @ sigma_xy).ravel()[0])
+            cond_var = float(max(cond_var, 1e-9))
+            log_weight = np.log(weight_k + 1e-12) + _log_gaussian_density(x_arr, mu_x, sigma_xx)
+            log_weights.append(log_weight)
+            cond_means.append(cond_mean)
+            cond_vars.append(cond_var)
+        log_weights_np = np.asarray(log_weights, dtype=float)
+        log_weights_np = log_weights_np - np.max(log_weights_np)
+        weights = np.exp(log_weights_np)
+        weights = weights / np.sum(weights)
+        return weights, np.asarray(cond_means, dtype=float), np.asarray(cond_vars, dtype=float)
+
+    def _eval_gaussian_mixture(self, x_query, y_query) -> float:
+        if hasattr(self, "_variational_state"):
+            x_arg = None if x_query is None else np.atleast_2d(np.asarray(x_query, dtype=float))
+            draws = variational_density_samples(self._variational_state, float(y_query), x_arg)
+            return float(np.mean(draws))
+        y_f = float(y_query)
+        if not getattr(self, "_gmm_is_conditional", False):
+            densities = (
+                np.exp(-0.5 * ((y_f - self._gmm_means) ** 2) / self._gmm_vars)
+                / np.sqrt(2.0 * np.pi * self._gmm_vars)
+            )
+            return float(np.sum(self._gmm_weights * densities))
+        weights, means, variances = self._conditional_gmm_terms(x_query)
+        densities = (
+            np.exp(-0.5 * ((y_f - means) ** 2) / variances)
+            / np.sqrt(2.0 * np.pi * variances)
+        )
+        return float(np.sum(weights * densities))
+
+    def _predict_mu_gaussian_mixture(self, x_query) -> float:
+        if hasattr(self, "_variational_state"):
+            x_arg = None if x_query is None else np.atleast_2d(np.asarray(x_query, dtype=float))
+            return float(variational_mean_prediction(self._variational_state, x_arg)[0])
+        if not getattr(self, "_gmm_is_conditional", False):
+            return float(np.sum(self._gmm_weights * self._gmm_means))
+        weights, means, _ = self._conditional_gmm_terms(x_query)
+        return float(np.sum(weights * means))
+
     # -------- Poisson ---------------------------------------------------------
 
     def _fit_poisson(self, Y, X):
         self._lambda_marginal = float(np.maximum(np.mean(Y), 1e-9))
         self._lr_poisson = None
-        if X is not None and X.shape[1] > 0 and SKLEARN_AVAILABLE:
+        if X is not None and X.shape[1] > 0 and self.backend == "torch":
+            state = torch_fit_batched_poisson(
+                x_batch=X[None, :, :],
+                y_batch=Y[None, :],
+                device=self.torch_kwargs.get("device", "cpu"),
+                devices=self.torch_kwargs.get("devices"),
+                max_iter=int(self.torch_kwargs.get("max_iter", 200)),
+                lr=float(self.torch_kwargs.get("lr", 5e-2)),
+                weight_decay=float(self.torch_kwargs.get("weight_decay", 1e-4)),
+            )
+            self._torch_poisson_state = state
+        elif X is not None and X.shape[1] > 0 and SKLEARN_AVAILABLE:
             try:
                 from sklearn.linear_model import PoissonRegressor
                 glm = PoissonRegressor(max_iter=1000, alpha=0)
@@ -360,6 +597,9 @@ class ConditionalDensityEstimator:
                 self._lr_poisson = ("log_linear", lr)
 
     def _predict_lambda_poisson(self, x_query) -> float:
+        if hasattr(self, "_torch_poisson_state"):
+            x2d = np.atleast_2d(np.asarray(x_query, dtype=np.float32))[None, :, :]
+            return float(torch_predict_batched_poisson(self._torch_poisson_state, x2d)[0, 0])
         if self._lr_poisson is None:
             return self._lambda_marginal
         if isinstance(self._lr_poisson, tuple):  # log-linear fallback
@@ -490,17 +730,52 @@ class ConditionalDensityEstimator:
                 pass  # keep MOM estimates
         self._gamma_mean = float(np.mean(Y_pos))
         self._lr_gamma = None
-        if X is not None and X.shape[1] > 0 and SKLEARN_AVAILABLE:
+        if X is not None and X.shape[1] > 0 and self.backend == "torch":
+            state = torch_fit_batched_gamma(
+                x_batch=X[None, :, :],
+                y_batch=Y_pos[None, :],
+                device=self.torch_kwargs.get("device", "cpu"),
+                devices=self.torch_kwargs.get("devices"),
+                max_iter=int(self.torch_kwargs.get("max_iter", 300)),
+                lr=float(self.torch_kwargs.get("lr", 5e-2)),
+                weight_decay=float(self.torch_kwargs.get("weight_decay", 1e-4)),
+            )
+            self._torch_gamma_state = state
+            self._gamma_shape = float(state.shape[0])
+        elif X is not None and X.shape[1] > 0 and self.backend == "numpyro":
+            self._variational_state = fit_variational_conditional_estimator(
+                y=Y_pos,
+                x=X,
+                family="gamma",
+                num_steps=int(self.estimator_kwargs.get("num_steps", 2500)),
+                learning_rate=float(self.estimator_kwargs.get("learning_rate", 1e-2)),
+                num_posterior_samples=int(self.estimator_kwargs.get("num_posterior_samples", 256)),
+                seed=int(self.estimator_kwargs.get("seed", 0)),
+                device=self.estimator_kwargs.get("device"),
+            )
+        elif X is not None and X.shape[1] > 0 and SKLEARN_AVAILABLE:
             lr = LinearRegression()
             lr.fit(X, Y_pos)
             self._lr_gamma = lr
 
     def _predict_mean_gamma(self, x_query) -> float:
+        if hasattr(self, "_torch_gamma_state"):
+            x2d = np.atleast_2d(np.asarray(x_query, dtype=np.float32))[None, :, :]
+            return float(torch_predict_batched_gamma_mean(self._torch_gamma_state, x2d)[0, 0])
+        if hasattr(self, "_variational_state"):
+            return float(variational_mean_prediction(self._variational_state, np.atleast_2d(np.asarray(x_query, dtype=float)))[0])
         if self._lr_gamma is None:
             return self._gamma_mean
         return float(np.maximum(self._lr_gamma.predict(np.atleast_2d(x_query))[0], 1e-9))
 
     def _eval_gamma(self, x_query, y_query) -> float:
+        if hasattr(self, "_variational_state"):
+            draws = variational_density_samples(
+                self._variational_state,
+                float(y_query),
+                np.atleast_2d(np.asarray(x_query, dtype=float)),
+            )
+            return float(np.mean(draws))
         mu = self._predict_mean_gamma(x_query)
         # Shape fixed from marginal; adjust scale so mean = shape * scale = mu
         scale = float(np.maximum(mu / (self._gamma_shape + 1e-9), 1e-9))
@@ -628,7 +903,30 @@ class ConditionalDensityEstimator:
         self._beta_conc = float(np.maximum(conc, 1e-3))
         self._beta_mu = mu
         self._lr_beta = None
-        if X is not None and X.shape[1] > 0 and SKLEARN_AVAILABLE:
+        if X is not None and X.shape[1] > 0 and self.backend == "torch":
+            state = torch_fit_batched_beta(
+                x_batch=X[None, :, :],
+                y_batch=Y_clipped[None, :],
+                device=self.torch_kwargs.get("device", "cpu"),
+                devices=self.torch_kwargs.get("devices"),
+                max_iter=int(self.torch_kwargs.get("max_iter", 300)),
+                lr=float(self.torch_kwargs.get("lr", 5e-2)),
+                weight_decay=float(self.torch_kwargs.get("weight_decay", 1e-4)),
+            )
+            self._torch_beta_state = state
+            self._beta_conc = float(state.concentration[0])
+        elif X is not None and X.shape[1] > 0 and self.backend == "numpyro":
+            self._variational_state = fit_variational_conditional_estimator(
+                y=Y_clipped,
+                x=X,
+                family="beta",
+                num_steps=int(self.estimator_kwargs.get("num_steps", 2500)),
+                learning_rate=float(self.estimator_kwargs.get("learning_rate", 1e-2)),
+                num_posterior_samples=int(self.estimator_kwargs.get("num_posterior_samples", 256)),
+                seed=int(self.estimator_kwargs.get("seed", 0)),
+                device=self.estimator_kwargs.get("device"),
+            )
+        elif X is not None and X.shape[1] > 0 and SKLEARN_AVAILABLE:
             # Logit-linear regression for mean
             from sklearn.linear_model import LogisticRegression as _LR
             # Use linear regression on logit(Y) as proxy
@@ -637,12 +935,24 @@ class ConditionalDensityEstimator:
             self._lr_beta = lr
 
     def _predict_mu_beta(self, x_query) -> float:
+        if hasattr(self, "_torch_beta_state"):
+            x2d = np.atleast_2d(np.asarray(x_query, dtype=np.float32))[None, :, :]
+            return float(torch_predict_batched_beta_mean(self._torch_beta_state, x2d)[0, 0])
+        if hasattr(self, "_variational_state"):
+            return float(variational_mean_prediction(self._variational_state, np.atleast_2d(np.asarray(x_query, dtype=float)))[0])
         if self._lr_beta is None:
             return self._beta_mu
         logit_pred = float(self._lr_beta.predict(np.atleast_2d(x_query))[0])
         return float(1.0 / (1.0 + np.exp(-logit_pred)))
 
     def _eval_beta(self, x_query, y_query) -> float:
+        if hasattr(self, "_variational_state"):
+            draws = variational_density_samples(
+                self._variational_state,
+                float(y_query),
+                np.atleast_2d(np.asarray(x_query, dtype=float)),
+            )
+            return float(np.mean(draws))
         mu = self._predict_mu_beta(x_query)
         conc = self._beta_conc
         alpha = float(np.maximum(mu * conc, 1e-3))
@@ -778,6 +1088,7 @@ class ConditionalDensityEstimator:
             "bernoulli":        self._eval_bernoulli,
             "poisson":          self._eval_poisson,
             "gaussian":         self._eval_gaussian,
+            "gaussian_mixture": self._eval_gaussian_mixture,
             "laplace":          self._eval_laplace,
             "student_t":        self._eval_student_t,
             "exponential":      self._eval_exponential,
@@ -810,6 +1121,7 @@ class ConditionalDensityEstimator:
                 "bernoulli":        lambda: getattr(self, "_p_marginal", float("nan")),
                 "poisson":          lambda: self._lambda_marginal,
                 "gaussian":         lambda: self._mu_marginal,
+                "gaussian_mixture": lambda: self._mu_marginal,
                 "laplace":          lambda: self._laplace_loc,
                 "student_t":        lambda: self._t_loc,
                 "exponential":      lambda: 1.0 / (self._exp_lambda + 1e-9),
@@ -828,6 +1140,7 @@ class ConditionalDensityEstimator:
             "bernoulli":        self._expect_bernoulli,
             "poisson":          self._predict_lambda_poisson,
             "gaussian":         self._predict_mu_gaussian,
+            "gaussian_mixture": self._predict_mu_gaussian_mixture,
             "laplace":          self._predict_loc_laplace,
             "student_t":        self._predict_loc_t,
             "exponential":      self._predict_mean_exp,
@@ -855,6 +1168,8 @@ class ConditionalDensityEstimator:
         elif self.family == "gaussian":
             p["mu"] = getattr(self, "_mu_marginal", float("nan"))
             p["sigma"] = self._sigma
+        elif self.family == "gaussian_mixture":
+            p["n_components"] = float(self._gmm_components)
         elif self.family == "laplace":
             p["loc"] = self._laplace_loc; p["scale"] = self._laplace_scale
         elif self.family == "student_t":
@@ -913,7 +1228,7 @@ class SubunitParamEstimator:
 
     _SCALAR_FAMILIES: frozenset = frozenset({"bernoulli", "poisson", "exponential"})
 
-    def __init__(self, family: str = "bernoulli") -> None:
+    def __init__(self, family: str = "bernoulli", estimator_kwargs: Optional[Dict[str, Any]] = None) -> None:
         family = _FAMILY_ALIASES.get(family, family)
         if family not in SUPPORTED_FAMILIES:
             raise ValueError(
@@ -921,12 +1236,15 @@ class SubunitParamEstimator:
                 f"Choose from: {sorted(SUPPORTED_FAMILIES)}."
             )
         self.family = family
+        self.estimator_kwargs = dict(estimator_kwargs or {})
 
     @property
     def n_params(self) -> int:
         """Dimensionality of the per-unit parameter vector."""
         if self.family in self._SCALAR_FAMILIES:
             return 1
+        if self.family == "gaussian_mixture":
+            return 3 * DEFAULT_GAUSSIAN_MIXTURE_COMPONENTS
         if self.family in {"gaussian", "normal", "beta", "gamma",
                            "lognormal", "log_normal",
                            "inverse_gaussian", "wald"}:
@@ -957,6 +1275,29 @@ class SubunitParamEstimator:
 
         if self.family in ("gaussian", "normal"):
             return np.array([float(y.mean()), float(max(y.var(ddof=0), 1e-10))])
+
+        if self.family == "gaussian_mixture":
+            if not SKLEARN_MIXTURE_AVAILABLE:
+                raise RuntimeError("GaussianMixture requires scikit-learn to be installed.")
+            n_components = int(self.estimator_kwargs.get("n_components", DEFAULT_GAUSSIAN_MIXTURE_COMPONENTS))
+            try:
+                gmm = GaussianMixture(
+                    n_components=n_components,
+                    covariance_type="full",
+                    reg_covar=float(self.estimator_kwargs.get("reg_covar_gmm", 1e-6)),
+                    max_iter=int(self.estimator_kwargs.get("max_iter_gmm", 300)),
+                    random_state=int(self.estimator_kwargs.get("random_state_gmm", 0)),
+                )
+                gmm.fit(y.reshape(-1, 1))
+                order = np.argsort(gmm.means_.reshape(-1))
+                weights = gmm.weights_[order]
+                means = gmm.means_.reshape(-1)[order]
+                variances = gmm.covariances_.reshape(-1)[order].clip(min=1e-9)
+            except Exception:
+                weights = np.full(n_components, 1.0 / n_components, dtype=float)
+                means = np.full(n_components, float(np.mean(y)), dtype=float)
+                variances = np.full(n_components, float(max(np.var(y), 1e-9)), dtype=float)
+            return np.concatenate([weights, means, variances])
 
         if self.family == "poisson":
             return np.array([float(max(y.mean(), 1e-10))])
@@ -1118,11 +1459,17 @@ class QDensityEstimator:
             self._fallback_mean = samples.mean(axis=0)
             self._fallback_std = np.maximum(samples.std(axis=0, ddof=1), 1e-8)
             return
+        if samples.ndim != 2 or samples.shape[0] <= samples.shape[1]:
+            # KDE in d dimensions needs comfortably more than d unit samples;
+            # otherwise scipy rightfully fails with a singular covariance matrix.
+            self._fallback_mean = samples.mean(axis=0)
+            self._fallback_std = np.maximum(samples.std(axis=0, ddof=1), 1e-8)
+            return
         try:
             self._kde = _sp_stats.gaussian_kde(
                 samples.T, bw_method=self.bandwidth
             )
-        except np.linalg.LinAlgError:
+        except (np.linalg.LinAlgError, ValueError):
             # Singular covariance (e.g., constant column) → Gaussian fallback
             self._fallback_mean = samples.mean(axis=0)
             self._fallback_std = np.maximum(samples.std(axis=0, ddof=1), 1e-8)
@@ -1253,6 +1600,7 @@ def compute_q_from_subunit_data(
     parallel_backend: ParallelBackend = "threads",
     estimator_backend: str = "numpy",
     torch_kwargs: Optional[Dict[str, Any]] = None,
+    estimator_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, np.ndarray]:
     """
     Enrich *data* with Q-variable arrays from raw subunit observations.
@@ -1284,6 +1632,7 @@ def compute_q_from_subunit_data(
     tasks: list[tuple[str, np.ndarray, str]] = []
     torch_kwargs = dict(torch_kwargs or {})
     estimator_backend = estimator_backend.lower().strip()
+    local_n_jobs = 1 if estimator_backend == "numpyro" else n_jobs
 
     for key, arr in data.items():
         arr_np = np.asarray(arr)
@@ -1305,7 +1654,7 @@ def compute_q_from_subunit_data(
             continue  # already provided by user
 
         family = families.get(key, families.get(q_key, "bernoulli"))
-        if estimator_backend == "torch" and family in {"bernoulli", "gaussian", "normal"}:
+        if estimator_backend == "torch" and family in {"bernoulli", "poisson", "gaussian", "normal", "beta", "gamma"}:
             if q_key not in result:
                 result[q_key] = torch_compute_subunit_params(
                     arr_np,
@@ -1314,12 +1663,17 @@ def compute_q_from_subunit_data(
                     devices=torch_kwargs.get("devices"),
                 )
             continue
-        tasks.append((q_key, arr_np, family))
+        local_estimator_kwargs = _resolve_estimator_kwargs(
+            estimator_kwargs,
+            variable_name=key,
+            family=family,
+        )
+        tasks.append((q_key, arr_np, family, local_estimator_kwargs))
 
     for q_key, q_values in parallel_map(
         tasks,
         _fit_q_from_subunit_task,
-        n_jobs=n_jobs,
+        n_jobs=local_n_jobs,
         backend=parallel_backend,
     ):
         if q_key not in result:
@@ -1617,22 +1971,33 @@ def _eval_formula(
         if est is None:
             return 1.0
 
-        # Collect conditioning values from context
-        x_vals = []
-        for cv in node.cond_vars:
-            cv_paper = resolve(cv) or cv
-            val = context.get(cv_paper, context.get(cv))
-            if val is None:
-                d = _data_first_lookup(data, cv_paper, cv)
-                if d is not None:
-                    d_np = np.asarray(d, dtype=float)
-                    # For multi-dim Q: use first param (primary) as scalar
-                    val = float(d_np.mean() if d_np.ndim == 1
-                                else d_np[:, 0].mean())
-                else:
-                    val = 0.0
-            x_vals.append(float(val))
-        x_q = np.array(x_vals) if x_vals else None
+        # Collect conditioning values from context (must match ast_to_estimator columns).
+        x_vals: List[float] = []
+        cond_key_pairs = getattr(est, "_hcm_cond_parent_keys", None)
+        if cond_key_pairs:
+            for cv_paper, raw_cv in cond_key_pairs:
+                val = context.get(cv_paper, context.get(raw_cv))
+                if val is None:
+                    d = _data_first_lookup(data, cv_paper, raw_cv)
+                    if d is not None:
+                        d_np = np.asarray(d, dtype=float)
+                        val = float(d_np.mean() if d_np.ndim == 1 else d_np[:, -1].mean())
+                    else:
+                        val = 0.0
+                x_vals.append(float(val))
+        else:
+            for cv in node.cond_vars:
+                cv_paper = resolve(cv) or cv
+                val = context.get(cv_paper, context.get(cv))
+                if val is None:
+                    d = _data_first_lookup(data, cv_paper, cv)
+                    if d is not None:
+                        d_np = np.asarray(d, dtype=float)
+                        val = float(d_np.mean() if d_np.ndim == 1 else d_np[:, -1].mean())
+                    else:
+                        val = 0.0
+                x_vals.append(float(val))
+        x_q = np.array(x_vals, dtype=float) if x_vals else None
 
         # QDensityEstimator: return scalar_mean(X) as the expected Q value
         if isinstance(est, QDensityEstimator):
@@ -1729,6 +2094,9 @@ def _batch_expectation(est: ConditionalDensityEstimator, X_batch: np.ndarray) ->
         arr = pred if pred is not None else np.full(n, est._mu_marginal)
         return _batch_arr_length_n(arr, n, est, X_batch)
 
+    if fam == "gaussian_mixture":
+        return np.array([float(est._predict_mu_gaussian_mixture(X_batch[i])) for i in range(n)])
+
     if fam == "bernoulli":
         if hasattr(est, "_torch_bernoulli_state"):
             x3 = np.asarray(X_batch, dtype=np.float32)[None, :, :]
@@ -1736,12 +2104,15 @@ def _batch_expectation(est: ConditionalDensityEstimator, X_batch: np.ndarray) ->
         if est._lr_model is None:
             arr = np.full(n, est._p_marginal)
         elif hasattr(est._lr_model, "predict_proba"):
-            arr = est._lr_model.predict_proba(X_batch)[:, 1]
+            arr = logistic_positive_proba_batch(est._lr_model, X_batch)
         else:
             arr = np.clip(est._lr_model.predict(X_batch), 0.0, 1.0)
         return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "poisson":
+        if hasattr(est, "_torch_poisson_state"):
+            x3 = np.asarray(X_batch, dtype=np.float32)[None, :, :]
+            return torch_predict_batched_poisson(est._torch_poisson_state, x3)[0]
         lr = getattr(est, "_lr_poisson", None)
         if lr is None:
             arr = np.full(n, est._lambda_marginal)
@@ -1767,6 +2138,9 @@ def _batch_expectation(est: ConditionalDensityEstimator, X_batch: np.ndarray) ->
         return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "gamma":
+        if hasattr(est, "_torch_gamma_state"):
+            x3 = np.asarray(X_batch, dtype=np.float32)[None, :, :]
+            return torch_predict_batched_gamma_mean(est._torch_gamma_state, x3)[0]
         pred = _linreg_predict("_lr_gamma")
         arr = np.maximum(pred, 1e-9) if pred is not None else np.full(n, est._gamma_mean)
         return _batch_arr_length_n(arr, n, est, X_batch)
@@ -1788,12 +2162,15 @@ def _batch_expectation(est: ConditionalDensityEstimator, X_batch: np.ndarray) ->
         return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "beta":
+        if hasattr(est, "_torch_beta_state"):
+            x3 = np.asarray(X_batch, dtype=np.float32)[None, :, :]
+            return torch_predict_batched_beta_mean(est._torch_beta_state, x3)[0]
         lr = getattr(est, "_lr_beta", None)
         if lr is None:
             arr = np.full(n, est._beta_mu)
         else:
-            logit_pred = lr.predict(X_batch)
-            arr = 1.0 / (1.0 + np.exp(-logit_pred))
+            logit_pred = linear_predict_batch(lr, X_batch)
+            arr = expit_array(np.asarray(logit_pred, dtype=np.float64))
         return _batch_arr_length_n(arr, n, est, X_batch)
 
     if fam == "half_cauchy":
@@ -1848,29 +2225,49 @@ def _eval_formula_vec(
         if est is None:
             return np.ones(n)
 
-        # Build X matrix for the full batch
-        x_cols = []
-        for cv in node.cond_vars:
-            cv_paper = resolve(cv) or cv
-            if cv_paper == sv_name or cv == sv_name:
-                if hasattr(sv_values, 'ndim') and sv_values.ndim == 2:
-                    # 2D profile: use only the last column (highest conditioning value).
-                    # Must match the fitting step, which also uses only col[:, -1].
-                    x_cols.append(sv_values[:, -1])
-                else:
-                    x_cols.append(sv_values)  # the batch variable
-            else:
-                val = context.get(cv_paper, context.get(cv))
-                if val is None:
-                    d = _data_first_lookup(data, cv_paper, cv)
-                    if d is not None:
-                        d_np = np.asarray(d, dtype=float)
-                        if unit_n is not None and d_np.shape[0] != unit_n:
-                            continue
-                        val = float(np.mean(d_np))
+        # Build X matrix for the full batch (same parents as at fit time when metadata exists).
+        x_cols: List[np.ndarray] = []
+        cond_key_pairs_vec = getattr(est, "_hcm_cond_parent_keys", None)
+        if cond_key_pairs_vec:
+            for cv_paper, raw_cv in cond_key_pairs_vec:
+                if cv_paper == sv_name or raw_cv == sv_name:
+                    if hasattr(sv_values, "ndim") and sv_values.ndim == 2:
+                        x_cols.append(sv_values[:, -1])
                     else:
-                        val = 0.0
-                x_cols.append(np.full(n, float(val)))
+                        x_cols.append(sv_values)
+                else:
+                    val = context.get(cv_paper, context.get(raw_cv))
+                    if val is None:
+                        d = _data_first_lookup(data, cv_paper, raw_cv)
+                        if d is not None:
+                            d_np = np.asarray(d, dtype=float)
+                            if unit_n is not None and d_np.shape[0] != unit_n:
+                                val = 0.0
+                            else:
+                                val = float(d_np.mean() if d_np.ndim == 1 else d_np[:, -1].mean())
+                        else:
+                            val = 0.0
+                    x_cols.append(np.full(n, float(val)))
+        else:
+            for cv in node.cond_vars:
+                cv_paper = resolve(cv) or cv
+                if cv_paper == sv_name or cv == sv_name:
+                    if hasattr(sv_values, "ndim") and sv_values.ndim == 2:
+                        x_cols.append(sv_values[:, -1])
+                    else:
+                        x_cols.append(sv_values)
+                else:
+                    val = context.get(cv_paper, context.get(cv))
+                    if val is None:
+                        d = _data_first_lookup(data, cv_paper, cv)
+                        if d is not None:
+                            d_np = np.asarray(d, dtype=float)
+                            if unit_n is not None and d_np.shape[0] != unit_n:
+                                continue
+                            val = float(np.mean(d_np))
+                        else:
+                            val = 0.0
+                    x_cols.append(np.full(n, float(val)))
         X_batch = np.column_stack(x_cols) if x_cols else None
 
         # Outcome: check if a point-probability or expectation is requested
@@ -1978,6 +2375,7 @@ def _precompute_conditional_q_vars(
     parallel_backend: ParallelBackend = "threads",
     estimator_backend: str = "numpy",
     torch_kwargs: Optional[Dict[str, Any]] = None,
+    estimator_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, np.ndarray]:
     """
     Precompute conditional Q-variables (e.g. Q^{y|a}) found in the formula.
@@ -2007,6 +2405,14 @@ def _precompute_conditional_q_vars(
     new_entries: Dict[str, np.ndarray] = {}
     torch_kwargs = dict(torch_kwargs or {})
     estimator_backend = estimator_backend.lower().strip()
+    local_parallel_backend: ParallelBackend = parallel_backend
+    local_n_jobs = n_jobs
+    if estimator_backend == "numpyro" and parallel_backend == "threads":
+        local_parallel_backend = "processes"
+    if estimator_backend == "numpyro":
+        # Variational fits already use JAX/XLA internally; spawning multiple Python
+        # workers around them is both memory-hungry and unstable on a single GPU.
+        local_n_jobs = 1
 
     for sv in deduped_vars:
         m = re.match(r'^Q([a-zA-Z]+)_([a-zA-Z]+)$', sv)
@@ -2047,6 +2453,11 @@ def _precompute_conditional_q_vars(
 
         n_units = outcome_arr.shape[0]
         family_outcome = families.get(outcome_key, 'bernoulli')
+        local_estimator_kwargs = _resolve_estimator_kwargs(
+            estimator_kwargs,
+            variable_name=outcome_key,
+            family=family_outcome,
+        )
 
         # Decide whether to build a full 2D conditional profile or a scalar per unit.
         # Only variables that the formula sums over (Σ_{sv}) need a multi-value profile:
@@ -2061,7 +2472,7 @@ def _precompute_conditional_q_vars(
         else:
             eval_vals = np.array([iv_val])
 
-        if estimator_backend == "torch" and family_outcome in {"bernoulli", "gaussian", "normal"}:
+        if estimator_backend == "torch" and family_outcome in {"bernoulli", "poisson", "gaussian", "normal", "beta", "gamma"}:
             per_unit_arr = torch_conditional_expectations_per_unit(
                 y=outcome_arr,
                 x=cond_arr,
@@ -2076,14 +2487,22 @@ def _precompute_conditional_q_vars(
             )
         else:
             unit_tasks = [
-                (outcome_arr[i], cond_arr[i], eval_vals, family_outcome)
+                (
+                    outcome_arr[i],
+                    cond_arr[i],
+                    eval_vals,
+                    family_outcome,
+                    estimator_backend,
+                    torch_kwargs,
+                    local_estimator_kwargs,
+                )
                 for i in range(n_units)
             ]
             per_unit_rows = parallel_map(
                 unit_tasks,
                 _fit_conditional_q_row_task,
-                n_jobs=n_jobs,
-                backend=parallel_backend,
+                n_jobs=local_n_jobs,
+                backend=local_parallel_backend,
             )
             per_unit_arr = np.vstack(per_unit_rows) if per_unit_rows else np.zeros((0, len(eval_vals)))
 
@@ -2115,7 +2534,8 @@ def _build_unit_context(
         elif arr_np.ndim == 2 and unit_index < arr_np.shape[0]:
             for j, pval in enumerate(arr_np[unit_index]):
                 unit_ctx[f"{key_d}__{j}"] = float(pval)
-            unit_ctx[key_d] = float(arr_np[unit_index, 0])
+            # Align with ast_to_estimator conditioning design: 2D Q-profiles use the last column.
+            unit_ctx[key_d] = float(arr_np[unit_index, -1])
     unit_ctx.update(context)
     return unit_ctx
 
@@ -2135,6 +2555,7 @@ def ast_to_estimator(
     parallel_backend: ParallelBackend = "threads",
     estimator_backend: str = "numpy",
     torch_kwargs: Optional[Dict[str, Any]] = None,
+    estimator_kwargs: Optional[Dict[str, Any]] = None,
 ) -> float:
     """
     Numerically evaluate a causal estimand from a pyAgrum identification formula.
@@ -2186,18 +2607,25 @@ def ast_to_estimator(
             Continuous Y → Gaussian KDE.
 
     n_mc_samples : int, default 1000
-        Number of Monte Carlo samples for continuous marginalisation.
+        Monte Carlo samples for continuous marginalisation in the formula
+        evaluator.  For large values, ``estimator_backend="torch"`` with
+        ``torch_kwargs["device"]="cuda"`` runs the batched MC tensor path on GPU.
     random_seed : int or None, default 0
         Seed for the Monte Carlo sampler (``None`` → non-deterministic).
     n_jobs : int, default 1
         Number of workers for repeated independent per-unit fits/evaluations.
     parallel_backend : {"threads", "processes"}, default "threads"
         Backend used when ``n_jobs`` requests parallel work.
-    estimator_backend : {"numpy", "torch"}, default "numpy"
+    estimator_backend : {"numpy", "torch", "numpyro"}, default "numpy"
         Backend for supported estimators inside the HCM estimation path.
     torch_kwargs : dict[str, Any], optional
         Torch backend options such as ``device``, ``devices``, ``ridge``,
         ``max_iter``, ``lr``, and ``weight_decay``.
+    estimator_kwargs : dict[str, Any], optional
+        Estimator-specific hyperparameters. Supports either a flat dict or a
+        nested mapping with keys like ``"__default__"``, family names
+        (for example ``"gaussian_mixture"``), or variable names
+        (for example ``"Q^{y|a}"``).
 
     Returns
     -------
@@ -2235,16 +2663,22 @@ def ast_to_estimator(
     """
     families = distribution_families or {}
     rng = np.random.default_rng(random_seed)
+    local_n_jobs = n_jobs
+    if estimator_backend.lower().strip() == "numpyro" and n_jobs not in (None, 1) and parallel_backend == "threads":
+        parallel_backend = "processes"
+    if estimator_backend.lower().strip() == "numpyro":
+        local_n_jobs = 1
 
     # ── 1. Enrich data: add Q-variables computed from subunit data ────────────
     # SubunitParamEstimator is used per variable according to the families dict.
     enriched = compute_q_from_subunit_data(
         data,
         families=families,
-        n_jobs=n_jobs,
+        n_jobs=local_n_jobs,
         parallel_backend=parallel_backend,
         estimator_backend=estimator_backend,
         torch_kwargs=torch_kwargs,
+        estimator_kwargs=estimator_kwargs,
     )
 
     # ── 2. Resolve intervention map ───────────────────────────────────────────
@@ -2263,10 +2697,11 @@ def ast_to_estimator(
         formula,
         families,
         _iv_scalar,
-        n_jobs=n_jobs,
+        n_jobs=local_n_jobs,
         parallel_backend=parallel_backend,
         estimator_backend=estimator_backend,
         torch_kwargs=torch_kwargs,
+        estimator_kwargs=estimator_kwargs,
     )
     for k, v in q_cond_entries.items():
         if k not in enriched:
@@ -2312,8 +2747,10 @@ def ast_to_estimator(
 
         # Determine family for the outcome variable
         family = "nonparametric"
+        outcome_variable_name = None
         for candidate in out_vars:
             paper_c = resolve(candidate) or candidate
+            outcome_variable_name = paper_c
             f = families.get(paper_c)
             if f is None:
                 f = families.get(candidate)
@@ -2332,7 +2769,8 @@ def ast_to_estimator(
         n_ref = Y_data.shape[0]
 
         # Conditioning data: flatten multi-dim Q-params to columns
-        X_cols = []
+        X_cols: List[np.ndarray] = []
+        cond_keys_for_eval: List[tuple[str, str]] = []
         for cv in cond_vars:
             cv_paper = resolve(cv)
             if cv_paper is not None and cv_paper in enriched:
@@ -2349,12 +2787,13 @@ def ast_to_estimator(
                     # Q^{a|z=0} and Q^{a|z=1} differ by a near-constant gap, so the
                     # regression cannot distinguish them.
                     X_cols.append(col_data[:, -1])
+                cond_keys_for_eval.append((cv_paper, str(cv)))
         X_arr = np.column_stack(X_cols) if X_cols else None
 
         if Y_data.ndim == 2:
             # Multi-parameter Q-variable (e.g. Gaussian (μ, σ²) per unit).
             # Estimate P(Q = q | X = x) via KDE in the parameter space.
-            est: Any = QDensityEstimator()
+            est = QDensityEstimator()
             est.fit(Y_data, x_cond=X_arr)
         else:
             # Unit-level scalar variable or scalar Q-variable.
@@ -2365,8 +2804,16 @@ def ast_to_estimator(
                 family=family,
                 backend=estimator_backend,
                 torch_kwargs=torch_kwargs,
+                estimator_kwargs=_resolve_estimator_kwargs(
+                    estimator_kwargs,
+                    variable_name=outcome_variable_name,
+                    family=family,
+                ),
             )
             est.fit(Y_arr, X_arr)
+
+        if cond_keys_for_eval:
+            est._hcm_cond_parent_keys = tuple(cond_keys_for_eval)  # type: ignore[attr-defined]
 
         fitted[key] = est
 
@@ -2442,7 +2889,7 @@ def ast_to_estimator(
             unit_vals = parallel_map(
                 range(n_units),
                 _eval_one_unit,
-                n_jobs=n_jobs,
+                n_jobs=local_n_jobs,
                 backend=parallel_backend,
             )
         return float(np.mean(unit_vals))
@@ -2478,6 +2925,7 @@ def estimate_causal_effect(
     parallel_backend: ParallelBackend = "threads",
     estimator_backend: str = "numpy",
     torch_kwargs: Optional[Dict[str, Any]] = None,
+    estimator_kwargs: Optional[Dict[str, Any]] = None,
 ) -> float:
     """
     Estimate ``E[Y | do(X = x*)]`` from an identified causal formula and data.
@@ -2551,17 +2999,25 @@ def estimate_causal_effect(
         ``"half_cauchy"``, ``"nonparametric"`` (default).
 
     n_mc_samples : int, default 1000
-        Monte Carlo samples for continuous marginalisation.
+        Monte Carlo samples for continuous marginalisation in the formula
+        evaluator.  For large values, ``estimator_backend="torch"`` together
+        with ``torch_kwargs["device"]="cuda"`` keeps the batched conditional
+        expectations on the GPU instead of many small NumPy calls on CPU.
     random_seed : int or None, default 0
     n_jobs : int, default 1
         Number of workers for repeated independent per-unit fits/evaluations.
     parallel_backend : {"threads", "processes"}, default "threads"
         Backend used when ``n_jobs`` requests parallel work.
-    estimator_backend : {"numpy", "torch"}, default "numpy"
+    estimator_backend : {"numpy", "torch", "numpyro"}, default "numpy"
         Backend for supported estimators inside the HCM estimation path.
     torch_kwargs : dict[str, Any], optional
         Torch backend options such as ``device``, ``devices``, ``ridge``,
         ``max_iter``, ``lr``, and ``weight_decay``.
+    estimator_kwargs : dict[str, Any], optional
+        Estimator-specific hyperparameters, including ``n_components`` for
+        ``gaussian_mixture`` and variational options for the ``numpyro``
+        backend such as ``num_steps``, ``learning_rate``,
+        ``num_posterior_samples``, ``seed``, and JAX ``device``.
 
     Returns
     -------
@@ -2617,6 +3073,7 @@ def estimate_causal_effect(
         parallel_backend=parallel_backend,
         estimator_backend=estimator_backend,
         torch_kwargs=torch_kwargs,
+        estimator_kwargs=estimator_kwargs,
     )
 
 

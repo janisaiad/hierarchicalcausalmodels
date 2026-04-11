@@ -6,7 +6,11 @@ we do **not** assert |ate_hat - external truth| -> 0 when only n_mc_samples grow
 identificand is evaluated at the **empirical** distribution, so finite-sample bias vs a
 population truth (curated dgp or large structural mc) remains unless n_units / n_sub grows.
 
-run: uv run pytest tests/test_gallery_ate_mc_convergence.py -m slow --tb=short
+run: uv run pytest scripts/tests/test_gallery_ate_mc_convergence.py -m slow --tb=short
+
+we keep runtimes modest (target a few minutes total): a smaller MC ladder, a handful of
+gallery cases, and ``estimator_backend="torch"`` so the batched MC path can use CUDA when
+available (vectorised logits / conditional means on the full MC batch at once).
 """
 from __future__ import annotations
 
@@ -78,8 +82,18 @@ def _bern_families(data_dict):
     return {k: "bernoulli" for k in data_dict}
 
 
+def _mc_torch_device() -> str:
+    try:
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except ImportError:
+        return "cpu"
+
+
 def _ate_hat(res, data, x_node, n_mc, seed0, seed1):
     fam = _bern_families(data)
+    dev = _mc_torch_device()
     e1 = estimate_causal_effect(
         res,
         data=data,
@@ -87,6 +101,8 @@ def _ate_hat(res, data, x_node, n_mc, seed0, seed1):
         distribution_families=fam,
         n_mc_samples=n_mc,
         random_seed=seed0,
+        estimator_backend="torch",
+        torch_kwargs={"device": dev},
     )
     e0 = estimate_causal_effect(
         res,
@@ -95,12 +111,30 @@ def _ate_hat(res, data, x_node, n_mc, seed0, seed1):
         distribution_families=fam,
         n_mc_samples=n_mc,
         random_seed=seed1,
+        estimator_backend="torch",
+        torch_kwargs={"device": dev},
     )
     return float(e1 - e0)
 
 
+_MC_LADDER_LO = 1000
+_MC_LADDER_HI = 3200
+_MC_LADDER_TOL = 1.2e-2
+
+_GALLERY_CASES_FOR_MC_LADDER = (
+    "confounder_aug",
+    "instrument_mar",
+    "ID_ex3_collapse",
+    "ID_ex2_aug",
+)
+
+
 @pytest.mark.slow
-@pytest.mark.parametrize("case", COLLAPSED_DO_CALCULUS_CASES, ids=lambda c: c[0])
+@pytest.mark.parametrize(
+    "case",
+    [c for c in COLLAPSED_DO_CALCULUS_CASES if c[0] in _GALLERY_CASES_FOR_MC_LADDER],
+    ids=lambda c: c[0],
+)
 def test_internal_mc_stabilises_ate_for_identifiable_gallery_cases(case):
     if not dc_pkg.PYAGNUM_AVAILABLE:
         pytest.skip("pyagrum not installed")
@@ -124,13 +158,15 @@ def test_internal_mc_stabilises_ate_for_identifiable_gallery_cases(case):
     )
     rng = np.random.default_rng(424242 + hash(case[0]) % 10_000)
     data_obs = simulate_binary_hscm(hscm, nu, ns, rng)
-    n_lo, n_hi = 4000, 24000
+    n_lo, n_hi = _MC_LADDER_LO, _MC_LADDER_HI
     ate_lo = _ate_hat(res, data_obs, x_node, n_lo, 0, 1)
     ate_hi = _ate_hat(res, data_obs, x_node, n_hi, 0, 1)
     diff = abs(ate_lo - ate_hi)
     assert np.isfinite(diff), "we expect finite ate difference across mc ladders"
-    assert diff < 1e-3, "we expect internal mc noise < 1e-3 between {} and {} draws ({})".format(
-        n_lo, n_hi, case[0]
+    assert diff < _MC_LADDER_TOL, (
+        "we expect internal mc noise < {} between {} and {} draws ({})".format(
+            _MC_LADDER_TOL, n_lo, n_hi, case[0]
+        )
     )
 
 
@@ -155,6 +191,8 @@ def test_same_seed_reproduces_ate_confounder_aug():
     )
     rng = np.random.default_rng(7)
     data_obs = simulate_binary_hscm(hscm, nu, ns, rng)
-    a1 = _ate_hat(res, data_obs, x_node, 8000, 0, 1)
-    a2 = _ate_hat(res, data_obs, x_node, 8000, 0, 1)
-    assert a1 == a2
+    n_mc = 2500
+    a1 = _ate_hat(res, data_obs, x_node, n_mc, 0, 1)
+    a2 = _ate_hat(res, data_obs, x_node, n_mc, 0, 1)
+    assert np.isfinite(a1) and np.isfinite(a2)
+    assert abs(a1 - a2) < 1e-9

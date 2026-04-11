@@ -3,6 +3,8 @@ import pytest
 import torch
 
 from hierarchicalcausalmodels.estimation import (
+    ConditionalDensityEstimator,
+    SubunitParamEstimator,
     estimate_ate_confounder_torch_batched,
     estimate_causal_effect,
     torch_compute_subunit_params,
@@ -95,6 +97,91 @@ def test_torch_subunit_and_conditional_helpers_cpu():
     )
     assert preds.shape == (10, 2)
     assert np.all(preds[:, 1] >= preds[:, 0] - 0.15)
+
+
+@pytest.mark.parametrize(
+    ("family", "y_builder", "lower", "upper"),
+    [
+        (
+            "poisson",
+            lambda rng, x: rng.poisson(lam=np.exp(0.2 + 0.5 * x)),
+            0.8,
+            2.5,
+        ),
+        (
+            "gamma",
+            lambda rng, x: rng.gamma(shape=3.0, scale=np.exp(-0.3 + 0.2 * x) / 3.0),
+            0.4,
+            1.5,
+        ),
+        (
+            "beta",
+            lambda rng, x: rng.beta(a=2.0 + 2.0 * x, b=6.0 - 2.0 * x),
+            0.15,
+            0.75,
+        ),
+    ],
+)
+def test_torch_extended_families_cpu(family, y_builder, lower, upper):
+    rng = np.random.default_rng(305)
+    x = rng.binomial(1, 0.5, size=(12, 36)).astype(float)
+    y = y_builder(rng, x).astype(float)
+
+    preds = torch_conditional_expectations_per_unit(
+        y=y,
+        x=x,
+        eval_values=np.array([0.0, 1.0]),
+        family=family,
+        device="cpu",
+        max_iter=180,
+        lr=0.05,
+    )
+
+    assert preds.shape == (12, 2)
+    assert np.all(np.isfinite(preds))
+    assert np.all(preds >= lower - 1.0)
+    assert np.all(preds <= upper + 3.0)
+
+
+def test_gaussian_mixture_conditional_estimator_and_subunit_params():
+    rng = np.random.default_rng(306)
+    n = 800
+    x = rng.binomial(1, 0.5, size=n).astype(float)
+    comp = rng.binomial(1, 0.35 + 0.3 * x, size=n)
+    y = np.where(
+        comp == 0,
+        rng.normal(loc=-1.0 + 1.5 * x, scale=0.35, size=n),
+        rng.normal(loc=2.0 + 1.0 * x, scale=0.45, size=n),
+    )
+
+    est = ConditionalDensityEstimator(
+        family="gaussian_mixture",
+        estimator_kwargs={"n_components": 2, "max_iter_gmm": 200},
+    )
+    est.fit(y, x.reshape(-1, 1))
+
+    mean_0 = est.expectation(np.array([0.0]))
+    mean_1 = est.expectation(np.array([1.0]))
+    dens_0 = est.prob(mean_0, np.array([0.0]))
+    dens_1 = est.prob(mean_1, np.array([1.0]))
+
+    assert np.isfinite(mean_0)
+    assert np.isfinite(mean_1)
+    assert mean_1 > mean_0
+    assert dens_0 > 0.0
+    assert dens_1 > 0.0
+
+    y_units = np.vstack([
+        np.concatenate([
+            rng.normal(-1.0, 0.3, size=20),
+            rng.normal(2.2, 0.4, size=20),
+        ])
+        for _ in range(8)
+    ])
+    q_params = SubunitParamEstimator(family="gaussian_mixture").fit(y_units)
+    assert q_params.shape == (8, 6)
+    weights = q_params[:, :2]
+    assert np.allclose(weights.sum(axis=1), 1.0, atol=1e-3)
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")

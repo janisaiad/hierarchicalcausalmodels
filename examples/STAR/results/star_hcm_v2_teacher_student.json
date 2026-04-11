@@ -13,6 +13,7 @@
       "Y"
     ],
     "latent_unit_node": "U",
+    "outcome_subunit_default": "M",
     "meta": {
       "source_table": "examples/STAR/STA-207/STAR_Students.tab",
       "grade": "kindergarten",
@@ -93,12 +94,13 @@
       ],
       "dag_ok": true,
       "identifiable": true,
-      "formula_latex": "P\\left(Qy\\right)",
+      "formula_latex": "P\\left(Qm\\right)",
       "explanation": "Do-calculus identification succeeded.",
       "status": "ok",
-      "estimand": "E[Q^y | do(Q^a)]",
-      "E_do_1": 436.88043478260903,
-      "E_do_0": 436.88043478260903,
+      "outcome_subunit": "M",
+      "estimand": "E[Q^m | do(Q^a)]",
+      "E_do_1": 485.9133540372668,
+      "E_do_0": 485.9133540372668,
       "ATE": 0.0
     },
     {
@@ -156,12 +158,13 @@
       ],
       "dag_ok": true,
       "identifiable": true,
-      "formula_latex": "P\\left(Qy\\right)",
+      "formula_latex": "P\\left(Qm\\right)",
       "explanation": "Do-calculus identification succeeded.",
       "status": "ok",
-      "estimand": "E[Q^y | do(Q^a)]",
-      "E_do_1": 436.88043478260903,
-      "E_do_0": 436.88043478260903,
+      "outcome_subunit": "M",
+      "estimand": "E[Q^m | do(Q^a)]",
+      "E_do_1": 485.9133540372668,
+      "E_do_0": 485.9133540372668,
       "ATE": 0.0
     },
     {
@@ -219,11 +222,14 @@
       ],
       "dag_ok": true,
       "identifiable": true,
-      "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_g_l_m\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
       "explanation": "Do-calculus identification succeeded.",
-      "status": "error",
-      "error_type": "ValueError",
-      "error": "X has 6 features, but LinearRegression is expecting 4 features as input."
+      "status": "ok",
+      "outcome_subunit": "M",
+      "estimand": "E[Q^m | do(Q^a)]",
+      "E_do_1": 1382.5387555379561,
+      "E_do_0": 1360.273007843763,
+      "ATE": 22.265747694193124
     },
     {
       "graph_name": "ExactBIC",
@@ -280,11 +286,14 @@
       ],
       "dag_ok": true,
       "identifiable": true,
-      "formula_latex": "\\sum_{Qe,Qg,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qg,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "formula_latex": "\\sum_{Qe,Qg,Qm_e_y,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qm_e_y\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Qm_e_y,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
       "explanation": "Do-calculus identification succeeded.",
-      "status": "error",
-      "error_type": "ValueError",
-      "error": "X has 3 features, but LinearRegression is expecting 2 features as input."
+      "status": "ok",
+      "outcome_subunit": "M",
+      "estimand": "E[Q^m | do(Q^a)]",
+      "E_do_1": 2406.651584785958,
+      "E_do_0": 2366.6874189771697,
+      "ATE": 39.96416580878849
     },
     {
       "graph_name": "ConsensusMean",
@@ -337,12 +346,13 @@
       ],
       "dag_ok": true,
       "identifiable": true,
-      "formula_latex": "P\\left(Qy\\right)",
+      "formula_latex": "P\\left(Qm\\right)",
       "explanation": "Do-calculus identification succeeded.",
       "status": "ok",
-      "estimand": "E[Q^y | do(Q^a)]",
-      "E_do_1": 436.88043478260903,
-      "E_do_0": 436.88043478260903,
+      "outcome_subunit": "M",
+      "estimand": "E[Q^m | do(Q^a)]",
+      "E_do_1": 485.9133540372668,
+      "E_do_0": 485.9133540372668,
       "ATE": 0.0
     }
   ]

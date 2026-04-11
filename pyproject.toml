@@ -7,7 +7,7 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "causal-learn>=0.1.4.0",
     "causalgraphicalmodels",
-    "jax>=0.8.2",
+    "jax[cuda12]>=0.8.2",
     "ipykernel>=7.0.0",
     "jupyter>=1.1.1",
     "jupytext>=1.18.1",
@@ -33,12 +33,23 @@ dependencies = [
     "cdt>=0.6.0",
 ]
 
+[project.optional-dependencies]
+speed = [
+    "numba>=0.62.0",
+]
+
 [tool.uv]
 # Évite que le résolveur tire llvmlite 0.36 (incompatible Python 3.13) via une chaîne transitive vers shap/numba.
 override-dependencies = ["llvmlite>=0.43.0", "numba>=0.62.0"]
 
 [tool.uv.sources]
 causalgraphicalmodels = { git = "https://github.com/janisaiad/causalgraphicalmodels.git" }
+torch = [{ index = "pytorch-cu128" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
 
 
 

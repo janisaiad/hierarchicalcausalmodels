@@ -30,6 +30,32 @@ class TorchBatchedBernoulliState:
     devices_used: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class TorchBatchedPoissonState:
+    """Parameters of a batched Poisson log-linear model."""
+
+    coefficients: np.ndarray
+    devices_used: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TorchBatchedGammaState:
+    """Parameters of a batched Gamma regression model."""
+
+    coefficients: np.ndarray
+    shape: np.ndarray
+    devices_used: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TorchBatchedBetaState:
+    """Parameters of a batched Beta regression model."""
+
+    coefficients: np.ndarray
+    concentration: np.ndarray
+    devices_used: tuple[str, ...]
+
+
 def _normalize_devices(
     device: TorchDeviceLike = "cpu",
     devices: Optional[list[str]] = None,
@@ -143,6 +169,122 @@ def _solve_batched_bernoulli_single_device(
     )
 
 
+def _solve_batched_poisson_single_device(
+    x_batch: np.ndarray,
+    y_batch: np.ndarray,
+    device_name: str,
+    max_iter: int,
+    lr: float,
+    weight_decay: float,
+) -> TorchBatchedPoissonState:
+    x_t = torch.as_tensor(_to_tensor3d(x_batch), dtype=torch.float32, device=device_name)
+    y_t = torch.as_tensor(_to_tensor2d(y_batch), dtype=torch.float32, device=device_name).clamp_min(0.0)
+    batch_size, n_obs, n_feat = x_t.shape
+
+    ones = torch.ones((batch_size, n_obs, 1), dtype=x_t.dtype, device=x_t.device)
+    design = torch.cat([ones, x_t], dim=2)
+    coeff = torch.zeros((batch_size, n_feat + 1), dtype=x_t.dtype, device=x_t.device, requires_grad=True)
+    optimizer = torch.optim.Adam([coeff], lr=lr, weight_decay=weight_decay)
+
+    for _ in range(max_iter):
+        optimizer.zero_grad()
+        log_rate = (design * coeff[:, None, :]).sum(dim=2)
+        rate = torch.exp(torch.clamp(log_rate, -10.0, 10.0))
+        loss = (rate - y_t * log_rate).mean()
+        loss.backward()
+        optimizer.step()
+
+    return TorchBatchedPoissonState(
+        coefficients=coeff.detach().cpu().numpy(),
+        devices_used=(device_name,),
+    )
+
+
+def _solve_batched_gamma_single_device(
+    x_batch: np.ndarray,
+    y_batch: np.ndarray,
+    device_name: str,
+    max_iter: int,
+    lr: float,
+    weight_decay: float,
+) -> TorchBatchedGammaState:
+    x_t = torch.as_tensor(_to_tensor3d(x_batch), dtype=torch.float32, device=device_name)
+    y_t = torch.as_tensor(_to_tensor2d(y_batch), dtype=torch.float32, device=device_name).clamp_min(1e-6)
+    batch_size, n_obs, n_feat = x_t.shape
+
+    ones = torch.ones((batch_size, n_obs, 1), dtype=x_t.dtype, device=x_t.device)
+    design = torch.cat([ones, x_t], dim=2)
+    coeff = torch.zeros((batch_size, n_feat + 1), dtype=x_t.dtype, device=x_t.device, requires_grad=True)
+    raw_shape = torch.zeros((batch_size,), dtype=x_t.dtype, device=x_t.device, requires_grad=True)
+    optimizer = torch.optim.Adam([coeff, raw_shape], lr=lr, weight_decay=weight_decay)
+
+    for _ in range(max_iter):
+        optimizer.zero_grad()
+        log_mean = (design * coeff[:, None, :]).sum(dim=2)
+        mean = torch.exp(torch.clamp(log_mean, -10.0, 10.0))
+        shape = torch.nn.functional.softplus(raw_shape) + 1e-3
+        scale = mean / shape[:, None]
+        log_prob = (
+            (shape[:, None] - 1.0) * torch.log(y_t)
+            - y_t / scale
+            - torch.lgamma(shape)[:, None]
+            - shape[:, None] * torch.log(scale)
+        )
+        loss = -log_prob.mean()
+        loss.backward()
+        optimizer.step()
+
+    return TorchBatchedGammaState(
+        coefficients=coeff.detach().cpu().numpy(),
+        shape=(torch.nn.functional.softplus(raw_shape) + 1e-3).detach().cpu().numpy(),
+        devices_used=(device_name,),
+    )
+
+
+def _solve_batched_beta_single_device(
+    x_batch: np.ndarray,
+    y_batch: np.ndarray,
+    device_name: str,
+    max_iter: int,
+    lr: float,
+    weight_decay: float,
+) -> TorchBatchedBetaState:
+    x_t = torch.as_tensor(_to_tensor3d(x_batch), dtype=torch.float32, device=device_name)
+    y_t = torch.as_tensor(_to_tensor2d(y_batch), dtype=torch.float32, device=device_name)
+    y_t = torch.clamp(y_t, 1e-6, 1.0 - 1e-6)
+    batch_size, n_obs, n_feat = x_t.shape
+
+    ones = torch.ones((batch_size, n_obs, 1), dtype=x_t.dtype, device=x_t.device)
+    design = torch.cat([ones, x_t], dim=2)
+    coeff = torch.zeros((batch_size, n_feat + 1), dtype=x_t.dtype, device=x_t.device, requires_grad=True)
+    raw_conc = torch.zeros((batch_size,), dtype=x_t.dtype, device=x_t.device, requires_grad=True)
+    optimizer = torch.optim.Adam([coeff, raw_conc], lr=lr, weight_decay=weight_decay)
+
+    for _ in range(max_iter):
+        optimizer.zero_grad()
+        logit_mu = (design * coeff[:, None, :]).sum(dim=2)
+        mu = torch.sigmoid(logit_mu).clamp(1e-6, 1.0 - 1e-6)
+        concentration = torch.nn.functional.softplus(raw_conc) + 1e-3
+        alpha = mu * concentration[:, None]
+        beta = (1.0 - mu) * concentration[:, None]
+        log_prob = (
+            torch.lgamma(alpha + beta)
+            - torch.lgamma(alpha)
+            - torch.lgamma(beta)
+            + (alpha - 1.0) * torch.log(y_t)
+            + (beta - 1.0) * torch.log(1.0 - y_t)
+        )
+        loss = -log_prob.mean()
+        loss.backward()
+        optimizer.step()
+
+    return TorchBatchedBetaState(
+        coefficients=coeff.detach().cpu().numpy(),
+        concentration=(torch.nn.functional.softplus(raw_conc) + 1e-3).detach().cpu().numpy(),
+        devices_used=(device_name,),
+    )
+
+
 def torch_fit_batched_gaussian(
     x_batch: np.ndarray,
     y_batch: np.ndarray,
@@ -213,6 +355,125 @@ def torch_fit_batched_bernoulli(
     )
 
 
+def torch_fit_batched_poisson(
+    x_batch: np.ndarray,
+    y_batch: np.ndarray,
+    device: TorchDeviceLike = "cpu",
+    devices: Optional[list[str]] = None,
+    max_iter: int = 200,
+    lr: float = 5e-2,
+    weight_decay: float = 1e-4,
+) -> TorchBatchedPoissonState:
+    """Fit many Poisson regressions in one Torch batch, optionally sharded across GPUs."""
+    x_np = _to_tensor3d(x_batch)
+    y_np = _to_tensor2d(y_batch)
+    if x_np.shape[:2] != y_np.shape:
+        raise ValueError("x_batch and y_batch must agree on batch and observation axes.")
+
+    device_names = _normalize_devices(device=device, devices=devices)
+    if len(device_names) == 1 or x_np.shape[0] <= 1:
+        return _solve_batched_poisson_single_device(
+            x_np,
+            y_np,
+            device_names[0],
+            max_iter,
+            lr,
+            weight_decay,
+        )
+
+    batch_slices = _split_batch(x_np.shape[0], len(device_names))
+    shard_args = [
+        (x_np[slc], y_np[slc], device_names[idx], max_iter, lr, weight_decay)
+        for idx, slc in enumerate(batch_slices)
+    ]
+    with ThreadPoolExecutor(max_workers=len(shard_args)) as executor:
+        states = list(executor.map(lambda args: _solve_batched_poisson_single_device(*args), shard_args))
+    return TorchBatchedPoissonState(
+        coefficients=np.concatenate([state.coefficients for state in states], axis=0),
+        devices_used=tuple(device_names[: len(states)]),
+    )
+
+
+def torch_fit_batched_gamma(
+    x_batch: np.ndarray,
+    y_batch: np.ndarray,
+    device: TorchDeviceLike = "cpu",
+    devices: Optional[list[str]] = None,
+    max_iter: int = 300,
+    lr: float = 5e-2,
+    weight_decay: float = 1e-4,
+) -> TorchBatchedGammaState:
+    """Fit many Gamma regressions in one Torch batch, optionally sharded across GPUs."""
+    x_np = _to_tensor3d(x_batch)
+    y_np = _to_tensor2d(y_batch)
+    if x_np.shape[:2] != y_np.shape:
+        raise ValueError("x_batch and y_batch must agree on batch and observation axes.")
+
+    device_names = _normalize_devices(device=device, devices=devices)
+    if len(device_names) == 1 or x_np.shape[0] <= 1:
+        return _solve_batched_gamma_single_device(
+            x_np,
+            y_np,
+            device_names[0],
+            max_iter,
+            lr,
+            weight_decay,
+        )
+
+    batch_slices = _split_batch(x_np.shape[0], len(device_names))
+    shard_args = [
+        (x_np[slc], y_np[slc], device_names[idx], max_iter, lr, weight_decay)
+        for idx, slc in enumerate(batch_slices)
+    ]
+    with ThreadPoolExecutor(max_workers=len(shard_args)) as executor:
+        states = list(executor.map(lambda args: _solve_batched_gamma_single_device(*args), shard_args))
+    return TorchBatchedGammaState(
+        coefficients=np.concatenate([state.coefficients for state in states], axis=0),
+        shape=np.concatenate([state.shape for state in states], axis=0),
+        devices_used=tuple(device_names[: len(states)]),
+    )
+
+
+def torch_fit_batched_beta(
+    x_batch: np.ndarray,
+    y_batch: np.ndarray,
+    device: TorchDeviceLike = "cpu",
+    devices: Optional[list[str]] = None,
+    max_iter: int = 300,
+    lr: float = 5e-2,
+    weight_decay: float = 1e-4,
+) -> TorchBatchedBetaState:
+    """Fit many Beta regressions in one Torch batch, optionally sharded across GPUs."""
+    x_np = _to_tensor3d(x_batch)
+    y_np = _to_tensor2d(y_batch)
+    if x_np.shape[:2] != y_np.shape:
+        raise ValueError("x_batch and y_batch must agree on batch and observation axes.")
+
+    device_names = _normalize_devices(device=device, devices=devices)
+    if len(device_names) == 1 or x_np.shape[0] <= 1:
+        return _solve_batched_beta_single_device(
+            x_np,
+            y_np,
+            device_names[0],
+            max_iter,
+            lr,
+            weight_decay,
+        )
+
+    batch_slices = _split_batch(x_np.shape[0], len(device_names))
+    shard_args = [
+        (x_np[slc], y_np[slc], device_names[idx], max_iter, lr, weight_decay)
+        for idx, slc in enumerate(batch_slices)
+    ]
+    with ThreadPoolExecutor(max_workers=len(shard_args)) as executor:
+        states = list(executor.map(lambda args: _solve_batched_beta_single_device(*args), shard_args))
+    return TorchBatchedBetaState(
+        coefficients=np.concatenate([state.coefficients for state in states], axis=0),
+        concentration=np.concatenate([state.concentration for state in states], axis=0),
+        devices_used=tuple(device_names[: len(states)]),
+    )
+
+
 def _predict_from_coefficients(coefficients: np.ndarray, x_query: np.ndarray) -> np.ndarray:
     x_np = np.asarray(x_query, dtype=np.float32)
     if x_np.ndim == 2:
@@ -246,6 +507,33 @@ def torch_predict_batched_bernoulli(
     return 1.0 / (1.0 + np.exp(-logits))
 
 
+def torch_predict_batched_poisson(
+    state: TorchBatchedPoissonState,
+    x_query: np.ndarray,
+) -> np.ndarray:
+    """Predict Poisson conditional means for a fitted batched log-linear model."""
+    log_rate = _predict_from_coefficients(state.coefficients.astype(np.float32), x_query)
+    return np.exp(np.clip(log_rate, -10.0, 10.0))
+
+
+def torch_predict_batched_gamma_mean(
+    state: TorchBatchedGammaState,
+    x_query: np.ndarray,
+) -> np.ndarray:
+    """Predict Gamma conditional means for a fitted batched Gamma model."""
+    log_mean = _predict_from_coefficients(state.coefficients.astype(np.float32), x_query)
+    return np.exp(np.clip(log_mean, -10.0, 10.0))
+
+
+def torch_predict_batched_beta_mean(
+    state: TorchBatchedBetaState,
+    x_query: np.ndarray,
+) -> np.ndarray:
+    """Predict Beta conditional means for a fitted batched Beta model."""
+    logit_mu = _predict_from_coefficients(state.coefficients.astype(np.float32), x_query)
+    return 1.0 / (1.0 + np.exp(-logit_mu))
+
+
 def torch_compute_subunit_params(
     y: np.ndarray,
     family: str,
@@ -274,12 +562,30 @@ def torch_compute_subunit_params(
     if family_l == "bernoulli":
         values = torch.clamp(torch.mean(y_t, dim=1), 1e-6, 1.0 - 1e-6)
         return values.detach().cpu().numpy()
+    if family_l == "poisson":
+        values = torch.mean(torch.clamp_min(y_t, 0.0), dim=1).clamp_min(1e-10)
+        return values.detach().cpu().numpy()
     if family_l in {"gaussian", "normal"}:
         mean = torch.mean(y_t, dim=1)
         var = torch.var(y_t, dim=1, unbiased=False).clamp_min(1e-10)
         return torch.stack([mean, var], dim=1).detach().cpu().numpy()
+    if family_l == "gamma":
+        y_pos = torch.clamp_min(y_t, 1e-6)
+        mean = torch.mean(y_pos, dim=1).clamp_min(1e-10)
+        var = torch.var(y_pos, dim=1, unbiased=False).clamp_min(1e-10)
+        shape = (mean ** 2 / var).clamp_min(1e-3)
+        scale = (var / mean).clamp_min(1e-10)
+        return torch.stack([shape, scale], dim=1).detach().cpu().numpy()
+    if family_l == "beta":
+        y_clip = torch.clamp(y_t, 1e-6, 1.0 - 1e-6)
+        mean = torch.mean(y_clip, dim=1).clamp(1e-6, 1.0 - 1e-6)
+        var = torch.var(y_clip, dim=1, unbiased=False).clamp_min(1e-10)
+        concentration = (mean * (1.0 - mean) / var - 1.0).clamp_min(1e-2)
+        alpha = mean * concentration
+        beta = (1.0 - mean) * concentration
+        return torch.stack([alpha, beta], dim=1).detach().cpu().numpy()
     raise NotImplementedError(
-        f"Torch subunit parameter estimation is currently implemented for 'bernoulli' and 'gaussian', got {family!r}."
+        f"Torch subunit parameter estimation is currently implemented for 'bernoulli', 'poisson', 'gaussian', 'beta', and 'gamma', got {family!r}."
     )
 
 
@@ -322,8 +628,41 @@ def torch_conditional_expectations_per_unit(
             weight_decay=weight_decay,
         )
         return torch_predict_batched_bernoulli(state, eval_batch)
+    if family_l == "poisson":
+        state = torch_fit_batched_poisson(
+            x_batch=x_batch,
+            y_batch=y_batch,
+            device=device,
+            devices=devices,
+            max_iter=max_iter,
+            lr=lr,
+            weight_decay=weight_decay,
+        )
+        return torch_predict_batched_poisson(state, eval_batch)
+    if family_l == "gamma":
+        state = torch_fit_batched_gamma(
+            x_batch=x_batch,
+            y_batch=y_batch,
+            device=device,
+            devices=devices,
+            max_iter=max_iter,
+            lr=lr,
+            weight_decay=weight_decay,
+        )
+        return torch_predict_batched_gamma_mean(state, eval_batch)
+    if family_l == "beta":
+        state = torch_fit_batched_beta(
+            x_batch=x_batch,
+            y_batch=y_batch,
+            device=device,
+            devices=devices,
+            max_iter=max_iter,
+            lr=lr,
+            weight_decay=weight_decay,
+        )
+        return torch_predict_batched_beta_mean(state, eval_batch)
     raise NotImplementedError(
-        f"Torch conditional estimation is currently implemented for 'bernoulli' and 'gaussian', got {family!r}."
+        f"Torch conditional estimation is currently implemented for 'bernoulli', 'poisson', 'gaussian', 'beta', and 'gamma', got {family!r}."
     )
 
 

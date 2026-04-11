@@ -244,10 +244,14 @@ def build_hscm(spec: GraphSpec, n_units: int, n_sub: int) -> HSCMParametric:
     return hscm
 
 
-def graph_to_cgm_for_effect(hscm: HSCMParametric) -> tuple[Any, str, set[str]]:
+def graph_to_cgm_for_effect(
+    hscm: HSCMParametric,
+    outcome_subunit: str = "Y",
+) -> tuple[Any, str, set[str]]:
+    """Collapse + augment for a subunit outcome (``Y`` = lecture, ``M`` = maths / ``gktmathss``)."""
     collapsed = collapse(hscm)
     collapsed.unobserved_variables = {"U"}
-    q_hat, parents = suggest_augment_for_outcome(hscm, "Y")
+    q_hat, parents = suggest_augment_for_outcome(hscm, outcome_subunit)
     if parents == {q_hat} and q_hat in collapsed.dag.nodes:
         return collapsed, q_hat, {"Q^a"}
     augmented = augment_collapsed_model(collapsed, q_hat, parents)
@@ -255,9 +259,14 @@ def graph_to_cgm_for_effect(hscm: HSCMParametric) -> tuple[Any, str, set[str]]:
     return augmented, q_hat, {"Q^a"}
 
 
-def run_one_graph(spec: GraphSpec, data: dict[str, np.ndarray]) -> dict[str, Any]:
+def run_one_graph(
+    spec: GraphSpec,
+    data: dict[str, np.ndarray],
+    *,
+    outcome_subunit: str = "Y",
+) -> dict[str, Any]:
     n_units, n_sub = data["A"].shape
-    print(f"[HCM-v2] Running graph: {spec.name}")
+    print(f"[HCM-v2] Running graph: {spec.name} (outcome={outcome_subunit})")
     hscm = build_hscm(spec, n_units, n_sub)
     result: dict[str, Any] = {
         "graph_name": spec.name,
@@ -271,7 +280,7 @@ def run_one_graph(spec: GraphSpec, data: dict[str, np.ndarray]) -> dict[str, Any
         return result
 
     try:
-        cgm, y_node, x_node = graph_to_cgm_for_effect(hscm)
+        cgm, y_node, x_node = graph_to_cgm_for_effect(hscm, outcome_subunit=outcome_subunit)
         id_result = identify_effect(cgm, Y=y_node, X=x_node, unobserved={"U"})
         result["identifiable"] = bool(id_result.identifiable)
         result["formula_latex"] = id_result.formula_latex
@@ -308,6 +317,7 @@ def run_one_graph(spec: GraphSpec, data: dict[str, np.ndarray]) -> dict[str, Any
             random_seed=RANDOM_STATE + 1,
         )
         result["status"] = "ok"
+        result["outcome_subunit"] = outcome_subunit
         result["estimand"] = f"E[{y_node} | do(Q^a)]"
         result["E_do_1"] = float(ey1)
         result["E_do_0"] = float(ey0)
@@ -324,7 +334,12 @@ def run_one_graph(spec: GraphSpec, data: dict[str, np.ndarray]) -> dict[str, Any
 
 def build_summary(meta: dict[str, Any], results: list[dict[str, Any]]) -> str:
     lines: list[str] = []
+    outcome = str(results[0].get("outcome_subunit", "M")) if results else "M"
+    outcome_label = "lecture (`gktreadss`)" if outcome.upper() == "Y" else "maths (`gktmathss`)"
+    qsym = "Q^y" if outcome.upper() == "Y" else "Q^m"
     lines.append("# STAR — HCM v2 teacher/class -> student")
+    lines.append("")
+    lines.append(f"- **Outcome analysé** : `{outcome}` = {outcome_label} (intervention toujours sur `Q^a`).")
     lines.append("")
     lines.append("## Schéma")
     lines.append("")
@@ -333,7 +348,7 @@ def build_summary(meta: dict[str, Any], results: list[dict[str, Any]]) -> str:
     lines.append("- variable latente de niveau unité : `U`")
     lines.append("- variable observée de niveau unité : `S = gksurban`")
     lines.append("- traitement de niveau élève : `A_ij = 1{small class}`")
-    lines.append("- outcome de niveau élève : `Y_ij = gktreadss`")
+    lines.append("- outcome de niveau élève ciblé par ce run : variable `" + outcome + f"` ({outcome_label})")
     lines.append("- régresseurs de niveau élève :")
     lines.append("  - `M_ij = gktmathss`")
     lines.append("  - `G_ij = 1{female}`")
@@ -375,9 +390,18 @@ def build_summary(meta: dict[str, Any], results: list[dict[str, Any]]) -> str:
     lines.append("")
     lines.append("Cette v2 est meilleure que la v1 au niveau du schéma hiérarchique, car elle colle mieux au mécanisme réel du traitement. En revanche, les graphes de départ restent issus d'une causal discovery plate, puis traduits dans un HCM : cette étape reste donc un choix de modélisation, pas une vérité causale directement lue dans `STAR`.")
     lines.append("")
-    lines.append("Le point le plus important est que, pour `PC`, `FCI` et `ConsensusMean`, la formule identifiée se réduit à `$P(Qy)$`. Autrement dit, dans ces traductions HCM, l'intervention sur `Q^a` disparaît de l'expression finale. Le `ATE = 0.0000` obtenu ici ne doit donc pas être lu comme une absence d'effet crédible de `stark`, mais comme le signe que cette spécification rend l'effet interventionnel trivial dans ces graphes.")
+    lines.append(
+        f"Pour `PC`, `FCI` et `ConsensusMean`, la formule identifiée se réduit souvent à `$P({qsym})$` "
+        f"(marginalisation sans effet net de `do(Q^a)`). Un `ATE = 0` dans ce cas reflète surtout la "
+        "structure graphique, pas une preuve d'absence d'effet de la petite classe."
+    )
     lines.append("")
-    lines.append("Pour `DirectLiNGAM` et `ExactBIC`, l'identification symbolique réussit, mais l'étape d'estimation casse avec une incohérence du nombre de features dans les régressions internes. Il s'agit donc d'un blocage technique de l'estimateur actuel sur ces factorisations, pas d'un résultat causal substantiel.")
+    lines.append(
+        "L'estimateur numérique aligne désormais strictement les régresseurs de conditionnement "
+        "entre l'ajustement et l'évaluation (même ensemble de parents `Q` que dans la formule, "
+        "même règle de colonne pour les profils 2D). Les graphes denses (`DirectLiNGAM`, `ExactBIC`) "
+        "peuvent toutefois rester bruyants ou sensibles à la paramétrisation."
+    )
     lines.append("")
     for row in results:
         lines.append(f"### {row['graph_name']}")
@@ -400,6 +424,13 @@ def main() -> None:
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--graph", type=str, default=None, help="Run only one graph by name.")
+    parser.add_argument(
+        "--outcome",
+        type=str,
+        default="M",
+        choices=("Y", "M"),
+        help="Sous-unité cible pour l'estimande (Y=gktreadss lecture, M=gktmathss maths).",
+    )
     args = parser.parse_args()
 
     specs = load_graph_specs()
@@ -409,13 +440,14 @@ def main() -> None:
             raise ValueError(f"Unknown graph name: {args.graph}")
 
     data, meta = load_teacher_student_data()
-    results = [run_one_graph(spec, data) for spec in specs]
+    results = [run_one_graph(spec, data, outcome_subunit=str(args.outcome)) for spec in specs]
 
     payload = {
         "schema": {
             "unit_nodes": sorted(list(UNIT_NODES)),
             "subunit_nodes": sorted(list(SUBUNIT_NODES)),
             "latent_unit_node": "U",
+            "outcome_subunit_default": str(args.outcome),
             "meta": meta,
         },
         "results": results,

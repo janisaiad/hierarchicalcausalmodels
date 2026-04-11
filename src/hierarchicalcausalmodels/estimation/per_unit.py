@@ -9,10 +9,16 @@ import numpy as np
 from .parallel import ParallelBackend, parallel_map
 from .torch_estimators import (
     TorchBatchedBernoulliState,
+    TorchBatchedBetaState,
     TorchBatchedGaussianState,
+    TorchBatchedGammaState,
+    TorchBatchedPoissonState,
     estimate_ate_confounder_torch_batched as _estimate_ate_confounder_torch_batched,
+    torch_fit_batched_beta,
     torch_fit_batched_bernoulli,
     torch_fit_batched_gaussian,
+    torch_fit_batched_gamma,
+    torch_fit_batched_poisson,
 )
 
 T = TypeVar("T")
@@ -113,7 +119,13 @@ def fit_torch_batched_regressor_per_unit(
     max_iter: int = 200,
     lr: float = 5e-2,
     weight_decay: float = 1e-4,
-) -> TorchBatchedGaussianState | TorchBatchedBernoulliState:
+ ) -> (
+    TorchBatchedGaussianState
+    | TorchBatchedBernoulliState
+    | TorchBatchedPoissonState
+    | TorchBatchedGammaState
+    | TorchBatchedBetaState
+ ):
     """Fit one Torch batched regressor per unit on CPU or CUDA."""
     family_l = family.lower().strip()
     if family_l in {"gaussian", "normal"}:
@@ -134,8 +146,38 @@ def fit_torch_batched_regressor_per_unit(
             lr=lr,
             weight_decay=weight_decay,
         )
+    if family_l == "poisson":
+        return torch_fit_batched_poisson(
+            x_batch=A,
+            y_batch=Y,
+            device=device,
+            devices=devices,
+            max_iter=max_iter,
+            lr=lr,
+            weight_decay=weight_decay,
+        )
+    if family_l == "gamma":
+        return torch_fit_batched_gamma(
+            x_batch=A,
+            y_batch=Y,
+            device=device,
+            devices=devices,
+            max_iter=max_iter,
+            lr=lr,
+            weight_decay=weight_decay,
+        )
+    if family_l == "beta":
+        return torch_fit_batched_beta(
+            x_batch=A,
+            y_batch=Y,
+            device=device,
+            devices=devices,
+            max_iter=max_iter,
+            lr=lr,
+            weight_decay=weight_decay,
+        )
     raise NotImplementedError(
-        f"Torch batched per-unit estimation is currently implemented for 'bernoulli' and 'gaussian', got {family!r}."
+        f"Torch batched per-unit estimation is currently implemented for 'bernoulli', 'poisson', 'gaussian', 'beta', and 'gamma', got {family!r}."
     )
 
 
