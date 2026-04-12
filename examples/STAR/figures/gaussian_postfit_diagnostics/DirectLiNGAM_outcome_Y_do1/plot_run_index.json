@@ -1,0 +1,14 @@
+{
+  "graph": "DirectLiNGAM",
+  "outcome": "Y",
+  "do_Qa": 1,
+  "estimated_scalar": 1451.3002598815938,
+  "n_mc_samples": 60,
+  "random_seed": 42,
+  "figures_dir": "examples/STAR/figures/gaussian_postfit_diagnostics/DirectLiNGAM_outcome_Y_do1",
+  "data_meta": {
+    "n_units_classes": 322,
+    "balanced_students_per_class": 10,
+    "n_rows_after_dropna": 5745
+  }
+}

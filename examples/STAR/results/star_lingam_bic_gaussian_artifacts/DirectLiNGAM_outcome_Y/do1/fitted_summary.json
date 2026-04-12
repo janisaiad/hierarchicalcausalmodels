@@ -1,0 +1,78 @@
+{
+  "('P', ('S',), ('Qe',))": {
+    "class": "ConditionalDensityEstimator",
+    "family": "categorical",
+    "backend": "numpy",
+    "n": 322,
+    "cond_parent_keys": [
+      [
+        "Q^e",
+        "Qe"
+      ]
+    ]
+  },
+  "('P', ('Ql_e',), ('S',))": {
+    "class": "QDensityEstimator",
+    "bandwidth": "scott",
+    "q_samples_shape": [
+      322,
+      2
+    ],
+    "has_kde": true,
+    "fallback_mean": null,
+    "fallback_std": null,
+    "q_on_x_coef": [
+      [
+        -0.11022303655261008
+      ],
+      [
+        -0.1608654734332195
+      ]
+    ],
+    "q_on_x_intercept": [
+      0.8437514753918685,
+      0.8514041086461972
+    ]
+  },
+  "('P', ('Qy',), ('Qa', 'Qe', 'Qg', 'Ql_e', 'Qm_a_e_g_l', 'Qy_g_l_m'))": {
+    "class": "QDensityEstimator",
+    "bandwidth": "scott",
+    "q_samples_shape": [
+      322,
+      2
+    ],
+    "has_kde": true,
+    "fallback_mean": null,
+    "fallback_std": null,
+    "q_on_x_coef": [
+      [
+        5.336212844271219,
+        5.5719934179065795,
+        -24.898493643230893,
+        -11.890631043616882
+      ],
+      [
+        31.322966858727646,
+        36.88051054662368,
+        99.08826537265438,
+        -512.3561619183022
+      ]
+    ],
+    "q_on_x_intercept": [
+      449.17784520366587,
+      808.2316066597496
+    ]
+  },
+  "('P', ('Qg',), ())": {
+    "class": "ConditionalDensityEstimator",
+    "family": "nonparametric",
+    "backend": "numpy",
+    "n": 322
+  },
+  "('P', ('Qe',), ())": {
+    "class": "ConditionalDensityEstimator",
+    "family": "nonparametric",
+    "backend": "numpy",
+    "n": 322
+  }
+}

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import re
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union, overload
 
 import numpy as np
 
@@ -145,6 +145,41 @@ def _fit_conditional_q_row_task(
         ],
         dtype=float,
     )
+
+
+def _find_subunit_matrix_for_letter(
+    data: Dict[str, np.ndarray],
+    letter: str,
+) -> Optional[tuple[str, np.ndarray]]:
+    """Return (key, arr) for the first 2-D subunit array whose key starts with ``letter``."""
+    lt = letter.lower().strip()
+    for k, v in data.items():
+        arr = np.asarray(v)
+        if arr.ndim == 2 and k.lower().strip().startswith(lt):
+            return k, arr
+    return None
+
+
+def _fit_conditional_q_multiparent_row_task(
+    task: tuple[np.ndarray, np.ndarray, str, str, Optional[Dict[str, Any]], Optional[Dict[str, Any]]],
+) -> np.ndarray:
+    """
+    Fit Y | (X_1,…,X_p) on one unit's subunits; return one scalar = mean_j E[Y | X_ij].
+
+    Used for sanitized names like ``Qy_g_l_m`` (multi-parent Q); avoids injecting
+    ``iv_val`` on non-treatment parents (see ``_precompute_conditional_q_vars`` docstring).
+    """
+    y_i, X_i, family_outcome, estimator_backend, torch_kwargs, estimator_kwargs = task
+    est = ConditionalDensityEstimator(
+        family=family_outcome,
+        backend=estimator_backend,
+        torch_kwargs=torch_kwargs,
+        estimator_kwargs=estimator_kwargs,
+    )
+    X2 = np.asarray(X_i, dtype=float).reshape(len(y_i), -1)
+    est.fit(np.asarray(y_i, dtype=float).ravel(), X2)
+    preds = [float(est.expectation(X2[j : j + 1, :])) for j in range(X2.shape[0])]
+    return np.array([float(np.mean(preds))], dtype=float)
 
 
 def _log_gaussian_density(x: np.ndarray, mean: np.ndarray, cov: np.ndarray) -> float:
@@ -2490,14 +2525,15 @@ def _precompute_conditional_q_vars(
 
     Traverses the formula to find all variable names (sum vars, outcome vars,
     and conditioning vars in _ASTConditional nodes).
-    For each variable matching pattern Q[a-zA-Z]+_[a-zA-Z]+ (e.g. Qy_a):
-      - Parse: Q{outcome}_{cond} → outcome_letter, cond_letter
-      - Search data for a 2D array whose key starts with outcome_letter
-      - Search data for a 2D array whose key starts with cond_letter
-      - If BOTH found AND the var is NOT already in data:
-        - For each unit i: fit ConditionalDensityEstimator on (Y_sub[i], A_sub[i])
-          and predict at iv_val
-        - Store result as (n_units,) under both paper notation and sanitized key
+    For each variable matching pattern Q[outcome]_[cond] (e.g. Qy_a) **or**
+    ``Q[outcome]_[p1]_[p2]_…`` (e.g. ``Qy_g_l_m`` → :math:`Q^{y|g,l,m}`):
+      - Single parent: same as before — per-unit fit on one conditioner, evaluate
+        at ``iv_val`` (treatment level for :math:`Q^{y|a}`-style symbols).
+      - **Multiple parents**: per-unit fit on stacked subunit covariates; store
+        the **mean over subunits** of conditional expectations E[Y | X_ij] (no
+        ``iv_val`` injection on non-A parents). This fills ``enriched`` so
+        identification factors are not silently replaced by ``1``; it is a
+        pragmatic summary, not a full interventional profile for every parent.
 
     Returns a dict of new entries to add to enriched data.
     """
@@ -2652,6 +2688,8 @@ def _build_unit_context(
 # Main public function
 # ─────────────────────────────────────────────────────────────────────────────
 
+
+@overload
 def ast_to_estimator(
     ast: Any,
     data: Dict[str, np.ndarray],
@@ -2664,7 +2702,44 @@ def ast_to_estimator(
     estimator_backend: str = "numpy",
     torch_kwargs: Optional[Dict[str, Any]] = None,
     estimator_kwargs: Optional[Dict[str, Any]] = None,
-) -> float:
+    *,
+    return_artifacts: Literal[False] = False,
+) -> float: ...
+
+
+@overload
+def ast_to_estimator(
+    ast: Any,
+    data: Dict[str, np.ndarray],
+    intervention_value: Union[float, Dict[str, float]],
+    distribution_families: Optional[Dict[str, str]] = None,
+    n_mc_samples: int = 1000,
+    random_seed: Optional[int] = 0,
+    n_jobs: int = 1,
+    parallel_backend: ParallelBackend = "threads",
+    estimator_backend: str = "numpy",
+    torch_kwargs: Optional[Dict[str, Any]] = None,
+    estimator_kwargs: Optional[Dict[str, Any]] = None,
+    *,
+    return_artifacts: Literal[True],
+) -> Tuple[float, Dict[str, Any]]: ...
+
+
+def ast_to_estimator(
+    ast: Any,
+    data: Dict[str, np.ndarray],
+    intervention_value: Union[float, Dict[str, float]],
+    distribution_families: Optional[Dict[str, str]] = None,
+    n_mc_samples: int = 1000,
+    random_seed: Optional[int] = 0,
+    n_jobs: int = 1,
+    parallel_backend: ParallelBackend = "threads",
+    estimator_backend: str = "numpy",
+    torch_kwargs: Optional[Dict[str, Any]] = None,
+    estimator_kwargs: Optional[Dict[str, Any]] = None,
+    *,
+    return_artifacts: bool = False,
+) -> Union[float, Tuple[float, Dict[str, Any]]]:
     """
     Numerically evaluate a causal estimand from a pyAgrum identification formula.
 
@@ -3000,10 +3075,40 @@ def ast_to_estimator(
                 n_jobs=local_n_jobs,
                 backend=parallel_backend,
             )
-        return float(np.mean(unit_vals))
+        val = float(np.mean(unit_vals))
     else:
-        return _eval_formula(formula, context, fitted, enriched, resolve,
-                             n_mc_samples, rng, n_units)
+        val = float(
+            _eval_formula(
+                formula,
+                context,
+                fitted,
+                enriched,
+                resolve,
+                n_mc_samples,
+                rng,
+                n_units,
+            )
+        )
+
+    if return_artifacts:
+        artifacts: Dict[str, Any] = {
+            "enriched": enriched,
+            "fitted": fitted,
+            "formula": formula,
+            "distribution_families": dict(families),
+            "intervention_map": iv_map,
+            "intervention_iv_scalar": float(_iv_scalar),
+            "n_mc_samples": int(n_mc_samples),
+            "random_seed": random_seed,
+            "estimator_backend": estimator_backend,
+            "n_jobs": local_n_jobs,
+            "parallel_backend": parallel_backend,
+            "torch_kwargs": dict(torch_kwargs or {}),
+            "estimator_kwargs": dict(estimator_kwargs or {}),
+            "unique_terms": unique_terms,
+        }
+        return val, artifacts
+    return val
 
 
 def _infer_n_units(data: Dict[str, np.ndarray]) -> int:
@@ -3034,7 +3139,9 @@ def estimate_causal_effect(
     estimator_backend: str = "numpy",
     torch_kwargs: Optional[Dict[str, Any]] = None,
     estimator_kwargs: Optional[Dict[str, Any]] = None,
-) -> float:
+    *,
+    return_artifacts: bool = False,
+) -> Union[float, Tuple[float, Dict[str, Any]]]:
     """
     Estimate ``E[Y | do(X = x*)]`` from an identified causal formula and data.
 
@@ -3130,8 +3237,11 @@ def estimate_causal_effect(
 
     Returns
     -------
-    float
-        Estimated causal effect ``E[Y | do(X = x*)]``.
+    float or tuple
+        Estimated causal effect ``E[Y | do(X = x*)]``.  If ``return_artifacts=True``,
+        returns ``(float, dict)`` with fitted conditional / Q-density estimators and
+        the enriched data dict (suitable for ``pickle``); conditional Q-precomputation
+        depends on the intervention value, so call separately per ``do`` level.
 
     Raises
     ------
@@ -3183,6 +3293,7 @@ def estimate_causal_effect(
         estimator_backend=estimator_backend,
         torch_kwargs=torch_kwargs,
         estimator_kwargs=estimator_kwargs,
+        return_artifacts=return_artifacts,
     )
 
 

@@ -1,0 +1,23 @@
+{
+  "graph": "DirectLiNGAM",
+  "outcome_subunit": "M",
+  "distribution_families": {
+    "A": "bernoulli",
+    "Y": "gaussian",
+    "M": "gaussian",
+    "G": "bernoulli",
+    "E": "bernoulli",
+    "L": "bernoulli",
+    "S": "categorical"
+  },
+  "n_mc_samples": 60,
+  "random_seed_base": 42,
+  "E_do_1": 1381.992466687332,
+  "E_do_0": 1360.2191759858492,
+  "ATE": 21.773290701482665,
+  "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+  "paths": {
+    "do1": "examples/STAR/results/star_lingam_bic_gaussian_artifacts/DirectLiNGAM_outcome_M/do1",
+    "do0": "examples/STAR/results/star_lingam_bic_gaussian_artifacts/DirectLiNGAM_outcome_M/do0"
+  }
+}

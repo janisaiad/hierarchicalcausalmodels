@@ -1,0 +1,23 @@
+{
+  "graph": "ExactBIC",
+  "outcome_subunit": "M",
+  "distribution_families": {
+    "A": "bernoulli",
+    "Y": "gaussian",
+    "M": "gaussian",
+    "G": "bernoulli",
+    "E": "bernoulli",
+    "L": "bernoulli",
+    "S": "categorical"
+  },
+  "n_mc_samples": 60,
+  "random_seed_base": 42,
+  "E_do_1": 2402.7513287234956,
+  "E_do_0": 2365.953925565743,
+  "ATE": 36.7974031577528,
+  "formula_latex": "\\sum_{Qe,Qg,Qm_e_y,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qm_e_y\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Qm_e_y,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+  "paths": {
+    "do1": "examples/STAR/results/star_lingam_bic_gaussian_artifacts/ExactBIC_outcome_M/do1",
+    "do0": "examples/STAR/results/star_lingam_bic_gaussian_artifacts/ExactBIC_outcome_M/do0"
+  }
+}
