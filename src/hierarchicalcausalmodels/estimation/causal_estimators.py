@@ -2559,82 +2559,116 @@ def _precompute_conditional_q_vars(
         local_n_jobs = 1
 
     for sv in deduped_vars:
-        m = re.match(r'^Q([a-zA-Z]+)_([a-zA-Z]+)$', sv)
+        m = re.match(r"^Q([a-zA-Z]+)_(.+)$", sv)
         if not m:
             continue
-        outcome_letter = m.group(1).lower()
-        cond_letter = m.group(2).lower()
+        outcome_letters = m.group(1).lower()
+        rest = m.group(2).lower()
+        parent_tokens = [p for p in rest.split("_") if p]
+        if not parent_tokens:
+            continue
 
-        # Paper notation key e.g. Q^{y|a}
-        paper_key = f'Q^{{{outcome_letter}|{cond_letter}}}'
-        # Sanitized key used internally e.g. Qy_a
         sanitized_key = sv
+        if len(parent_tokens) == 1:
+            paper_key = f"Q^{{{outcome_letters}|{parent_tokens[0]}}}"
+        else:
+            paper_key = f"Q^{{{outcome_letters}|{','.join(parent_tokens)}}}"
 
-        # Skip if already in data or already computed
         if paper_key in data or sanitized_key in data:
             continue
         if paper_key in new_entries or sanitized_key in new_entries:
             continue
 
-        # Find 2D arrays for outcome and conditioning
-        outcome_arr = None
-        outcome_key = None
-        cond_arr = None
-
-        for k, v in data.items():
-            arr = np.asarray(v)
-            if arr.ndim == 2:
-                if k.lower().strip().startswith(outcome_letter) and outcome_arr is None:
-                    outcome_arr = arr
-                    outcome_key = k
-                if k.lower().strip().startswith(cond_letter) and cond_arr is None:
-                    cond_arr = arr
-
-        if outcome_arr is None or cond_arr is None:
+        out_pair = _find_subunit_matrix_for_letter(data, outcome_letters)
+        if out_pair is None:
             continue
-        if outcome_arr.shape != cond_arr.shape:
+        outcome_key, outcome_arr = out_pair
+
+        cond_mats: list[np.ndarray] = []
+        bad = False
+        for pt in parent_tokens:
+            pr = _find_subunit_matrix_for_letter(data, pt)
+            if pr is None:
+                bad = True
+                break
+            cond_mats.append(pr[1])
+        if bad or not cond_mats:
+            continue
+        shape0 = outcome_arr.shape
+        if any(np.asarray(c).shape != shape0 for c in cond_mats):
             continue
 
         n_units = outcome_arr.shape[0]
-        family_outcome = families.get(outcome_key, 'bernoulli')
+        family_outcome = families.get(outcome_key, "bernoulli")
         local_estimator_kwargs = _resolve_estimator_kwargs(
             estimator_kwargs,
             variable_name=outcome_key,
             family=family_outcome,
         )
 
-        # Decide whether to build a full 2D conditional profile or a scalar per unit.
-        # Only variables that the formula sums over (Σ_{sv}) need a multi-value profile:
-        # each row stores E[outcome | cond = c_k] for every unique conditioning value c_k.
-        # Variables that appear only as outcomes or conditioning args get a single scalar
-        # per unit (evaluated at iv_val), keeping them 1D and compatible with
-        # ConditionalDensityEstimator downstream.
         is_sum_var = sv in formula_sum_vars or paper_key in formula_sum_vars
 
-        if is_sum_var:
-            eval_vals = np.unique(cond_arr.ravel())
-        else:
-            eval_vals = np.array([iv_val])
+        if len(parent_tokens) > 1 and is_sum_var:
+            # Multi-parent 2-D profiles (Σ over a high-dimensional Q) are not implemented.
+            continue
 
-        if estimator_backend == "torch" and family_outcome in {"bernoulli", "poisson", "gaussian", "normal", "beta", "gamma"}:
-            per_unit_arr = torch_conditional_expectations_per_unit(
-                y=outcome_arr,
-                x=cond_arr,
-                eval_values=eval_vals,
-                family=family_outcome,
-                device=resolve_torch_device_from_mapping(torch_kwargs),
-                devices=torch_kwargs.get("devices"),
-                ridge=float(torch_kwargs.get("ridge", 1e-4)),
-                max_iter=int(torch_kwargs.get("max_iter", 200)),
-                lr=float(torch_kwargs.get("lr", 5e-2)),
-                weight_decay=float(torch_kwargs.get("weight_decay", 1e-4)),
-            )
+        if len(parent_tokens) == 1:
+            cond_arr = cond_mats[0]
+            if is_sum_var:
+                eval_vals = np.unique(cond_arr.ravel())
+            else:
+                eval_vals = np.array([iv_val])
+
+            if estimator_backend == "torch" and family_outcome in {
+                "bernoulli",
+                "poisson",
+                "gaussian",
+                "normal",
+                "beta",
+                "gamma",
+            }:
+                per_unit_arr = torch_conditional_expectations_per_unit(
+                    y=outcome_arr,
+                    x=cond_arr,
+                    eval_values=eval_vals,
+                    family=family_outcome,
+                    device=resolve_torch_device_from_mapping(torch_kwargs),
+                    devices=torch_kwargs.get("devices"),
+                    ridge=float(torch_kwargs.get("ridge", 1e-4)),
+                    max_iter=int(torch_kwargs.get("max_iter", 200)),
+                    lr=float(torch_kwargs.get("lr", 5e-2)),
+                    weight_decay=float(torch_kwargs.get("weight_decay", 1e-4)),
+                )
+            else:
+                unit_tasks = [
+                    (
+                        outcome_arr[i],
+                        cond_arr[i],
+                        eval_vals,
+                        family_outcome,
+                        estimator_backend,
+                        torch_kwargs,
+                        local_estimator_kwargs,
+                    )
+                    for i in range(n_units)
+                ]
+                per_unit_rows = parallel_map(
+                    unit_tasks,
+                    _fit_conditional_q_row_task,
+                    n_jobs=local_n_jobs,
+                    backend=local_parallel_backend,
+                )
+                per_unit_arr = (
+                    np.vstack(per_unit_rows) if per_unit_rows else np.zeros((0, len(eval_vals)))
+                )
+
+            result_arr = per_unit_arr[:, 0] if len(eval_vals) == 1 else per_unit_arr
         else:
-            unit_tasks = [
+            X_stack = np.stack(cond_mats, axis=-1)
+            unit_tasks_mp = [
                 (
                     outcome_arr[i],
-                    cond_arr[i],
-                    eval_vals,
+                    X_stack[i],
                     family_outcome,
                     estimator_backend,
                     torch_kwargs,
@@ -2642,18 +2676,16 @@ def _precompute_conditional_q_vars(
                 )
                 for i in range(n_units)
             ]
-            per_unit_rows = parallel_map(
-                unit_tasks,
-                _fit_conditional_q_row_task,
+            per_unit_rows_mp = parallel_map(
+                unit_tasks_mp,
+                _fit_conditional_q_multiparent_row_task,
                 n_jobs=local_n_jobs,
                 backend=local_parallel_backend,
             )
-            per_unit_arr = np.vstack(per_unit_rows) if per_unit_rows else np.zeros((0, len(eval_vals)))
-
-        # Always collapse to 1D when there is only one evaluation point.
-        result_arr: np.ndarray = (
-            per_unit_arr[:, 0] if len(eval_vals) == 1 else per_unit_arr
-        )
+            per_unit_arr_mp = (
+                np.vstack(per_unit_rows_mp) if per_unit_rows_mp else np.zeros((0, 1))
+            )
+            result_arr = per_unit_arr_mp[:, 0]
 
         new_entries[paper_key] = result_arr
         new_entries[sanitized_key] = result_arr
