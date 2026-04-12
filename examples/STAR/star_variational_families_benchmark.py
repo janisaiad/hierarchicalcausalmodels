@@ -85,7 +85,7 @@ def _base_covariate_families() -> dict[str, str]:
         "G": "bernoulli",
         "E": "bernoulli",
         "L": "bernoulli",
-        "S": "gaussian",
+        "S": "categorical",
     }
 
 

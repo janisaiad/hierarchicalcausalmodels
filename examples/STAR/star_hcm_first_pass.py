@@ -20,6 +20,8 @@ from hierarchicalcausalmodels.do_calculus import (
 from hierarchicalcausalmodels.estimation import estimate_causal_effect
 from hierarchicalcausalmodels.models import HSCMParametric
 
+from star_hcm_v2_teacher_student import DEFAULT_ESTIMATOR_KWARGS
+
 
 RANDOM_STATE = 42
 N_MC_SAMPLES = 120
@@ -289,13 +291,14 @@ def run_single_graph(spec: GraphSpec, data: dict[str, np.ndarray]) -> dict[str, 
 
         fam = {
             "A": "bernoulli",
-            "Y": "gaussian",
-            "S": "gaussian",
-            "M": "gaussian",
+            "Y": "gaussian_mixture",
+            "S": "categorical",
+            "M": "gaussian_mixture",
             "G": "gaussian",
             "E": "gaussian",
             "L": "gaussian",
         }
+        ek = dict(DEFAULT_ESTIMATOR_KWARGS)
 
         ey1 = estimate_causal_effect(
             id_result,
@@ -304,6 +307,7 @@ def run_single_graph(spec: GraphSpec, data: dict[str, np.ndarray]) -> dict[str, 
             distribution_families=fam,
             n_mc_samples=N_MC_SAMPLES,
             random_seed=RANDOM_STATE,
+            estimator_kwargs=ek,
         )
         ey0 = estimate_causal_effect(
             id_result,
@@ -312,6 +316,7 @@ def run_single_graph(spec: GraphSpec, data: dict[str, np.ndarray]) -> dict[str, 
             distribution_families=fam,
             n_mc_samples=N_MC_SAMPLES,
             random_seed=RANDOM_STATE + 1,
+            estimator_kwargs=ek,
         )
 
         result["status"] = "ok"

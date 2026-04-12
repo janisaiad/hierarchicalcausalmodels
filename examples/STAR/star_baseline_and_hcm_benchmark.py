@@ -172,35 +172,35 @@ def run_hcm_family_benchmarks(data: dict[str, np.ndarray], specs: list[GraphSpec
                 "G": "gaussian",
                 "E": "gaussian",
                 "L": "gaussian",
-                "S": "gaussian",
+                "S": "categorical",
             },
             note="Near the original first-pass convention.",
         ),
         HcmFamilySpec(
-            name="mixed_binary_gaussian",
+            name="mixed_binary_gmm2_ym",
             families={
                 "A": "bernoulli",
-                "Y": "gaussian",
-                "M": "gaussian",
+                "Y": "gaussian_mixture",
+                "M": "gaussian_mixture",
                 "G": "bernoulli",
                 "E": "bernoulli",
                 "L": "bernoulli",
-                "S": "gaussian",
+                "S": "categorical",
             },
-            note="Binary student covariates use Bernoulli/logistic; continuous scores stay Gaussian.",
+            note="Aligné sur star_hcm v2 : Y,M = mélange gaussien K=2 par école.",
         ),
         HcmFamilySpec(
             name="mixed_with_poisson_count_proxy",
             families={
                 "A": "bernoulli",
-                "Y": "gaussian",
-                "M": "gaussian",
+                "Y": "gaussian_mixture",
+                "M": "gaussian_mixture",
                 "G": "bernoulli",
                 "E": "bernoulli",
                 "L": "bernoulli",
                 "S": "poisson",
             },
-            note="Stress-test with Poisson on the discrete urbanicity code; mainly diagnostic.",
+            note="Stress-test Poisson sur S ; Y,M en GMM K=2.",
         ),
     ]
 
@@ -223,7 +223,7 @@ def run_hcm_family_benchmarks(data: dict[str, np.ndarray], specs: list[GraphSpec
 
 
 def run_one_graph_with_families(spec: GraphSpec, data: dict[str, np.ndarray], families: dict[str, str]) -> dict[str, Any]:
-    from star_hcm_v2_teacher_student import build_hscm, graph_to_cgm_for_effect
+    from star_hcm_v2_teacher_student import DEFAULT_ESTIMATOR_KWARGS, build_hscm, graph_to_cgm_for_effect
     from hierarchicalcausalmodels.do_calculus import identify_effect
     from hierarchicalcausalmodels.estimation import estimate_causal_effect
     import networkx as nx
@@ -246,6 +246,7 @@ def run_one_graph_with_families(spec: GraphSpec, data: dict[str, np.ndarray], fa
         if not id_result.identifiable:
             result["status"] = "not_identifiable"
             return result
+        ek = dict(DEFAULT_ESTIMATOR_KWARGS)
         ey1 = estimate_causal_effect(
             id_result,
             data=data,
@@ -253,6 +254,7 @@ def run_one_graph_with_families(spec: GraphSpec, data: dict[str, np.ndarray], fa
             distribution_families=families,
             n_mc_samples=60,
             random_seed=42,
+            estimator_kwargs=ek,
         )
         ey0 = estimate_causal_effect(
             id_result,
@@ -261,6 +263,7 @@ def run_one_graph_with_families(spec: GraphSpec, data: dict[str, np.ndarray], fa
             distribution_families=families,
             n_mc_samples=60,
             random_seed=43,
+            estimator_kwargs=ek,
         )
         result["status"] = "ok"
         result["E_do_1"] = float(ey1)

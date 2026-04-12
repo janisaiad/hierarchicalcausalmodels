@@ -9,6 +9,8 @@ from typing import Optional, Union
 import numpy as np
 import torch
 
+from .device_defaults import default_torch_device_str
+
 
 TorchDeviceLike = Union[str, torch.device]
 
@@ -57,13 +59,14 @@ class TorchBatchedBetaState:
 
 
 def _normalize_devices(
-    device: TorchDeviceLike = "cpu",
+    device: Optional[TorchDeviceLike] = None,
     devices: Optional[list[str]] = None,
 ) -> list[str]:
     if devices is not None and len(devices) > 0:
         normalized = [str(torch.device(name)) for name in devices]
     else:
-        normalized = [str(torch.device(device))]
+        eff = default_torch_device_str() if device is None else device
+        normalized = [str(torch.device(eff))]
 
     available = torch.cuda.device_count()
     result: list[str] = []
@@ -288,7 +291,7 @@ def _solve_batched_beta_single_device(
 def torch_fit_batched_gaussian(
     x_batch: np.ndarray,
     y_batch: np.ndarray,
-    device: TorchDeviceLike = "cpu",
+    device: Optional[TorchDeviceLike] = None,
     devices: Optional[list[str]] = None,
     ridge: float = 1e-4,
 ) -> TorchBatchedGaussianState:
@@ -319,7 +322,7 @@ def torch_fit_batched_gaussian(
 def torch_fit_batched_bernoulli(
     x_batch: np.ndarray,
     y_batch: np.ndarray,
-    device: TorchDeviceLike = "cpu",
+    device: Optional[TorchDeviceLike] = None,
     devices: Optional[list[str]] = None,
     max_iter: int = 200,
     lr: float = 5e-2,
@@ -358,7 +361,7 @@ def torch_fit_batched_bernoulli(
 def torch_fit_batched_poisson(
     x_batch: np.ndarray,
     y_batch: np.ndarray,
-    device: TorchDeviceLike = "cpu",
+    device: Optional[TorchDeviceLike] = None,
     devices: Optional[list[str]] = None,
     max_iter: int = 200,
     lr: float = 5e-2,
@@ -397,7 +400,7 @@ def torch_fit_batched_poisson(
 def torch_fit_batched_gamma(
     x_batch: np.ndarray,
     y_batch: np.ndarray,
-    device: TorchDeviceLike = "cpu",
+    device: Optional[TorchDeviceLike] = None,
     devices: Optional[list[str]] = None,
     max_iter: int = 300,
     lr: float = 5e-2,
@@ -437,7 +440,7 @@ def torch_fit_batched_gamma(
 def torch_fit_batched_beta(
     x_batch: np.ndarray,
     y_batch: np.ndarray,
-    device: TorchDeviceLike = "cpu",
+    device: Optional[TorchDeviceLike] = None,
     devices: Optional[list[str]] = None,
     max_iter: int = 300,
     lr: float = 5e-2,
@@ -537,7 +540,7 @@ def torch_predict_batched_beta_mean(
 def torch_compute_subunit_params(
     y: np.ndarray,
     family: str,
-    device: TorchDeviceLike = "cpu",
+    device: Optional[TorchDeviceLike] = None,
     devices: Optional[list[str]] = None,
 ) -> np.ndarray:
     """Compute per-unit subunit parameters on Torch for supported families."""
@@ -576,6 +579,21 @@ def torch_compute_subunit_params(
         shape = (mean ** 2 / var).clamp_min(1e-3)
         scale = (var / mean).clamp_min(1e-10)
         return torch.stack([shape, scale], dim=1).detach().cpu().numpy()
+    if family_l == "beta_unit_minmax":
+        eps = 1e-9
+        lo = y_t.min(dim=1, keepdim=True).values
+        hi = y_t.max(dim=1, keepdim=True).values
+        denom = (hi - lo).clamp_min(eps)
+        z = ((y_t - lo) / denom).clamp(1e-6, 1.0 - 1e-6)
+        const_row = (hi.squeeze(1) - lo.squeeze(1)).abs() < eps * 10.0
+        if const_row.any():
+            z = torch.where(const_row.unsqueeze(1), torch.full_like(z, 0.5), z)
+        mean = z.mean(dim=1).clamp(1e-6, 1.0 - 1e-6)
+        var = z.var(dim=1, unbiased=False).clamp_min(1e-10)
+        concentration = (mean * (1.0 - mean) / var - 1.0).clamp_min(1e-2)
+        alpha = mean * concentration
+        beta = (1.0 - mean) * concentration
+        return torch.stack([alpha, beta], dim=1).detach().cpu().numpy()
     if family_l == "beta":
         y_clip = torch.clamp(y_t, 1e-6, 1.0 - 1e-6)
         mean = torch.mean(y_clip, dim=1).clamp(1e-6, 1.0 - 1e-6)
@@ -585,7 +603,7 @@ def torch_compute_subunit_params(
         beta = (1.0 - mean) * concentration
         return torch.stack([alpha, beta], dim=1).detach().cpu().numpy()
     raise NotImplementedError(
-        f"Torch subunit parameter estimation is currently implemented for 'bernoulli', 'poisson', 'gaussian', 'beta', and 'gamma', got {family!r}."
+        f"Torch subunit parameter estimation is currently implemented for 'bernoulli', 'poisson', 'gaussian', 'beta', 'beta_unit_minmax', and 'gamma', got {family!r}."
     )
 
 
@@ -594,7 +612,7 @@ def torch_conditional_expectations_per_unit(
     x: np.ndarray,
     eval_values: np.ndarray,
     family: str,
-    device: TorchDeviceLike = "cpu",
+    device: Optional[TorchDeviceLike] = None,
     devices: Optional[list[str]] = None,
     ridge: float = 1e-4,
     max_iter: int = 200,
@@ -670,7 +688,7 @@ def estimate_ate_confounder_torch_batched(
     a: np.ndarray,
     y: np.ndarray,
     family: str = "gaussian",
-    device: TorchDeviceLike = "cpu",
+    device: Optional[TorchDeviceLike] = None,
     devices: Optional[list[str]] = None,
     ridge: float = 1e-4,
     max_iter: int = 200,
@@ -699,12 +717,13 @@ class MLPRegressorPerUnit:
 
     def __init__(
         self,
-        device: Union[str, torch.device] = "cpu",
+        device: Optional[Union[str, torch.device]] = None,
         max_epochs: int = 50,
         hidden_sizes: tuple[int, ...] = (8,),
         lr: float = 1e-2,
     ):
-        self.device = torch.device(device) if isinstance(device, str) else device
+        eff = default_torch_device_str() if device is None else device
+        self.device = torch.device(eff) if isinstance(eff, str) else eff
         self.max_epochs = max_epochs
         self.hidden_sizes = hidden_sizes
         self.lr = lr

@@ -8,10 +8,13 @@ from typing import Any, Optional
 
 import numpy as np
 
-# Use a safe default on machines where JAX GPU initialization is unstable
-# unless the user explicitly opts into another platform before import.
+# Prefer JAX accelerators (GPU when the wheel supports it). Pin only if requested:
+#   export HCM_NUMPYRO_JAX_PLATFORM=cpu
+# before import to force CPU (previous library default).
 if "JAX_PLATFORMS" not in os.environ:
-    os.environ["JAX_PLATFORMS"] = os.environ.get("HCM_NUMPYRO_JAX_PLATFORM", "cpu")
+    hcm_plat = os.environ.get("HCM_NUMPYRO_JAX_PLATFORM")
+    if hcm_plat is not None:
+        os.environ["JAX_PLATFORMS"] = hcm_plat
 
 try:
     import jax
@@ -60,6 +63,13 @@ def _resolve_jax_device(device: Optional[str]) -> Any:
     if not default_devices:
         raise RuntimeError("JAX sees no devices for NumPyro estimation.")
     if device is None:
+        for backend_name in ("cuda", "gpu"):
+            try:
+                acc = jax.devices(backend_name)
+            except RuntimeError:
+                continue
+            if acc:
+                return acc[0]
         return default_devices[0]
     device_l = str(device).lower().strip()
     if device_l.startswith("gpu") or device_l.startswith("cuda"):

@@ -7,6 +7,7 @@ from .causal_estimators import (
     ast_to_estimator,
     estimate_causal_effect,
     SUPPORTED_FAMILIES,
+    SUBUNIT_ONLY_FAMILIES,
 )
 from .variational_estimators import (
     NUMPYRO_AVAILABLE,
@@ -18,6 +19,7 @@ from .variational_estimators import (
     variational_mean_prediction,
 )
 from .numba_kernels import NUMBA_AVAILABLE
+from .device_defaults import default_torch_device_str, resolve_torch_device_from_mapping
 from .parallel import ParallelBackend, parallel_map
 from .per_unit import (
     aggregate_per_unit_outputs,
@@ -69,7 +71,10 @@ __all__ = [
     "ast_to_estimator",
     "estimate_causal_effect",
     "SUPPORTED_FAMILIES",
+    "SUBUNIT_ONLY_FAMILIES",
     "NUMBA_AVAILABLE",
+    "default_torch_device_str",
+    "resolve_torch_device_from_mapping",
     "ParallelBackend",
     "parallel_map",
     "fit_per_unit_estimators",

@@ -34,6 +34,7 @@ from .numba_kernels import (
     linear_predict_batch,
     logistic_positive_proba_batch,
 )
+from .device_defaults import resolve_torch_device_from_mapping
 from .parallel import ParallelBackend, parallel_map
 from .torch_estimators import (
     torch_fit_batched_beta,
@@ -100,11 +101,18 @@ SUPPORTED_FAMILIES = {
     "inverse_gaussian", "wald",
     # Bounded [0, 1]
     "beta",
+    # Nominal / ordinal finite support (unit-level codes, e.g. urbanicity)
+    "categorical",
+    "multinomial",
+    "nominal",
     # Positive heavy-tailed (variance/scale priors in HCM simulations)
     "half_cauchy", "halfcauchy",
     # Non-parametric fallback
     "nonparametric",
 }
+
+#: Families valid only for :class:`SubunitParamEstimator` (per-unit Q summaries), not pooled conditionals.
+SUBUNIT_ONLY_FAMILIES: frozenset[str] = frozenset({"beta_unit_minmax"})
 
 DEFAULT_GAUSSIAN_MIXTURE_COMPONENTS = 2
 
@@ -162,6 +170,10 @@ _FAMILY_ALIASES: Dict[str, str] = {
     "log_normal": "lognormal",
     "wald": "inverse_gaussian",
     "halfcauchy": "half_cauchy",
+    "multinomial": "categorical",
+    "nominal": "categorical",
+    "beta_scaled_unit": "beta_unit_minmax",
+    "beta_minmax_unit": "beta_unit_minmax",
 }
 
 
@@ -258,6 +270,17 @@ class ConditionalDensityEstimator:
         Conditional: linear regression for scale.
         Used in HCM paper simulations as prior on variance parameters τ.
 
+    **Finite categorical (urbanicity codes, etc.)**
+
+    ``"categorical"`` (aliases ``multinomial``, ``nominal``)
+        ``Y`` takes finitely many numeric class codes (after rounding to 6 decimals).
+        Unconditional: Laplace-smoothed empirical class frequencies (hyperparameter
+        ``categorical_laplace`` in ``estimator_kwargs``, default ``1.0``).
+        With ``X``: multinomial logistic regression when ``scikit-learn`` is
+        available (``torch`` backend is ignored for this family).  ``P(Y=y|X)``
+        is the predicted class probability; ``E[Y|X]`` is
+        ``sum_k level_k * P(Y=level_k|X)`` (a weighted code, not a count).
+
     **Non-parametric**
 
     ``"nonparametric"``
@@ -284,6 +307,11 @@ class ConditionalDensityEstimator:
         self.torch_kwargs = dict(torch_kwargs or {})
         self.estimator_kwargs = dict(estimator_kwargs or {})
         self._fitted = False
+        if self.family in SUBUNIT_ONLY_FAMILIES:
+            raise ValueError(
+                f"Family {self.family!r} is only for subunit Q summaries "
+                f"(``SubunitParamEstimator`` on 2-D matrices), not for ``ConditionalDensityEstimator``."
+            )
 
     # ------------------------------------------------------------------ fit --
 
@@ -323,6 +351,7 @@ class ConditionalDensityEstimator:
             "inverse_gaussian": self._fit_inverse_gaussian,
             "beta":             self._fit_beta,
             "half_cauchy":      self._fit_half_cauchy,
+            "categorical":      self._fit_categorical,
         }
         if self.family in dispatch:
             dispatch[self.family](Y, X)
@@ -344,7 +373,7 @@ class ConditionalDensityEstimator:
             state = torch_fit_batched_bernoulli(
                 x_batch=X[None, :, :],
                 y_batch=Y[None, :],
-                device=self.torch_kwargs.get("device", "cpu"),
+                device=resolve_torch_device_from_mapping(self.torch_kwargs),
                 devices=self.torch_kwargs.get("devices"),
                 max_iter=int(self.torch_kwargs.get("max_iter", 200)),
                 lr=float(self.torch_kwargs.get("lr", 5e-2)),
@@ -395,7 +424,7 @@ class ConditionalDensityEstimator:
             state = torch_fit_batched_gaussian(
                 x_batch=X[None, :, :],
                 y_batch=Y[None, :],
-                device=self.torch_kwargs.get("device", "cpu"),
+                device=resolve_torch_device_from_mapping(self.torch_kwargs),
                 devices=self.torch_kwargs.get("devices"),
                 ridge=float(self.torch_kwargs.get("ridge", 1e-4)),
             )
@@ -577,7 +606,7 @@ class ConditionalDensityEstimator:
             state = torch_fit_batched_poisson(
                 x_batch=X[None, :, :],
                 y_batch=Y[None, :],
-                device=self.torch_kwargs.get("device", "cpu"),
+                device=resolve_torch_device_from_mapping(self.torch_kwargs),
                 devices=self.torch_kwargs.get("devices"),
                 max_iter=int(self.torch_kwargs.get("max_iter", 200)),
                 lr=float(self.torch_kwargs.get("lr", 5e-2)),
@@ -734,7 +763,7 @@ class ConditionalDensityEstimator:
             state = torch_fit_batched_gamma(
                 x_batch=X[None, :, :],
                 y_batch=Y_pos[None, :],
-                device=self.torch_kwargs.get("device", "cpu"),
+                device=resolve_torch_device_from_mapping(self.torch_kwargs),
                 devices=self.torch_kwargs.get("devices"),
                 max_iter=int(self.torch_kwargs.get("max_iter", 300)),
                 lr=float(self.torch_kwargs.get("lr", 5e-2)),
@@ -907,7 +936,7 @@ class ConditionalDensityEstimator:
             state = torch_fit_batched_beta(
                 x_batch=X[None, :, :],
                 y_batch=Y_clipped[None, :],
-                device=self.torch_kwargs.get("device", "cpu"),
+                device=resolve_torch_device_from_mapping(self.torch_kwargs),
                 devices=self.torch_kwargs.get("devices"),
                 max_iter=int(self.torch_kwargs.get("max_iter", 300)),
                 lr=float(self.torch_kwargs.get("lr", 5e-2)),
@@ -998,6 +1027,61 @@ class ConditionalDensityEstimator:
             return float(_sp_stats.halfcauchy.pdf(y_query, scale=scale))
         import math
         return float(2.0 / (math.pi * scale * (1.0 + (y_query / scale) ** 2)))
+
+    # -------- Categorical (finite support, nominal / ordinal codes) -----------
+
+    def _fit_categorical(self, Y, X) -> None:
+        """Multinomial logistic regression when ``X`` is present; else Laplace-smoothed counts."""
+        self._cat_lr = None
+        y = np.asarray(Y, dtype=float).ravel()
+        y = y[np.isfinite(y)]
+        if len(y) == 0:
+            self._cat_classes = np.array([0.0], dtype=float)
+            self._cat_marginal_prob = np.array([1.0], dtype=float)
+            return
+        y_round = np.round(y, 6)
+        self._cat_classes, y_idx = np.unique(y_round, return_inverse=True)
+        k = int(len(self._cat_classes))
+        laplace = float(self.estimator_kwargs.get("categorical_laplace", 1.0))
+        counts = np.bincount(y_idx, minlength=k).astype(float) + laplace
+        self._cat_marginal_prob = counts / float(np.sum(counts))
+        if k == 1:
+            return
+        if X is None or X.shape[1] == 0 or not SKLEARN_AVAILABLE:
+            return
+        try:
+            if k == 2:
+                lr = LogisticRegression(
+                    max_iter=1000,
+                    solver="lbfgs",
+                    C=float(self.regularization),
+                )
+            else:
+                lr = LogisticRegression(
+                    max_iter=1000,
+                    solver="lbfgs",
+                    C=float(self.regularization),
+                    multi_class="multinomial",
+                )
+            lr.fit(X, y_idx)
+            self._cat_lr = lr
+        except Exception:
+            self._cat_lr = None
+
+    def _categorical_proba(self, x_query: Optional[np.ndarray]) -> np.ndarray:
+        if getattr(self, "_cat_lr", None) is not None:
+            x2d = np.atleast_2d(np.asarray(x_query, dtype=float))
+            return np.asarray(self._cat_lr.predict_proba(x2d)[0], dtype=float).ravel()
+        return np.asarray(self._cat_marginal_prob, dtype=float).ravel()
+
+    def _eval_categorical(self, x_query: Optional[np.ndarray], y_query: float) -> float:
+        proba = self._categorical_proba(x_query)
+        j = int(np.argmin(np.abs(self._cat_classes - float(y_query))))
+        return float(proba[j])
+
+    def _expect_categorical(self, x_query: Optional[np.ndarray]) -> float:
+        proba = self._categorical_proba(x_query)
+        return float(np.sum(self._cat_classes.astype(float) * proba))
 
     # -------- Non-parametric --------------------------------------------------
 
@@ -1098,6 +1182,7 @@ class ConditionalDensityEstimator:
             "inverse_gaussian": self._eval_inverse_gaussian,
             "beta":             self._eval_beta,
             "half_cauchy":      self._eval_half_cauchy,
+            "categorical":      self._eval_categorical,
         }
         fn = _prob_dispatch.get(self.family)
         if fn is not None:
@@ -1131,6 +1216,9 @@ class ConditionalDensityEstimator:
                 "inverse_gaussian": lambda: self._ig_mu,
                 "beta":             lambda: self._beta_mu,
                 "half_cauchy":      lambda: self._hc_mean,
+                "categorical":    lambda: float(
+                    np.sum(getattr(self, "_cat_classes", np.zeros(1)) * getattr(self, "_cat_marginal_prob", np.ones(1)))
+                ),
             }
             fn_marg = _marginal.get(self.family)
             if fn_marg is not None:
@@ -1150,6 +1238,7 @@ class ConditionalDensityEstimator:
             "inverse_gaussian": self._predict_mu_ig,
             "beta":             self._predict_mu_beta,
             "half_cauchy":      self._predict_scale_hc,
+            "categorical":      self._expect_categorical,
         }
         fn = _expect_dispatch.get(self.family)
         if fn is not None:
@@ -1188,6 +1277,8 @@ class ConditionalDensityEstimator:
             p["alpha"] = self._beta_alpha; p["beta"] = self._beta_beta
         elif self.family == "half_cauchy":
             p["scale"] = self._hc_scale
+        elif self.family == "categorical":
+            p["n_classes"] = float(len(getattr(self, "_cat_classes", [])))
         return p
 
 
@@ -1220,6 +1311,7 @@ class SubunitParamEstimator:
         ``exponential`` mean_i           (n_units,)
         ``gaussian``  (μ_i, σ²_i)        (n_units, 2)
         ``beta``      (α_i, β_i)         (n_units, 2)
+        ``beta_unit_minmax`` (α_i, β_i) (n_units, 2); Beta on scores mapped to (0, 1) with that unit's min and max
         ``gamma``     (shape_i, scale_i) (n_units, 2)
         ``lognormal`` (μ_log_i, σ²_log_i) (n_units, 2)
         ``nonparametric`` (mean, std, skew, kurt) (n_units, 4)
@@ -1230,10 +1322,11 @@ class SubunitParamEstimator:
 
     def __init__(self, family: str = "bernoulli", estimator_kwargs: Optional[Dict[str, Any]] = None) -> None:
         family = _FAMILY_ALIASES.get(family, family)
-        if family not in SUPPORTED_FAMILIES:
+        allowed = SUPPORTED_FAMILIES | SUBUNIT_ONLY_FAMILIES
+        if family not in allowed:
             raise ValueError(
                 f"Unsupported family {family!r}.  "
-                f"Choose from: {sorted(SUPPORTED_FAMILIES)}."
+                f"Choose from: {sorted(allowed)}."
             )
         self.family = family
         self.estimator_kwargs = dict(estimator_kwargs or {})
@@ -1245,7 +1338,7 @@ class SubunitParamEstimator:
             return 1
         if self.family == "gaussian_mixture":
             return 3 * DEFAULT_GAUSSIAN_MIXTURE_COMPONENTS
-        if self.family in {"gaussian", "normal", "beta", "gamma",
+        if self.family in {"gaussian", "normal", "beta", "beta_unit_minmax", "gamma",
                            "lognormal", "log_normal",
                            "inverse_gaussian", "wald"}:
             return 2
@@ -1304,6 +1397,18 @@ class SubunitParamEstimator:
 
         if self.family == "exponential":
             return np.array([float(max(y.mean(), 1e-10))])
+
+        if self.family == "beta_unit_minmax":
+            eps_r = float(self.estimator_kwargs.get("beta_unit_range_eps", 1e-9))
+            lo = float(np.min(y))
+            hi = float(np.max(y))
+            denom = max(hi - lo, eps_r)
+            z = (y - lo) / denom
+            z = np.clip(z, 1e-6, 1.0 - 1e-6)
+            m = float(np.clip(z.mean(), 1e-6, 1.0 - 1e-6))
+            v = float(max(z.var(ddof=0), 1e-10))
+            kappa = max(m * (1.0 - m) / v - 1.0, 0.01)
+            return np.array([m * kappa, (1.0 - m) * kappa])
 
         if self.family == "beta":
             m = float(np.clip(y.mean(), 1e-6, 1.0 - 1e-6))
@@ -1612,7 +1717,8 @@ def compute_q_from_subunit_data(
       ``Q^v`` is the per-unit parameter as a 1-D array ``(n_units,)``.
 
     * **Multi-parameter families** (``gaussian`` → (μ_i, σ²_i); ``beta`` →
-      (α_i, β_i); …): ``Q^v`` is a 2-D array ``(n_units, n_params)``.
+      (α_i, β_i); ``beta_unit_minmax`` → (α_i, β_i) on within-unit rescaled scores; …):
+      ``Q^v`` is a 2-D array ``(n_units, n_params)``.
       The formula evaluator will use :class:`QDensityEstimator` for terms
       involving such variables.
 
@@ -1654,12 +1760,14 @@ def compute_q_from_subunit_data(
             continue  # already provided by user
 
         family = families.get(key, families.get(q_key, "bernoulli"))
-        if estimator_backend == "torch" and family in {"bernoulli", "poisson", "gaussian", "normal", "beta", "gamma"}:
+        if estimator_backend == "torch" and family in {
+            "bernoulli", "poisson", "gaussian", "normal", "beta", "beta_unit_minmax", "gamma",
+        }:
             if q_key not in result:
                 result[q_key] = torch_compute_subunit_params(
                     arr_np,
                     family=family,
-                    device=torch_kwargs.get("device", "cpu"),
+                    device=resolve_torch_device_from_mapping(torch_kwargs),
                     devices=torch_kwargs.get("devices"),
                 )
             continue
@@ -2478,7 +2586,7 @@ def _precompute_conditional_q_vars(
                 x=cond_arr,
                 eval_values=eval_vals,
                 family=family_outcome,
-                device=torch_kwargs.get("device", "cpu"),
+                device=resolve_torch_device_from_mapping(torch_kwargs),
                 devices=torch_kwargs.get("devices"),
                 ridge=float(torch_kwargs.get("ridge", 1e-4)),
                 max_iter=int(torch_kwargs.get("max_iter", 200)),
@@ -2996,7 +3104,8 @@ def estimate_causal_effect(
         Supported families: ``"bernoulli"``, ``"gaussian"``, ``"beta"``,
         ``"gamma"``, ``"poisson"``, ``"exponential"``, ``"lognormal"``,
         ``"weibull"``, ``"laplace"``, ``"student_t"``, ``"inverse_gaussian"``,
-        ``"half_cauchy"``, ``"nonparametric"`` (default).
+        ``"half_cauchy"``, ``"categorical"`` (aliases ``multinomial``, ``nominal``),
+        ``"nonparametric"`` (default).
 
     n_mc_samples : int, default 1000
         Monte Carlo samples for continuous marginalisation in the formula

@@ -4,7 +4,7 @@ import argparse
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import networkx as nx
 import numpy as np
@@ -24,6 +24,21 @@ from hierarchicalcausalmodels.models import HSCMParametric
 RANDOM_STATE = 42
 N_SUB_PER_CLASS = 10
 N_MC_SAMPLES = 60
+
+DEFAULT_DISTRIBUTION_FAMILIES: dict[str, str] = {
+    "A": "bernoulli",
+    "Y": "gaussian_mixture",
+    "M": "gaussian_mixture",
+    "G": "bernoulli",
+    "E": "bernoulli",
+    "L": "bernoulli",
+    "S": "categorical",
+}
+
+DEFAULT_ESTIMATOR_KWARGS: dict[str, Any] = {
+    "Y": {"n_components": 2, "random_state_gmm": RANDOM_STATE, "max_iter_gmm": 400},
+    "M": {"n_components": 2, "random_state_gmm": RANDOM_STATE, "max_iter_gmm": 400},
+}
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STAR_DIR = REPO_ROOT / "examples" / "STAR"
@@ -264,6 +279,11 @@ def run_one_graph(
     data: dict[str, np.ndarray],
     *,
     outcome_subunit: str = "Y",
+    estimator_backend: str = "numpy",
+    torch_kwargs: Optional[dict[str, Any]] = None,
+    n_mc_samples: int | None = None,
+    distribution_families: Optional[dict[str, str]] = None,
+    estimator_kwargs: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     n_units, n_sub = data["A"].shape
     print(f"[HCM-v2] Running graph: {spec.name} (outcome={outcome_subunit})")
@@ -290,31 +310,31 @@ def run_one_graph(
             print(f"[HCM-v2] {spec.name}: not identifiable")
             return result
 
-        fam = {
-            "A": "bernoulli",
-            "Y": "gaussian",
-            "M": "gaussian",
-            "G": "bernoulli",
-            "E": "bernoulli",
-            "L": "bernoulli",
-            "S": "gaussian",
-        }
+        fam = dict(distribution_families) if distribution_families is not None else dict(DEFAULT_DISTRIBUTION_FAMILIES)
+        ek: dict[str, Any] = dict(DEFAULT_ESTIMATOR_KWARGS) if estimator_kwargs is None else {**DEFAULT_ESTIMATOR_KWARGS, **estimator_kwargs}
 
+        mc = int(n_mc_samples) if n_mc_samples is not None else int(N_MC_SAMPLES)
         ey1 = estimate_causal_effect(
             id_result,
             data=data,
             intervention={"Q^a": 1.0},
             distribution_families=fam,
-            n_mc_samples=N_MC_SAMPLES,
+            n_mc_samples=mc,
             random_seed=RANDOM_STATE,
+            estimator_backend=estimator_backend,
+            torch_kwargs=torch_kwargs,
+            estimator_kwargs=ek,
         )
         ey0 = estimate_causal_effect(
             id_result,
             data=data,
             intervention={"Q^a": 0.0},
             distribution_families=fam,
-            n_mc_samples=N_MC_SAMPLES,
+            n_mc_samples=mc,
             random_seed=RANDOM_STATE + 1,
+            estimator_backend=estimator_backend,
+            torch_kwargs=torch_kwargs,
+            estimator_kwargs=ek,
         )
         result["status"] = "ok"
         result["outcome_subunit"] = outcome_subunit
@@ -322,6 +342,10 @@ def run_one_graph(
         result["E_do_1"] = float(ey1)
         result["E_do_0"] = float(ey0)
         result["ATE"] = float(ey1 - ey0)
+        result["estimator_backend"] = estimator_backend
+        result["n_mc_samples"] = mc
+        result["distribution_families"] = fam
+        result["estimator_kwargs"] = ek
         print(f"[HCM-v2] {spec.name}: ok, ATE={result['ATE']:.4f}")
         return result
     except Exception as exc:
@@ -431,6 +455,31 @@ def main() -> None:
         choices=("Y", "M"),
         help="Sous-unité cible pour l'estimande (Y=gktreadss lecture, M=gktmathss maths).",
     )
+    parser.add_argument(
+        "--estimator-backend",
+        type=str,
+        default="numpy",
+        choices=("numpy", "torch"),
+        help="Backend numérique pour estimate_causal_effect (torch pour GPU si disponible).",
+    )
+    parser.add_argument(
+        "--torch-device",
+        type=str,
+        default=None,
+        help="Device PyTorch explicite (ex. cuda:0, cpu). Défaut : résolution automatique.",
+    )
+    parser.add_argument(
+        "--n-mc-samples",
+        type=int,
+        default=None,
+        help="Nombre d'échantillons MC (défaut : constante N_MC_SAMPLES du module).",
+    )
+    parser.add_argument(
+        "--graphs",
+        type=str,
+        default=None,
+        help="Liste de graphes séparés par des virgules (ex. DirectLiNGAM,ExactBIC). Défaut : tous.",
+    )
     args = parser.parse_args()
 
     specs = load_graph_specs()
@@ -438,9 +487,52 @@ def main() -> None:
         specs = [spec for spec in specs if spec.name == args.graph]
         if not specs:
             raise ValueError(f"Unknown graph name: {args.graph}")
+    elif args.graphs is not None:
+        want = {g.strip() for g in str(args.graphs).split(",") if g.strip()}
+        specs = [spec for spec in specs if spec.name in want]
+        if not specs:
+            raise ValueError(f"No graph matched --graphs={args.graphs!r}")
+        missing = want - {s.name for s in specs}
+        if missing:
+            raise ValueError(f"Unknown graph name(s): {sorted(missing)}")
+
+    torch_kwargs: dict[str, Any] | None = None
+    if args.estimator_backend == "torch":
+        torch_kwargs = {}
+        if args.torch_device is not None:
+            torch_kwargs["device"] = str(args.torch_device)
 
     data, meta = load_teacher_student_data()
-    results = [run_one_graph(spec, data, outcome_subunit=str(args.outcome)) for spec in specs]
+    results = [
+        run_one_graph(
+            spec,
+            data,
+            outcome_subunit=str(args.outcome),
+            estimator_backend=str(args.estimator_backend),
+            torch_kwargs=torch_kwargs,
+            n_mc_samples=args.n_mc_samples,
+            distribution_families=None,
+        )
+        for spec in specs
+    ]
+
+    partial = args.graph is not None or args.graphs is not None
+    if partial and OUT_JSON.is_file():
+        try:
+            prev = json.loads(OUT_JSON.read_text())
+        except json.JSONDecodeError:
+            prev = None
+        if prev is not None and str(prev.get("schema", {}).get("outcome_subunit_default")) == str(args.outcome):
+            by_name = {r["graph_name"]: r for r in prev.get("results", [])}
+            for r in results:
+                by_name[r["graph_name"]] = r
+            order = [s.name for s in load_graph_specs()]
+            results = [by_name[n] for n in order if n in by_name]
+            if len(results) < len(order):
+                print(
+                    "[HCM-v2] Attention : fusion partielle — graphes manquants dans le JSON précédent : "
+                    f"{sorted(set(order) - set(by_name))}",
+                )
 
     payload = {
         "schema": {
@@ -448,6 +540,9 @@ def main() -> None:
             "subunit_nodes": sorted(list(SUBUNIT_NODES)),
             "latent_unit_node": "U",
             "outcome_subunit_default": str(args.outcome),
+            "estimator_backend": str(args.estimator_backend),
+            "torch_kwargs": torch_kwargs,
+            "merged_partial_run": bool(partial and OUT_JSON.is_file()),
             "meta": meta,
         },
         "results": results,

@@ -6,6 +6,7 @@ from typing import Any, Callable, Optional, TypeVar
 
 import numpy as np
 
+from .device_defaults import default_torch_device_str
 from .parallel import ParallelBackend, parallel_map
 from .torch_estimators import (
     TorchBatchedBernoulliState,
@@ -113,26 +114,27 @@ def fit_torch_batched_regressor_per_unit(
     A: np.ndarray,
     Y: np.ndarray,
     family: str = "gaussian",
-    device: str = "cpu",
+    device: Optional[str] = None,
     devices: Optional[list[str]] = None,
     ridge: float = 1e-4,
     max_iter: int = 200,
     lr: float = 5e-2,
     weight_decay: float = 1e-4,
- ) -> (
+) -> (
     TorchBatchedGaussianState
     | TorchBatchedBernoulliState
     | TorchBatchedPoissonState
     | TorchBatchedGammaState
     | TorchBatchedBetaState
- ):
+):
     """Fit one Torch batched regressor per unit on CPU or CUDA."""
+    eff_device = default_torch_device_str() if device is None else device
     family_l = family.lower().strip()
     if family_l in {"gaussian", "normal"}:
         return torch_fit_batched_gaussian(
             x_batch=A,
             y_batch=Y,
-            device=device,
+            device=eff_device,
             devices=devices,
             ridge=ridge,
         )
@@ -140,7 +142,7 @@ def fit_torch_batched_regressor_per_unit(
         return torch_fit_batched_bernoulli(
             x_batch=A,
             y_batch=Y,
-            device=device,
+            device=eff_device,
             devices=devices,
             max_iter=max_iter,
             lr=lr,
@@ -150,7 +152,7 @@ def fit_torch_batched_regressor_per_unit(
         return torch_fit_batched_poisson(
             x_batch=A,
             y_batch=Y,
-            device=device,
+            device=eff_device,
             devices=devices,
             max_iter=max_iter,
             lr=lr,
@@ -160,7 +162,7 @@ def fit_torch_batched_regressor_per_unit(
         return torch_fit_batched_gamma(
             x_batch=A,
             y_batch=Y,
-            device=device,
+            device=eff_device,
             devices=devices,
             max_iter=max_iter,
             lr=lr,
@@ -170,7 +172,7 @@ def fit_torch_batched_regressor_per_unit(
         return torch_fit_batched_beta(
             x_batch=A,
             y_batch=Y,
-            device=device,
+            device=eff_device,
             devices=devices,
             max_iter=max_iter,
             lr=lr,
@@ -185,7 +187,7 @@ def estimate_ate_confounder_torch_batched(
     A: np.ndarray,
     Y: np.ndarray,
     family: str = "gaussian",
-    device: str = "cpu",
+    device: Optional[str] = None,
     devices: Optional[list[str]] = None,
     ridge: float = 1e-4,
     max_iter: int = 200,
@@ -193,11 +195,12 @@ def estimate_ate_confounder_torch_batched(
     weight_decay: float = 1e-4,
 ) -> float:
     """Estimate per-unit ATE with a Torch batched backend on CPU or CUDA."""
+    eff_device = default_torch_device_str() if device is None else device
     return _estimate_ate_confounder_torch_batched(
         a=A,
         y=Y,
         family=family,
-        device=device,
+        device=eff_device,
         devices=devices,
         ridge=ridge,
         max_iter=max_iter,
@@ -209,13 +212,24 @@ def estimate_ate_confounder_torch_batched(
 def device_kwargs_for_workers(
     n_workers: int,
     backend: str = "torch",
-    use_cuda: bool = False,
+    use_cuda: Optional[bool] = None,
     n_gpus: Optional[int] = None,
 ) -> list[dict[str, Any]]:
-    """Return list of kwargs (e.g. device) for n_workers; for torch we assign CPU or GPU indices."""
+    """Return list of kwargs (e.g. device) for n_workers; for torch prefer CUDA when available."""
     if backend != "torch":
         return [{} for _ in range(n_workers)]
-    if not use_cuda or n_gpus is None or n_gpus <= 0:
+    try:
+        import torch
+        n_available = int(torch.cuda.device_count()) if torch.cuda.is_available() else 0
+    except ImportError:
+        n_available = 0
+    if use_cuda is None:
+        use_cuda = n_available > 0
+    if not use_cuda:
         return [{"device": "cpu"} for _ in range(n_workers)]
-    gpu_indices = [i % n_gpus for i in range(n_workers)]
-    return [{"device": f"cuda:{g}" for g in gpu_indices}]
+    if n_available <= 0:
+        return [{"device": "cpu"} for _ in range(n_workers)]
+    ng = n_gpus if n_gpus is not None else n_available
+    ng = max(1, min(ng, n_available))
+    gpu_indices = [i % ng for i in range(n_workers)]
+    return [{"device": f"cuda:{g}"} for g in gpu_indices]
