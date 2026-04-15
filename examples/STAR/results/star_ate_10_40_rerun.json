@@ -1,0 +1,117 @@
+{
+  "note": "Rerun analyses historiques (ATE 10-40) avec multiparent fix désactivé.",
+  "outcome_subunit": "Y",
+  "env": {
+    "HCM_DISABLE_MULTIPARENT_Q_PRECOMPUTE": "1"
+  },
+  "distribution_families": {
+    "A": "bernoulli",
+    "Y": "gaussian",
+    "M": "gaussian",
+    "G": "bernoulli",
+    "E": "bernoulli",
+    "L": "bernoulli",
+    "S": "categorical"
+  },
+  "random_seed_base": 42,
+  "results": [
+    {
+      "graph_name": "DirectLiNGAM",
+      "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_g_l_m\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "E_do_1": 1451.3002598815938,
+      "E_do_0": 1433.681891652235,
+      "ATE": 17.618368229358794,
+      "artifacts_paths": {
+        "do1": "examples/STAR/results/ate_10_40_rerun_artifacts/DirectLiNGAM/do1_artifacts.pkl",
+        "do0": "examples/STAR/results/ate_10_40_rerun_artifacts/DirectLiNGAM/do0_artifacts.pkl"
+      },
+      "artifacts_summary": {
+        "do1_enriched_keys": [
+          "A",
+          "E",
+          "G",
+          "L",
+          "M",
+          "Q^a",
+          "Q^e",
+          "Q^g",
+          "Q^l",
+          "Q^m",
+          "Q^y",
+          "Q^{l|e}",
+          "Ql_e",
+          "S",
+          "Y"
+        ],
+        "do0_enriched_keys": [
+          "A",
+          "E",
+          "G",
+          "L",
+          "M",
+          "Q^a",
+          "Q^e",
+          "Q^g",
+          "Q^l",
+          "Q^m",
+          "Q^y",
+          "Q^{l|e}",
+          "Ql_e",
+          "S",
+          "Y"
+        ],
+        "do1_unique_terms_n": 7,
+        "do0_unique_terms_n": 7,
+        "do1_fitted_terms_n": 5,
+        "do0_fitted_terms_n": 5
+      }
+    },
+    {
+      "graph_name": "ExactBIC",
+      "formula_latex": "\\sum_{Qe,Qg,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qg,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "E_do_1": 1788.1023959048073,
+      "E_do_0": 1766.474290386603,
+      "ATE": 21.628105518204393,
+      "artifacts_paths": {
+        "do1": "examples/STAR/results/ate_10_40_rerun_artifacts/ExactBIC/do1_artifacts.pkl",
+        "do0": "examples/STAR/results/ate_10_40_rerun_artifacts/ExactBIC/do0_artifacts.pkl"
+      },
+      "artifacts_summary": {
+        "do1_enriched_keys": [
+          "A",
+          "E",
+          "G",
+          "L",
+          "M",
+          "Q^a",
+          "Q^e",
+          "Q^g",
+          "Q^l",
+          "Q^m",
+          "Q^y",
+          "S",
+          "Y"
+        ],
+        "do0_enriched_keys": [
+          "A",
+          "E",
+          "G",
+          "L",
+          "M",
+          "Q^a",
+          "Q^e",
+          "Q^g",
+          "Q^l",
+          "Q^m",
+          "Q^y",
+          "S",
+          "Y"
+        ],
+        "do1_unique_terms_n": 5,
+        "do0_unique_terms_n": 5,
+        "do1_fitted_terms_n": 4,
+        "do0_fitted_terms_n": 4
+      }
+    }
+  ]
+}

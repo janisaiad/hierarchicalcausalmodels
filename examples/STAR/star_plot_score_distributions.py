@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from scipy.stats import genpareto as scipy_genpareto
 from scipy.stats import lognorm as scipy_lognorm
 from scipy.stats import norm as scipy_norm
 from scipy.stats import t as scipy_student_t
@@ -183,7 +184,7 @@ def plot_hist_normal_and_student_t(
     values: np.ndarray,
     title: str,
     *,
-    fixed_df: float = 3.0,
+    fixed_df: float = 6.0,
 ) -> tuple[float, float, float]:
     """Histogramme + PDF normale, Student-t MLE, et t à ``fixed_df`` (échelle = σ√((ν-1)/ν)) pour contraste visuel."""
     values = np.asarray(values, dtype=float)
@@ -278,42 +279,55 @@ def _body_x_window_from_crossings(xq: np.ndarray, crossings: list[float]) -> tup
     return float(np.quantile(xq, 0.15)), float(np.quantile(xq, 0.85)), True
 
 
-def _tail_t_qq_inset(
+def _fit_gpd_excess(excess: np.ndarray) -> tuple[float, float]:
+    """Fit GPD on positive exceedances with loc fixed at 0."""
+    ex = np.asarray(excess, dtype=float)
+    ex = ex[np.isfinite(ex) & (ex >= 0)]
+    if len(ex) < 8:
+        return 0.2, max(float(np.std(ex, ddof=1)), 1e-6) if len(ex) else 1.0
+    try:
+        shape, _loc, scale = scipy_genpareto.fit(ex, floc=0.0)
+        return float(shape), float(max(scale, 1e-6))
+    except Exception:
+        return 0.2, max(float(np.std(ex, ddof=1)), 1e-6)
+
+
+def _tail_gpd_qq_inset(
     ax_parent: plt.Axes,
     tail_vals: np.ndarray,
+    cutoff: float,
     loc: str,
     subtitle: str,
     *,
     side: str,
 ) -> None:
-    """Petit Q-Q : queue vs Student-t. Queue **droite** : quantiles supérieurs ``1-p`` + scores triés **décroissant**."""
+    """Petit Q-Q de queue : empirique vs GPD/Pareto sur excès au seuil ``cutoff``."""
     tv = np.asarray(tail_vals, dtype=float)
     tv = tv[np.isfinite(tv)]
     if len(tv) < 8:
         return
     ax_in = inset_axes(ax_parent, width="34%", height="30%", loc=loc, borderpad=0.8)
-    try:
-        df, loc_t, sc = scipy_student_t.fit(tv)
-        df = float(max(df, 1.2))
-        sc = float(max(sc, 1e-6))
-    except Exception:
-        df, loc_t, sc = 8.0, float(np.mean(tv)), max(float(np.std(tv, ddof=1)), 1e-6)
     m = len(tv)
     p = (np.arange(1, m + 1) - 0.5) / m
     if side == "right":
-        ot = np.sort(tv)[::-1]
-        theo = scipy_student_t.ppf(1.0 - p, df, loc=loc_t, scale=sc)
-        xlab = "t théo. (queue sup.)"
-    else:
+        excess = tv - cutoff
+        shape, scale = _fit_gpd_excess(excess)
+        theo = cutoff + scipy_genpareto.ppf(p, c=shape, loc=0.0, scale=scale)
         ot = np.sort(tv)
-        theo = scipy_student_t.ppf(p, df, loc=loc_t, scale=sc)
-        xlab = "t théo. (queue inf.)"
-    col = "darkred" if side == "left" else "darkblue"
+        xlab = "GPD théo. (queue sup.)"
+        col = "darkblue"
+    else:
+        excess = cutoff - tv
+        shape, scale = _fit_gpd_excess(excess)
+        theo = cutoff - scipy_genpareto.ppf(1.0 - p, c=shape, loc=0.0, scale=scale)
+        ot = np.sort(tv)
+        xlab = "GPD théo. (queue inf.)"
+        col = "darkred"
     ax_in.scatter(theo, ot, s=2, alpha=0.45, c=col)
     lo = float(min(theo.min(), ot.min()))
     hi = float(max(theo.max(), ot.max()))
     ax_in.plot([lo, hi], [lo, hi], "k--", lw=0.9)
-    ax_in.set_title(subtitle + f"\nν̂={df:.1f}", fontsize=7)
+    ax_in.set_title(subtitle + f"\nξ̂={shape:.2f}", fontsize=7)
     ax_in.tick_params(labelsize=6)
     ax_in.set_xlabel(xlab, fontsize=6)
     ax_in.set_ylabel("score (tri)", fontsize=6)
@@ -367,8 +381,12 @@ def plot_qq_gaussian_body_heavy_tail(
     ax: plt.Axes,
     values: np.ndarray,
     title: str,
+    *,
+    left_cut_score: float | None = None,
+    fit_left_tail: bool = True,
+    fit_right_tail: bool = True,
 ) -> tuple[float, float, int, int, bool, float, float]:
-    """Q-Q standardisé + identité + courbes t en z + insets queues ; renvoie x_lo,x_hi,il,ih,fallback,μ,σ."""
+    """Q-Q standardisé + identité + zones corps/queues + insets Pareto ; renvoie x_lo,x_hi,il,ih,fallback,μ,σ."""
     v_raw = np.asarray(values, dtype=float)
     v_raw = v_raw[np.isfinite(v_raw)]
     xq, ys, mu, sd = _standardized_normal_qq_arrays(values)
@@ -378,41 +396,21 @@ def plot_qq_gaussian_body_heavy_tail(
     ax.plot([-lim, lim], [-lim, lim], "k--", lw=1.3, label="identité (N(0,1))", zorder=1)
     cr = _identity_line_crossings_x(xq, ys)
     x_lo, x_hi, fb = _body_x_window_from_crossings(xq, cr)
+    if left_cut_score is not None:
+        x_lo = float((float(left_cut_score) - mu) / sd)
     ax.axvline(x_lo, color="purple", lw=1.2, ls="-", zorder=1)
     ax.axvline(x_hi, color="purple", lw=1.2, ls="-", zorder=1)
     ax.axvspan(-lim, x_lo, facecolor="salmon", alpha=0.16, zorder=0)
     ax.axvspan(x_lo, x_hi, facecolor="lightgreen", alpha=0.2, zorder=0)
     ax.axvspan(x_hi, lim, facecolor="salmon", alpha=0.16, zorder=0)
-    p_line = np.linspace(0.003, 0.997, 500)
-    x_line = scipy_norm.ppf(p_line)
-    df_mle, loc_m, sc_m = _fit_student_t_safe(v_raw)
-    y_t_mle = (scipy_student_t.ppf(p_line, df_mle, loc=loc_m, scale=sc_m) - mu) / sd
-    ax.plot(
-        x_line,
-        y_t_mle,
-        color="darkorange",
-        lw=2.0,
-        label=f"réf. t MLE → z (ν={df_mle:.1f})",
-        zorder=3,
-    )
-    nu0 = 3.0
-    sc0 = sd * float(np.sqrt(max(nu0 - 2.0, 0.1) / nu0))
-    y_t0 = (scipy_student_t.ppf(p_line, nu0, loc=mu, scale=sc0) - mu) / sd
-    ax.plot(
-        x_line,
-        y_t0,
-        color="teal",
-        lw=1.7,
-        ls="--",
-        label=f"réf. t ν={nu0:.0f} (Var=σ²) → z",
-        zorder=3,
-    )
     ax.set_xlim(-lim, lim)
     ax.set_ylim(-lim, lim)
     ax.set_aspect("equal", adjustable="box")
     ax.set_xlabel("Φ⁻¹(p)")
     ax.set_ylabel("z trié = (score−μ̂)/σ̂")
     sub = f"n_croisements={len(cr)}" + (" (fenêtre 15–85)" if fb else "")
+    if left_cut_score is not None:
+        sub += f" ; cutoff gauche={float(left_cut_score):.0f}"
     ax.set_title(f"{title}\n{sub}")
     ax.legend(loc="lower left", fontsize=6)
     il = int(np.searchsorted(xq, x_lo, side="left"))
@@ -422,10 +420,12 @@ def plot_qq_gaussian_body_heavy_tail(
     if ih < il:
         il, ih = 0, n - 1
     ordered_v = np.sort(v_raw)
-    if il >= 8:
-        _tail_t_qq_inset(ax, ordered_v[:il], "upper left", "Queue gauche", side="left")
-    if n - 1 - ih >= 8:
-        _tail_t_qq_inset(ax, ordered_v[ih + 1 :], "lower right", "Queue droite", side="right")
+    cutoff_left = float(ordered_v[il]) if len(ordered_v) else float(np.min(v_raw))
+    cutoff_right = float(ordered_v[ih]) if len(ordered_v) else float(np.max(v_raw))
+    if fit_left_tail and il >= 8:
+        _tail_gpd_qq_inset(ax, ordered_v[:il], cutoff_left, "upper left", "Queue gauche", side="left")
+    if fit_right_tail and n - 1 - ih >= 8:
+        _tail_gpd_qq_inset(ax, ordered_v[ih + 1 :], cutoff_right, "lower right", "Queue droite", side="right")
     return x_lo, x_hi, il, ih, fb, mu, sd
 
 
@@ -437,10 +437,14 @@ def plot_hist_full_and_body_models(
     ih: int,
     mu: float,
     sigma: float,
+    *,
+    fit_left_tail: bool = True,
+    fit_right_tail: bool = True,
 ) -> None:
     """Histogramme : empirique, N globale, N corps, et queues Student-t à partir des croisements."""
     v = np.asarray(values, dtype=float)
     v = v[np.isfinite(v)]
+    n_tot = max(len(v), 1)
     ax.hist(v, bins=40, density=True, color="lightgray", alpha=0.55, edgecolor="white", label="empirique")
     xs = np.linspace(float(v.min()), float(v.max()), 320)
     ax.plot(xs, scipy_norm.pdf(xs, mu, sigma), color="gray", lw=1.4, ls=":", label="N global")
@@ -448,6 +452,9 @@ def plot_hist_full_and_body_models(
     body = ordered[il : ih + 1]
     left_tail = ordered[:il]
     right_tail = ordered[ih + 1 :]
+    p_left = float(len(left_tail)) / float(n_tot)
+    p_body = float(len(body)) / float(n_tot)
+    p_right = float(len(right_tail)) / float(n_tot)
     x_left = float(ordered[il]) if len(ordered) else float(v.min())
     x_right = float(ordered[ih]) if len(ordered) else float(v.max())
     if len(body) >= 3:
@@ -455,37 +462,43 @@ def plot_hist_full_and_body_models(
         sig_b = max(float(np.std(body, ddof=1)), 1e-9)
         xs_body = xs[(xs >= x_left) & (xs <= x_right)]
         if len(xs_body):
+            z_lo = float((x_left - mu_b) / sig_b)
+            z_hi = float((x_right - mu_b) / sig_b)
+            norm_mass = float(max(scipy_norm.cdf(z_hi) - scipy_norm.cdf(z_lo), 1e-9))
+            body_pdf = scipy_norm.pdf(xs_body, mu_b, sig_b) / norm_mass
             ax.plot(
                 xs_body,
-                scipy_norm.pdf(xs_body, mu_b, sig_b),
+                p_body * body_pdf,
                 color="darkviolet",
                 lw=2.2,
                 ls="-",
                 label="N « corps » (entre croisements)",
             )
-    if len(left_tail) >= 8:
-        df_l, loc_l, sc_l = _fit_student_t_safe(left_tail)
+    if fit_left_tail and len(left_tail) >= 8:
+        ex_left = x_left - left_tail
+        shape_l, scale_l = _fit_gpd_excess(ex_left)
         xs_left = xs[xs <= x_left]
         if len(xs_left):
             ax.plot(
                 xs_left,
-                scipy_student_t.pdf(xs_left, df_l, loc=loc_l, scale=sc_l),
+                p_left * scipy_genpareto.pdf(x_left - xs_left, c=shape_l, loc=0.0, scale=scale_l),
                 color="darkred",
                 lw=1.9,
                 ls="--",
-                label=f"t queue gauche (ν={df_l:.1f})",
+                label=f"GPD queue gauche (ξ={shape_l:.2f})",
             )
-    if len(right_tail) >= 8:
-        df_r, loc_r, sc_r = _fit_student_t_safe(right_tail)
+    if fit_right_tail and len(right_tail) >= 8:
+        ex_right = right_tail - x_right
+        shape_r, scale_r = _fit_gpd_excess(ex_right)
         xs_right = xs[xs >= x_right]
         if len(xs_right):
             ax.plot(
                 xs_right,
-                scipy_student_t.pdf(xs_right, df_r, loc=loc_r, scale=sc_r),
+                p_right * scipy_genpareto.pdf(xs_right - x_right, c=shape_r, loc=0.0, scale=scale_r),
                 color="darkblue",
                 lw=1.9,
                 ls="--",
-                label=f"t queue droite (ν={df_r:.1f})",
+                label=f"GPD queue droite (ξ={shape_r:.2f})",
             )
     ax.axvline(x_left, color="purple", lw=1.0, ls=":")
     ax.axvline(x_right, color="purple", lw=1.0, ls=":")
@@ -571,7 +584,7 @@ def plot_per_class_gaussian_and_lognormal_rows(
             ax.set_ylabel("densité")
 
 
-def plot_class_means_gaussian_and_lognorm(ax: plt.Axes, sampled: pd.DataFrame, col: str, label: str) -> None:
+def plot_class_means_gaussian(ax: plt.Axes, sampled: pd.DataFrame, col: str, label: str) -> None:
     g = sampled.groupby("gktchid")[col].mean()
     vals = g.to_numpy(dtype=float)
     vals = vals[np.isfinite(vals)]
@@ -579,10 +592,6 @@ def plot_class_means_gaussian_and_lognorm(ax: plt.Axes, sampled: pd.DataFrame, c
     mu, sig = float(np.mean(vals)), max(float(np.std(vals, ddof=1)), 1e-9)
     xs = np.linspace(vals.min(), vals.max(), 120)
     ax.plot(xs, _norm_pdf(xs, mu, sig), color="darkred", ls="--", lw=2, label="Gaussienne")
-    if np.all(vals > 0):
-        s_ln, sc_ln = fit_lognorm_s_scale(vals)
-        xs_p = np.linspace(max(vals.min(), 1e-6), vals.max(), 120)
-        ax.plot(xs_p, scipy_lognorm.pdf(xs_p, s=s_ln, scale=sc_ln), color="orange", lw=2, label="log-normal")
     ax.set_title(f"Moyennes par classe — {label}")
     ax.set_xlabel("moyenne élèves dans la classe")
     ax.legend()
@@ -662,6 +671,7 @@ def main() -> None:
         axes_b[0, 0],
         y_all,
         "Y (lecture) — Q-Q standardisé + références à queues lourdes",
+        left_cut_score=400.0,
     )
     plot_hist_full_and_body_models(
         axes_b[0, 1],
@@ -671,6 +681,8 @@ def main() -> None:
         ih_y,
         mu_y,
         sig_y,
+        fit_left_tail=True,
+        fit_right_tail=True,
     )
     axes_b[0, 2].axis("off")
     axes_b[0, 2].text(
@@ -687,6 +699,9 @@ def main() -> None:
         axes_b[1, 0],
         m_all,
         "M (maths) — Q-Q standardisé + références à queues lourdes",
+        left_cut_score=400.0,
+        fit_left_tail=True,
+        fit_right_tail=False,
     )
     plot_hist_full_and_body_models(
         axes_b[1, 1],
@@ -696,6 +711,8 @@ def main() -> None:
         ih_m,
         mu_m,
         sig_m,
+        fit_left_tail=True,
+        fit_right_tail=False,
     )
     axes_b[1, 2].axis("off")
     axes_b[1, 2].text(
@@ -770,10 +787,14 @@ def main() -> None:
     fig3.savefig(p3, dpi=160)
     plt.close(fig3)
 
-    fig4, axes4 = plt.subplots(1, 2, figsize=(10, 4))
-    plot_class_means_gaussian_and_lognorm(axes4[0], sampled, "Y_read", "Y lecture")
-    plot_class_means_gaussian_and_lognorm(axes4[1], sampled, "M_math", "M maths")
-    fig4.suptitle("Moyennes par classe : Gaussienne (--) + log-normal (—)", fontsize=11)
+    fig4, axes4 = plt.subplots(2, 2, figsize=(11, 8))
+    plot_class_means_gaussian(axes4[0, 0], sampled, "Y_read", "Y lecture")
+    y_means = sampled.groupby("gktchid")["Y_read"].mean().to_numpy(dtype=float)
+    plot_qq_normal_only(axes4[0, 1], y_means, "QQ normal — moyennes de classe (Y)")
+    plot_class_means_gaussian(axes4[1, 0], sampled, "M_math", "M maths")
+    m_means = sampled.groupby("gktchid")["M_math"].mean().to_numpy(dtype=float)
+    plot_qq_normal_only(axes4[1, 1], m_means, "QQ normal — moyennes de classe (M)")
+    fig4.suptitle("Moyennes par classe : histogramme + QQ normal (sans log-normal)", fontsize=11)
     fig4.tight_layout()
     p4 = outdir / "class_level_means_Y_M_gaussian_lognorm.png"
     fig4.savefig(p4, dpi=160)
