@@ -417,3 +417,38 @@ Limite importante :
   interprétation causale partielle tant que ces facteurs manquants ne sont pas
   modélisés/fittés correctement.
 
+## Speedup séquentiel vs parallèle (runs ATE 10–40)
+
+Benchmark relancé sur les mêmes graphes et la même configuration historique
+(`HCM_DISABLE_MULTIPARENT_Q_PRECOMPUTE=1`, `n_mc_samples=60`) pour comparer :
+
+- séquentiel (`n_jobs=1`),
+- `threads` (`n_jobs=4`),
+- `processes` (`n_jobs=4`).
+
+Résultats enregistrés dans :
+
+- `examples/STAR/results/ate_10_40_parallel_speed_test.json`
+
+### Temps total do1+do0
+
+#### DirectLiNGAM
+
+- `seq` : `9.307 s`, ATE `17.618368`
+- `threads4` : `10.731 s`, ATE `17.583207`
+- `proc4` : `8.501 s`, ATE `17.583207`
+
+#### ExactBIC
+
+- `seq` : `3.109 s`, ATE `21.628106`
+- `threads4` : `3.630 s`, ATE `21.600522`
+- `proc4` : `1.897 s`, ATE `21.600522`
+
+### Lecture
+
+- Sur ces runs, `threads4` n'apporte pas de gain (souvent plus lent).
+- `proc4` est le meilleur compromis vitesse, surtout sur ExactBIC.
+- De petites variations d'ATE (quelques centièmes) apparaissent entre modes,
+  liées au chemin numérique/Monte Carlo en parallèle ; l'ordre de grandeur et
+  la conclusion qualitative restent les mêmes.
+

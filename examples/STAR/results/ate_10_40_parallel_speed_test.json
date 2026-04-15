@@ -1,0 +1,72 @@
+{
+  "note": "Speed test for historical ATE 10-40 runs (disable multiparent precompute).",
+  "env": {
+    "HCM_DISABLE_MULTIPARENT_Q_PRECOMPUTE": "1"
+  },
+  "graphs": {
+    "DirectLiNGAM": {
+      "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_g_l_m\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "modes": {
+        "seq": {
+          "n_jobs": 1,
+          "parallel_backend": "threads",
+          "E_do_1": 1451.3002598815938,
+          "E_do_0": 1433.681891652235,
+          "ATE": 17.618368229358794,
+          "elapsed_seconds_total_do1_do0": 9.306989989001522,
+          "speedup_vs_seq": 1.0
+        },
+        "threads4": {
+          "n_jobs": 4,
+          "parallel_backend": "threads",
+          "E_do_1": 1451.2908860336174,
+          "E_do_0": 1433.7076791680186,
+          "ATE": 17.583206865598868,
+          "elapsed_seconds_total_do1_do0": 10.730712851000135,
+          "speedup_vs_seq": 0.8673226204290876
+        },
+        "proc4": {
+          "n_jobs": 4,
+          "parallel_backend": "processes",
+          "E_do_1": 1451.2908860336174,
+          "E_do_0": 1433.7076791680186,
+          "ATE": 17.583206865598868,
+          "elapsed_seconds_total_do1_do0": 8.501014825000311,
+          "speedup_vs_seq": 1.0948092881370997
+        }
+      }
+    },
+    "ExactBIC": {
+      "formula_latex": "\\sum_{Qe,Qg,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qg,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "modes": {
+        "seq": {
+          "n_jobs": 1,
+          "parallel_backend": "threads",
+          "E_do_1": 1788.1023959048073,
+          "E_do_0": 1766.474290386603,
+          "ATE": 21.628105518204393,
+          "elapsed_seconds_total_do1_do0": 3.109041278999939,
+          "speedup_vs_seq": 1.0
+        },
+        "threads4": {
+          "n_jobs": 4,
+          "parallel_backend": "threads",
+          "E_do_1": 1788.0732798540148,
+          "E_do_0": 1766.4727579628768,
+          "ATE": 21.600521891137987,
+          "elapsed_seconds_total_do1_do0": 3.630021538001529,
+          "speedup_vs_seq": 0.8564801190440291
+        },
+        "proc4": {
+          "n_jobs": 4,
+          "parallel_backend": "processes",
+          "E_do_1": 1788.0732798540148,
+          "E_do_0": 1766.4727579628768,
+          "ATE": 21.600521891137987,
+          "elapsed_seconds_total_do1_do0": 1.8974563440006023,
+          "speedup_vs_seq": 1.6385311255408532
+        }
+      }
+    }
+  }
+}
