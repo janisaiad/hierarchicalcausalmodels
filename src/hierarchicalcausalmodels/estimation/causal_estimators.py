@@ -23,6 +23,7 @@ within-unit observations — the approach used in Appendix D of the HCM paper.
 
 from __future__ import annotations
 
+import os
 import re
 import warnings
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union, overload
@@ -2534,6 +2535,9 @@ def _precompute_conditional_q_vars(
         ``iv_val`` injection on non-A parents). This fills ``enriched`` so
         identification factors are not silently replaced by ``1``; it is a
         pragmatic summary, not a full interventional profile for every parent.
+        If such a symbol is also a **summation** variable in the formula, the
+        same scalar summary is used (full multi-column Σ-profiles are not
+        implemented).
 
     Returns a dict of new entries to add to enriched data.
     """
@@ -2557,6 +2561,13 @@ def _precompute_conditional_q_vars(
         # Variational fits already use JAX/XLA internally; spawning multiple Python
         # workers around them is both memory-hungry and unstable on a single GPU.
         local_n_jobs = 1
+
+    disable_multiparent_fix = str(os.environ.get("HCM_DISABLE_MULTIPARENT_Q_PRECOMPUTE", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
     for sv in deduped_vars:
         m = re.match(r"^Q([a-zA-Z]+)_(.+)$", sv)
@@ -2608,9 +2619,14 @@ def _precompute_conditional_q_vars(
 
         is_sum_var = sv in formula_sum_vars or paper_key in formula_sum_vars
 
-        if len(parent_tokens) > 1 and is_sum_var:
-            # Multi-parent 2-D profiles (Σ over a high-dimensional Q) are not implemented.
+        if len(parent_tokens) > 1 and disable_multiparent_fix:
             continue
+
+        if len(parent_tokens) > 1 and is_sum_var:
+            # A full Σ-profile (one column per distinct parent tuple) is not implemented for
+            # multi-parent Q.  Fall back to the scalar multi-parent summary so ``enriched``
+            # contains the symbol and factors are not replaced by 1 (approximate vs. theory).
+            is_sum_var = False
 
         if len(parent_tokens) == 1:
             cond_arr = cond_mats[0]

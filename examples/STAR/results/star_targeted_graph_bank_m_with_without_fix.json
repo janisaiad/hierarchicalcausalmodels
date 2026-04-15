@@ -1,0 +1,1632 @@
+{
+  "outcome": "M",
+  "meta": {
+    "source_table": "examples/STAR/STA-207/STAR_Students.tab",
+    "grade": "kindergarten",
+    "n_rows_after_dropna": 5745,
+    "n_units_classes": 322,
+    "balanced_students_per_class": 10,
+    "regressor_choice_rationale": [
+      "Keep the same discovery notebook variables for comparability.",
+      "Move only school urbanicity to the unit level.",
+      "Keep math, gender, ethnicity, and lunch at the student level.",
+      "Use binary codings for categorical student regressors to stabilize first-pass HCM estimation."
+    ],
+    "variable_mapping": {
+      "A": "1{gkclasstype == 1} = small class",
+      "Y": "gktreadss",
+      "M": "gktmathss",
+      "G": "1{gender == female}",
+      "E": "1{race in {white, asian}}",
+      "L": "1{free lunch}",
+      "S": "gksurban",
+      "unit_id": "gktchid"
+    }
+  },
+  "runs": {
+    "with_fix": [
+      {
+        "graph_name": "DirectLiNGAM",
+        "note": "Arcs dirigés repris de DirectLiNGAM.",
+        "edges_hcm": [
+          [
+            "S",
+            "_L"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_M"
+          ],
+          [
+            "_E",
+            "S"
+          ],
+          [
+            "_E",
+            "_L"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_G",
+            "_M"
+          ],
+          [
+            "_G",
+            "_Y"
+          ],
+          [
+            "_L",
+            "_M"
+          ],
+          [
+            "_L",
+            "_Y"
+          ],
+          [
+            "_M",
+            "_Y"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 615.9056228386897,
+        "E_do_0": 630.9309313201775,
+        "ATE": -15.025308481487741,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      },
+      {
+        "graph_name": "ExactBIC",
+        "note": "DAG score-based repris de ExactBIC.",
+        "edges_hcm": [
+          [
+            "S",
+            "_A"
+          ],
+          [
+            "S",
+            "_L"
+          ],
+          [
+            "S",
+            "_Y"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_Y"
+          ],
+          [
+            "_E",
+            "S"
+          ],
+          [
+            "_E",
+            "_L"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_G",
+            "_Y"
+          ],
+          [
+            "_M",
+            "_L"
+          ],
+          [
+            "_Y",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "\\sum_{Qe,Qg,Qm_e_y,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qm_e_y\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Qm_e_y,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 490266.37949002185,
+        "E_do_0": 487923.58439280896,
+        "ATE": 2342.7950972128892,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      },
+      {
+        "graph_name": "ConfounderMinimal",
+        "note": "Base confounder outcome M.",
+        "edges_hcm": [
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "\\sum_{Qm_a}{P\\left(Qm_a\\right) \\cdot P\\left(Qm\\mid Qa,Qm_a\\right)}",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 0.5490479587848557,
+        "E_do_0": 0.5454313546076519,
+        "ATE": 0.003616604177203775,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      },
+      {
+        "graph_name": "ConfounderObserved",
+        "note": "Confounding observé + A->M.",
+        "edges_hcm": [
+          [
+            "S",
+            "_A"
+          ],
+          [
+            "S",
+            "_M"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_M"
+          ],
+          [
+            "_E",
+            "_A"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_G",
+            "_A"
+          ],
+          [
+            "_G",
+            "_M"
+          ],
+          [
+            "_L",
+            "_A"
+          ],
+          [
+            "_L",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": false,
+        "formula_latex": null,
+        "explanation": "Engine error: Y or X refer to nodes not in the CGM or not observed: {'Q^a'}",
+        "status": "not_identifiable"
+      },
+      {
+        "graph_name": "MediatorMath",
+        "note": "Médiation via Y vers M.",
+        "edges_hcm": [
+          [
+            "S",
+            "_A"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_Y"
+          ],
+          [
+            "_E",
+            "_A"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_E",
+            "_Y"
+          ],
+          [
+            "_G",
+            "_A"
+          ],
+          [
+            "_G",
+            "_M"
+          ],
+          [
+            "_G",
+            "_Y"
+          ],
+          [
+            "_L",
+            "_A"
+          ],
+          [
+            "_L",
+            "_M"
+          ],
+          [
+            "_L",
+            "_Y"
+          ],
+          [
+            "_Y",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": false,
+        "formula_latex": null,
+        "explanation": "Engine error: Y or X refer to nodes not in the CGM or not observed: {'Q^a'}",
+        "status": "not_identifiable"
+      },
+      {
+        "graph_name": "InterferenceSchool",
+        "note": "Interférence proxy via S.",
+        "edges_hcm": [
+          [
+            "S",
+            "_M"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "S"
+          ],
+          [
+            "_A",
+            "_M"
+          ],
+          [
+            "_E",
+            "_A"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_G",
+            "_A"
+          ],
+          [
+            "_G",
+            "_M"
+          ],
+          [
+            "_L",
+            "_A"
+          ],
+          [
+            "_L",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": false,
+        "formula_latex": null,
+        "explanation": "Engine error: Y or X refer to nodes not in the CGM or not observed: {'Q^a'}",
+        "status": "not_identifiable"
+      },
+      {
+        "graph_name": "IVSchoolProxy",
+        "note": "Instrument proxy via S->A.",
+        "edges_hcm": [
+          [
+            "S",
+            "_A"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_M"
+          ],
+          [
+            "_E",
+            "S"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_G",
+            "S"
+          ],
+          [
+            "_G",
+            "_M"
+          ],
+          [
+            "_L",
+            "S"
+          ],
+          [
+            "_L",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "\\sum_{Qe,Qg,Ql,Qm_a_e_g_l}{P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Ql,Qm_a_e_g_l\\right) \\cdot P\\left(Ql\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 240.4330228278651,
+        "E_do_0": 246.6489457385497,
+        "ATE": -6.215922910684611,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      },
+      {
+        "graph_name": "LingamPruned_NoM",
+        "note": "Variante LiNGAM prunée sans M.",
+        "edges_hcm": [
+          [
+            "S",
+            "_L"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_Y"
+          ],
+          [
+            "_E",
+            "S"
+          ],
+          [
+            "_E",
+            "_L"
+          ],
+          [
+            "_G",
+            "_Y"
+          ],
+          [
+            "_L",
+            "_Y"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "P\\left(Qm\\right)",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 0.5468150481493678,
+        "E_do_0": 0.5468150481493678,
+        "ATE": 0.0,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      },
+      {
+        "graph_name": "ExactBIC_Pruned_Ya",
+        "note": "Variante BIC prunée Y simple.",
+        "edges_hcm": [
+          [
+            "S",
+            "_A"
+          ],
+          [
+            "S",
+            "_L"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_Y"
+          ],
+          [
+            "_E",
+            "S"
+          ],
+          [
+            "_E",
+            "_L"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "P\\left(Qm\\right)",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 0.5468150481493678,
+        "E_do_0": 0.5468150481493678,
+        "ATE": 0.0,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      }
+    ],
+    "without_fix": [
+      {
+        "graph_name": "DirectLiNGAM",
+        "note": "Arcs dirigés repris de DirectLiNGAM.",
+        "edges_hcm": [
+          [
+            "S",
+            "_L"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_M"
+          ],
+          [
+            "_E",
+            "S"
+          ],
+          [
+            "_E",
+            "_L"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_G",
+            "_M"
+          ],
+          [
+            "_G",
+            "_Y"
+          ],
+          [
+            "_L",
+            "_M"
+          ],
+          [
+            "_L",
+            "_Y"
+          ],
+          [
+            "_M",
+            "_Y"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 1.5450465227269492,
+        "E_do_0": 1.5370670683466763,
+        "ATE": 0.007979454380272921,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      },
+      {
+        "graph_name": "ExactBIC",
+        "note": "DAG score-based repris de ExactBIC.",
+        "edges_hcm": [
+          [
+            "S",
+            "_A"
+          ],
+          [
+            "S",
+            "_L"
+          ],
+          [
+            "S",
+            "_Y"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_Y"
+          ],
+          [
+            "_E",
+            "S"
+          ],
+          [
+            "_E",
+            "_L"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_G",
+            "_Y"
+          ],
+          [
+            "_M",
+            "_L"
+          ],
+          [
+            "_Y",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "\\sum_{Qe,Qg,Qm_e_y,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qm_e_y\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Qm_e_y,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 2.686596534364224,
+        "E_do_0": 2.673431095510472,
+        "ATE": 0.01316543885375232,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      },
+      {
+        "graph_name": "ConfounderMinimal",
+        "note": "Base confounder outcome M.",
+        "edges_hcm": [
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "\\sum_{Qm_a}{P\\left(Qm_a\\right) \\cdot P\\left(Qm\\mid Qa,Qm_a\\right)}",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 0.5490479587848557,
+        "E_do_0": 0.5454313546076519,
+        "ATE": 0.003616604177203775,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      },
+      {
+        "graph_name": "ConfounderObserved",
+        "note": "Confounding observé + A->M.",
+        "edges_hcm": [
+          [
+            "S",
+            "_A"
+          ],
+          [
+            "S",
+            "_M"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_M"
+          ],
+          [
+            "_E",
+            "_A"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_G",
+            "_A"
+          ],
+          [
+            "_G",
+            "_M"
+          ],
+          [
+            "_L",
+            "_A"
+          ],
+          [
+            "_L",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": false,
+        "formula_latex": null,
+        "explanation": "Engine error: Y or X refer to nodes not in the CGM or not observed: {'Q^a'}",
+        "status": "not_identifiable"
+      },
+      {
+        "graph_name": "MediatorMath",
+        "note": "Médiation via Y vers M.",
+        "edges_hcm": [
+          [
+            "S",
+            "_A"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_Y"
+          ],
+          [
+            "_E",
+            "_A"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_E",
+            "_Y"
+          ],
+          [
+            "_G",
+            "_A"
+          ],
+          [
+            "_G",
+            "_M"
+          ],
+          [
+            "_G",
+            "_Y"
+          ],
+          [
+            "_L",
+            "_A"
+          ],
+          [
+            "_L",
+            "_M"
+          ],
+          [
+            "_L",
+            "_Y"
+          ],
+          [
+            "_Y",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": false,
+        "formula_latex": null,
+        "explanation": "Engine error: Y or X refer to nodes not in the CGM or not observed: {'Q^a'}",
+        "status": "not_identifiable"
+      },
+      {
+        "graph_name": "InterferenceSchool",
+        "note": "Interférence proxy via S.",
+        "edges_hcm": [
+          [
+            "S",
+            "_M"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "S"
+          ],
+          [
+            "_A",
+            "_M"
+          ],
+          [
+            "_E",
+            "_A"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_G",
+            "_A"
+          ],
+          [
+            "_G",
+            "_M"
+          ],
+          [
+            "_L",
+            "_A"
+          ],
+          [
+            "_L",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": false,
+        "formula_latex": null,
+        "explanation": "Engine error: Y or X refer to nodes not in the CGM or not observed: {'Q^a'}",
+        "status": "not_identifiable"
+      },
+      {
+        "graph_name": "IVSchoolProxy",
+        "note": "Instrument proxy via S->A.",
+        "edges_hcm": [
+          [
+            "S",
+            "_A"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_M"
+          ],
+          [
+            "_E",
+            "S"
+          ],
+          [
+            "_E",
+            "_M"
+          ],
+          [
+            "_G",
+            "S"
+          ],
+          [
+            "_G",
+            "_M"
+          ],
+          [
+            "_L",
+            "S"
+          ],
+          [
+            "_L",
+            "_M"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "\\sum_{Qe,Qg,Ql,Qm_a_e_g_l}{P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Ql,Qm_a_e_g_l\\right) \\cdot P\\left(Ql\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 0.5911459169404168,
+        "E_do_0": 0.5883091919558261,
+        "ATE": 0.002836724984590755,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      },
+      {
+        "graph_name": "LingamPruned_NoM",
+        "note": "Variante LiNGAM prunée sans M.",
+        "edges_hcm": [
+          [
+            "S",
+            "_L"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_Y"
+          ],
+          [
+            "_E",
+            "S"
+          ],
+          [
+            "_E",
+            "_L"
+          ],
+          [
+            "_G",
+            "_Y"
+          ],
+          [
+            "_L",
+            "_Y"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "P\\left(Qm\\right)",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 0.5468150481493678,
+        "E_do_0": 0.5468150481493678,
+        "ATE": 0.0,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      },
+      {
+        "graph_name": "ExactBIC_Pruned_Ya",
+        "note": "Variante BIC prunée Y simple.",
+        "edges_hcm": [
+          [
+            "S",
+            "_A"
+          ],
+          [
+            "S",
+            "_L"
+          ],
+          [
+            "U",
+            "_A"
+          ],
+          [
+            "U",
+            "_M"
+          ],
+          [
+            "_A",
+            "_Y"
+          ],
+          [
+            "_E",
+            "S"
+          ],
+          [
+            "_E",
+            "_L"
+          ]
+        ],
+        "dag_ok": true,
+        "identifiable": true,
+        "formula_latex": "P\\left(Qm\\right)",
+        "explanation": "Do-calculus identification succeeded.",
+        "status": "ok",
+        "outcome_subunit": "M",
+        "estimand": "E[Q^m | do(Q^a)]",
+        "E_do_1": 0.5468150481493678,
+        "E_do_0": 0.5468150481493678,
+        "ATE": 0.0,
+        "estimator_backend": "numpy",
+        "n_mc_samples": 60,
+        "distribution_families": {
+          "A": "bernoulli",
+          "Y": "gaussian_mixture",
+          "M": "gaussian_mixture",
+          "G": "bernoulli",
+          "E": "bernoulli",
+          "L": "bernoulli",
+          "S": "categorical"
+        },
+        "estimator_kwargs": {
+          "Y": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          },
+          "M": {
+            "n_components": 2,
+            "random_state_gmm": 42,
+            "max_iter_gmm": 400
+          }
+        }
+      }
+    ]
+  },
+  "factor_analysis": {
+    "with_fix": {
+      "DirectLiNGAM": {
+        "E_do_1": 615.9056228386897,
+        "E_do_0": 630.9309313201775,
+        "ATE": -15.025308481487741,
+        "top_terms": [
+          {
+            "key": "('P', ('Qm',), ('Qa', 'Qe', 'Qg', 'Ql_e', 'Qm_a_e_g_l'))",
+            "outcome": [
+              "Qm"
+            ],
+            "cond": [
+              "Qa",
+              "Qe",
+              "Qg",
+              "Ql_e",
+              "Qm_a_e_g_l"
+            ],
+            "mean_do1": 0.5387449061072543,
+            "mean_do0": 0.5518690814039676,
+            "delta": -0.01312417529671328,
+            "ratio_do1_do0": 0.9762186798663823,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('S',), ('Qe',))",
+            "outcome": [
+              "S"
+            ],
+            "cond": [
+              "Qe"
+            ],
+            "mean_do1": 2.438650306748466,
+            "mean_do0": 2.438650306748466,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qm_a_e_g_l',), ())",
+            "outcome": [
+              "Qm_a_e_g_l"
+            ],
+            "cond": [],
+            "mean_do1": 489.1589344467384,
+            "mean_do0": 489.1589344467384,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Ql_e',), ('S',))",
+            "outcome": [
+              "Ql_e"
+            ],
+            "cond": [
+              "S"
+            ],
+            "mean_do1": 0.5750400353490147,
+            "mean_do0": 0.5750400353490147,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qg',), ())",
+            "outcome": [
+              "Qg"
+            ],
+            "cond": [],
+            "mean_do1": 0.5080745341614906,
+            "mean_do0": 0.5080745341614906,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qe',), ())",
+            "outcome": [
+              "Qe"
+            ],
+            "cond": [],
+            "mean_do1": 0.6745339813664595,
+            "mean_do0": 0.6745339813664595,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          }
+        ]
+      },
+      "ExactBIC": {
+        "E_do_1": 490266.37949002185,
+        "E_do_0": 487923.58439280896,
+        "ATE": 2342.7950972128892,
+        "top_terms": [
+          {
+            "key": "('P', ('Qm',), ('Qa', 'Qe', 'Qg', 'Qm_e_y', 'Qy_a_g'))",
+            "outcome": [
+              "Qm"
+            ],
+            "cond": [
+              "Qa",
+              "Qe",
+              "Qg",
+              "Qm_e_y",
+              "Qy_a_g"
+            ],
+            "mean_do1": 0.5484764928694457,
+            "mean_do0": 0.545774546405763,
+            "delta": 0.002701946463682714,
+            "ratio_do1_do0": 1.004950664118502,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('S',), ('Qe',))",
+            "outcome": [
+              "S"
+            ],
+            "cond": [
+              "Qe"
+            ],
+            "mean_do1": 2.438650306748466,
+            "mean_do0": 2.438650306748466,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qy_a_g',), ('S',))",
+            "outcome": [
+              "Qy_a_g"
+            ],
+            "cond": [
+              "S"
+            ],
+            "mean_do1": 452.32408291539434,
+            "mean_do0": 452.32408291539434,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qm_e_y',), ())",
+            "outcome": [
+              "Qm_e_y"
+            ],
+            "cond": [],
+            "mean_do1": 487.17905144457643,
+            "mean_do0": 487.17905144457643,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qg',), ())",
+            "outcome": [
+              "Qg"
+            ],
+            "cond": [],
+            "mean_do1": 0.5080745341614906,
+            "mean_do0": 0.5080745341614906,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qe',), ())",
+            "outcome": [
+              "Qe"
+            ],
+            "cond": [],
+            "mean_do1": 0.6745339813664595,
+            "mean_do0": 0.6745339813664595,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          }
+        ]
+      }
+    },
+    "without_fix": {
+      "DirectLiNGAM": {
+        "E_do_1": 1.5450465227269492,
+        "E_do_0": 1.5370670683466763,
+        "ATE": 0.007979454380272921,
+        "top_terms": [
+          {
+            "key": "('P', ('Qm',), ('Qa', 'Qe', 'Qg', 'Ql_e', 'Qm_a_e_g_l'))",
+            "outcome": [
+              "Qm"
+            ],
+            "cond": [
+              "Qa",
+              "Qe",
+              "Qg",
+              "Ql_e",
+              "Qm_a_e_g_l"
+            ],
+            "mean_do1": 0.5485316735342383,
+            "mean_do0": 0.5457399887841728,
+            "delta": 0.002791684750065415,
+            "ratio_do1_do0": 1.0051154117481567,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('S',), ('Qe',))",
+            "outcome": [
+              "S"
+            ],
+            "cond": [
+              "Qe"
+            ],
+            "mean_do1": 2.438650306748466,
+            "mean_do0": 2.438650306748466,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qm_a_e_g_l',), ())",
+            "outcome": [
+              "Qm_a_e_g_l"
+            ],
+            "cond": [],
+            "mean_do1": 1.0,
+            "mean_do0": 1.0,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 1
+          },
+          {
+            "key": "('P', ('Ql_e',), ('S',))",
+            "outcome": [
+              "Ql_e"
+            ],
+            "cond": [
+              "S"
+            ],
+            "mean_do1": 0.5750400353490147,
+            "mean_do0": 0.5750400353490147,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qg',), ())",
+            "outcome": [
+              "Qg"
+            ],
+            "cond": [],
+            "mean_do1": 0.5080745341614906,
+            "mean_do0": 0.5080745341614906,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qe',), ())",
+            "outcome": [
+              "Qe"
+            ],
+            "cond": [],
+            "mean_do1": 0.6745339813664595,
+            "mean_do0": 0.6745339813664595,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          }
+        ]
+      },
+      "ExactBIC": {
+        "E_do_1": 2.686596534364224,
+        "E_do_0": 2.673431095510472,
+        "ATE": 0.01316543885375232,
+        "top_terms": [
+          {
+            "key": "('P', ('Qm',), ('Qa', 'Qe', 'Qg', 'Qm_e_y', 'Qy_a_g'))",
+            "outcome": [
+              "Qm"
+            ],
+            "cond": [
+              "Qa",
+              "Qe",
+              "Qg",
+              "Qm_e_y",
+              "Qy_a_g"
+            ],
+            "mean_do1": 0.5483861078008019,
+            "mean_do0": 0.5458311512511624,
+            "delta": 0.002554956549639442,
+            "ratio_do1_do0": 1.0046808551395114,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('S',), ('Qe',))",
+            "outcome": [
+              "S"
+            ],
+            "cond": [
+              "Qe"
+            ],
+            "mean_do1": 2.438650306748466,
+            "mean_do0": 2.438650306748466,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qy_a_g',), ('S',))",
+            "outcome": [
+              "Qy_a_g"
+            ],
+            "cond": [
+              "S"
+            ],
+            "mean_do1": 1.0,
+            "mean_do0": 1.0,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 1
+          },
+          {
+            "key": "('P', ('Qm_e_y',), ())",
+            "outcome": [
+              "Qm_e_y"
+            ],
+            "cond": [],
+            "mean_do1": 1.0,
+            "mean_do0": 1.0,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 1
+          },
+          {
+            "key": "('P', ('Qg',), ())",
+            "outcome": [
+              "Qg"
+            ],
+            "cond": [],
+            "mean_do1": 0.5080745341614906,
+            "mean_do0": 0.5080745341614906,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          },
+          {
+            "key": "('P', ('Qe',), ())",
+            "outcome": [
+              "Qe"
+            ],
+            "cond": [],
+            "mean_do1": 0.6745339813664595,
+            "mean_do0": 0.6745339813664595,
+            "delta": 0.0,
+            "ratio_do1_do0": 1.0,
+            "missing_estimator_any": 0
+          }
+        ]
+      }
+    }
+  }
+}

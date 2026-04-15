@@ -13,7 +13,7 @@
       "Y"
     ],
     "latent_unit_node": "U",
-    "outcome_subunit_default": "Y",
+    "outcome_subunit_default": "M",
     "estimator_backend": "numpy",
     "torch_kwargs": null,
     "merged_partial_run": false,
@@ -64,7 +64,7 @@
         ],
         [
           "U",
-          "_Y"
+          "_M"
         ],
         [
           "_E",
@@ -97,24 +97,36 @@
       ],
       "dag_ok": true,
       "identifiable": true,
-      "formula_latex": "P\\left(Qy\\right)",
+      "formula_latex": "P\\left(Qm\\right)",
       "explanation": "Do-calculus identification succeeded.",
       "status": "ok",
-      "outcome_subunit": "Y",
-      "estimand": "E[Q^y | do(Q^a)]",
-      "E_do_1": 436.88043478260903,
-      "E_do_0": 436.88043478260903,
+      "outcome_subunit": "M",
+      "estimand": "E[Q^m | do(Q^a)]",
+      "E_do_1": 0.5468150481493678,
+      "E_do_0": 0.5468150481493678,
       "ATE": 0.0,
       "estimator_backend": "numpy",
       "n_mc_samples": 60,
       "distribution_families": {
         "A": "bernoulli",
-        "Y": "gaussian",
-        "M": "gaussian",
+        "Y": "gaussian_mixture",
+        "M": "gaussian_mixture",
         "G": "bernoulli",
         "E": "bernoulli",
         "L": "bernoulli",
         "S": "categorical"
+      },
+      "estimator_kwargs": {
+        "Y": {
+          "n_components": 2,
+          "random_state_gmm": 42,
+          "max_iter_gmm": 400
+        },
+        "M": {
+          "n_components": 2,
+          "random_state_gmm": 42,
+          "max_iter_gmm": 400
+        }
       }
     },
     {
@@ -139,7 +151,7 @@
         ],
         [
           "U",
-          "_Y"
+          "_M"
         ],
         [
           "_E",
@@ -172,24 +184,36 @@
       ],
       "dag_ok": true,
       "identifiable": true,
-      "formula_latex": "P\\left(Qy\\right)",
+      "formula_latex": "P\\left(Qm\\right)",
       "explanation": "Do-calculus identification succeeded.",
       "status": "ok",
-      "outcome_subunit": "Y",
-      "estimand": "E[Q^y | do(Q^a)]",
-      "E_do_1": 436.88043478260903,
-      "E_do_0": 436.88043478260903,
+      "outcome_subunit": "M",
+      "estimand": "E[Q^m | do(Q^a)]",
+      "E_do_1": 0.5468150481493678,
+      "E_do_0": 0.5468150481493678,
       "ATE": 0.0,
       "estimator_backend": "numpy",
       "n_mc_samples": 60,
       "distribution_families": {
         "A": "bernoulli",
-        "Y": "gaussian",
-        "M": "gaussian",
+        "Y": "gaussian_mixture",
+        "M": "gaussian_mixture",
         "G": "bernoulli",
         "E": "bernoulli",
         "L": "bernoulli",
         "S": "categorical"
+      },
+      "estimator_kwargs": {
+        "Y": {
+          "n_components": 2,
+          "random_state_gmm": 42,
+          "max_iter_gmm": 400
+        },
+        "M": {
+          "n_components": 2,
+          "random_state_gmm": 42,
+          "max_iter_gmm": 400
+        }
       }
     },
     {
@@ -206,7 +230,7 @@
         ],
         [
           "U",
-          "_Y"
+          "_M"
         ],
         [
           "_A",
@@ -247,24 +271,36 @@
       ],
       "dag_ok": true,
       "identifiable": true,
-      "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_g_l_m\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
       "explanation": "Do-calculus identification succeeded.",
       "status": "ok",
-      "outcome_subunit": "Y",
-      "estimand": "E[Q^y | do(Q^a)]",
-      "E_do_1": 1451.3002598815938,
-      "E_do_0": 1433.681891652235,
-      "ATE": 17.618368229358794,
+      "outcome_subunit": "M",
+      "estimand": "E[Q^m | do(Q^a)]",
+      "E_do_1": 615.9056228386897,
+      "E_do_0": 630.9309313201775,
+      "ATE": -15.025308481487741,
       "estimator_backend": "numpy",
       "n_mc_samples": 60,
       "distribution_families": {
         "A": "bernoulli",
-        "Y": "gaussian",
-        "M": "gaussian",
+        "Y": "gaussian_mixture",
+        "M": "gaussian_mixture",
         "G": "bernoulli",
         "E": "bernoulli",
         "L": "bernoulli",
         "S": "categorical"
+      },
+      "estimator_kwargs": {
+        "Y": {
+          "n_components": 2,
+          "random_state_gmm": 42,
+          "max_iter_gmm": 400
+        },
+        "M": {
+          "n_components": 2,
+          "random_state_gmm": 42,
+          "max_iter_gmm": 400
+        }
       }
     },
     {
@@ -289,7 +325,7 @@
         ],
         [
           "U",
-          "_Y"
+          "_M"
         ],
         [
           "_A",
@@ -322,24 +358,36 @@
       ],
       "dag_ok": true,
       "identifiable": true,
-      "formula_latex": "\\sum_{Qe,Qg,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qg,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "formula_latex": "\\sum_{Qe,Qg,Qm_e_y,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qm_e_y\\right) \\cdot P\\left(Qm\\mid Qa,Qe,Qg,Qm_e_y,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
       "explanation": "Do-calculus identification succeeded.",
       "status": "ok",
-      "outcome_subunit": "Y",
-      "estimand": "E[Q^y | do(Q^a)]",
-      "E_do_1": 1788.1023959048073,
-      "E_do_0": 1766.474290386603,
-      "ATE": 21.628105518204393,
+      "outcome_subunit": "M",
+      "estimand": "E[Q^m | do(Q^a)]",
+      "E_do_1": 490266.37949002185,
+      "E_do_0": 487923.58439280896,
+      "ATE": 2342.7950972128892,
       "estimator_backend": "numpy",
       "n_mc_samples": 60,
       "distribution_families": {
         "A": "bernoulli",
-        "Y": "gaussian",
-        "M": "gaussian",
+        "Y": "gaussian_mixture",
+        "M": "gaussian_mixture",
         "G": "bernoulli",
         "E": "bernoulli",
         "L": "bernoulli",
         "S": "categorical"
+      },
+      "estimator_kwargs": {
+        "Y": {
+          "n_components": 2,
+          "random_state_gmm": 42,
+          "max_iter_gmm": 400
+        },
+        "M": {
+          "n_components": 2,
+          "random_state_gmm": 42,
+          "max_iter_gmm": 400
+        }
       }
     },
     {
@@ -360,7 +408,7 @@
         ],
         [
           "U",
-          "_Y"
+          "_M"
         ],
         [
           "_E",
@@ -393,24 +441,36 @@
       ],
       "dag_ok": true,
       "identifiable": true,
-      "formula_latex": "P\\left(Qy\\right)",
+      "formula_latex": "P\\left(Qm\\right)",
       "explanation": "Do-calculus identification succeeded.",
       "status": "ok",
-      "outcome_subunit": "Y",
-      "estimand": "E[Q^y | do(Q^a)]",
-      "E_do_1": 436.88043478260903,
-      "E_do_0": 436.88043478260903,
+      "outcome_subunit": "M",
+      "estimand": "E[Q^m | do(Q^a)]",
+      "E_do_1": 0.5468150481493678,
+      "E_do_0": 0.5468150481493678,
       "ATE": 0.0,
       "estimator_backend": "numpy",
       "n_mc_samples": 60,
       "distribution_families": {
         "A": "bernoulli",
-        "Y": "gaussian",
-        "M": "gaussian",
+        "Y": "gaussian_mixture",
+        "M": "gaussian_mixture",
         "G": "bernoulli",
         "E": "bernoulli",
         "L": "bernoulli",
         "S": "categorical"
+      },
+      "estimator_kwargs": {
+        "Y": {
+          "n_components": 2,
+          "random_state_gmm": 42,
+          "max_iter_gmm": 400
+        },
+        "M": {
+          "n_components": 2,
+          "random_state_gmm": 42,
+          "max_iter_gmm": 400
+        }
       }
     }
   ]

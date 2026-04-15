@@ -242,9 +242,17 @@ def load_teacher_student_data() -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     return data, meta
 
 
-def build_hscm(spec: GraphSpec, n_units: int, n_sub: int) -> HSCMParametric:
+def build_hscm(
+    spec: GraphSpec,
+    n_units: int,
+    n_sub: int,
+    *,
+    outcome_subunit: str = "Y",
+) -> HSCMParametric:
     edges = set(spec.edges)
-    edges.update({("U", "A"), ("U", "Y")})
+    target = str(outcome_subunit).upper().strip()
+    confounded_target = "M" if target == "M" else "Y"
+    edges.update({("U", "A"), ("U", confounded_target)})
     hscm = HSCMParametric(
         nodes={"U", "S", "A", "Y", "M", "G", "E", "L"},
         edges=edges,
@@ -287,7 +295,7 @@ def run_one_graph(
 ) -> dict[str, Any]:
     n_units, n_sub = data["A"].shape
     print(f"[HCM-v2] Running graph: {spec.name} (outcome={outcome_subunit})")
-    hscm = build_hscm(spec, n_units, n_sub)
+    hscm = build_hscm(spec, n_units, n_sub, outcome_subunit=outcome_subunit)
     result: dict[str, Any] = {
         "graph_name": spec.name,
         "note": spec.note,

@@ -10,14 +10,50 @@ Ce document regroupe les points techniques discutés sur l’estimation causale 
 
 À l’étape de **fit des densités** dans `ast_to_estimator` / `estimate_causal_effect`, pour chaque terme de la formule d’identification de type \(P(\text{outcome} \mid \text{parents})\), le code résout le nom de l’outcome dans le dictionnaire `enriched` via `resolve(out_vars[0])`. Si **aucune** clé ne correspond (notation papier ni version sanitizée), un `UserWarning` est émis et **aucun estimateur** n’est associé à ce terme.
 
-### Cause fréquente : \(Q\) conditionnels « multi-parents »
+### Cause fréquente : \(Q\) conditionnels « multi-parents » (historique)
 
-- La formule (LaTeX / pyAgrum) peut référencer des symboles du type \(Q^{y \mid g,l,m}\) (ou équivalent après sanitization : `|` → `_`, suppression de `{}` et `^` dans `_sanitize`).
-- La fonction `_precompute_conditional_q_vars` ne précalcule que les motifs **binaires** `Q` + un bloc de lettres + `_` + un bloc de lettres (regex du type `^Q([a-zA-Z]+)_([a-zA-Z]+)$`), i.e. essentiellement \(Q^{y \mid a}\) ↔ `Qy_a`.
-- Les noms avec **plusieurs** parents dans le symbole (plusieurs segments après le premier `_`) **ne matchent pas** → rien n’est ajouté à `enriched` pour cette colonne → `resolve` échoue → warning.
+- La formule (LaTeX / pyAgrum) peut référencer des symboles du type \(Q^{y \mid g,l,m}\) (sanitized : `Qy_g_l_m`, via `_sanitize` dans `causal_estimators.py`).
+- **Avant correctif** : `_precompute_conditional_q_vars` ne gérait que le motif **binaire** `Q` + outcome + `_` + **un** parent (`Qy_a` ↔ \(Q^{y \mid a}\)). Les symboles multi-segments (`Qy_g_l_m`, `Qm_a_e_g_l`, …) n’étaient pas précalculés.
+- Conséquence : pas de colonne dans `enriched` → `resolve` échoue → warning → facteur **1** à l’évaluation → autre fonctionnelle \(\tilde{\mathfrak{F}}\) que \(\mathfrak{F}\) (voir ci-dessous).
 
-Autres causes possibles : variable absente des données d’entrée ; décalage rare de noms entre formule et clés du dictionnaire.
+Autres causes possibles (toujours valides) : variable absente des données d’entrée ; décalage de noms entre formule et clés.
 
+### Correction code (multi-parent) — où on en est
+
+**Fichier** : `src/hierarchicalcausalmodels/estimation/causal_estimators.py` — `_precompute_conditional_q_vars`, helpers `_find_subunit_matrix_for_letter`, `_fit_conditional_q_multiparent_row_task`.
+
+**Comportement ajouté** : pour tout symbole `Q[outcome]_[p1]_[p2]_…` (ex. `Qy_g_l_m`), le code
+
+1. retrouve la matrice sous-unitaire de l’outcome (clé dont le nom commence par la lettre d’outcome, ex. `Y`) ;
+2. retrouve une matrice par parent (`G`, `L`, `M`, …) ;
+3. empile les parents en \(X\) de forme \((m_i, p)\) par unité \(i\) ;
+4. ajuste un `ConditionalDensityEstimator` sur les sous-unités de l’unité, puis stocke **un scalaire par unité** = moyenne sur \(j\) des \(\mathbb{E}[Y \mid X_{ij}]\) ;
+5. enregistre la colonne sous le **sanitized** (`Qy_g_l_m`) et la notation papier (`Q^{y|g,l,m}` avec virgules dans les indices du `|`).
+
+**Ce que ça règle** : plus de colonne manquante pour ces motifs → disparition des warnings associés **dans ce cas** → les facteurs \(P(\cdot\mid\cdot)\) correspondants peuvent être fittés au lieu de valoir **1** ; l’ATE se rapproche du **plug-in de la formule complète** renvoyée par pyAgrum.
+
+**Ce que ça ne remplace pas (papier HCM au sens strict)** : la construction théorique de \(Q^{v \mid \mathrm{pa}}\) (intégration sur le bruit sous-unitaire \(\epsilon\), loi sur l’espace des distributions, etc., voir `paper.tex`) n’est pas recodée intégralement. Le scalaire stocké est un **résumé régressionnel / espérance conditionnelle** par classe, pas l’objet distribution-valued complet du manuscrit. Pour la publication théorique stricte, il faudrait soit aligner la définition sur le papier, soit justifier ce proxy dans le texte méthodo.
+
+**Limites techniques actuelles** :
+
+- Si le symbole multi-parent est aussi une **variable de sommation** (`\Sigma_{Q^{…}}`), il n’y a pas encore de profil 2D « une colonne par valeur de parent » : le code **repli** sur le **même résumé scalaire** multi-parent que hors somme (approximation explicite ; évite l’absence totale de colonne).
+- Le chemin **Torch** batchisé utilisé pour `Qy_a` (un parent) n’est pas réutilisé pour le multi-parent ; l’exécution passe par le **chemin NumPy** (`parallel_map` + `ConditionalDensityEstimator` par unité).
+
+**Vérification** : relancer `estimate_causal_effect` / `star_hcm_v2_teacher_student.py` et contrôler l’absence de `UserWarning: No data for outcome …` sur les termes concernés ; comparer ATE avant/après pour la sensibilité numérique.
+
+### Rerun après correctif (`star_hcm_v2_teacher_student.py`, outcome **Y**)
+
+Commande :  
+`uv run python examples/STAR/star_hcm_v2_teacher_student.py --graphs DirectLiNGAM,ExactBIC --outcome Y`  
+(merge dans `examples/STAR/results/star_hcm_v2_teacher_student.json`).
+
+| Graphe       | ATE (`E_do_1 - E_do_0`) | `E_do_1` | `E_do_0` | Warnings « No data for outcome » |
+|-------------|-------------------------:|---------:|---------:|----------------------------------|
+| DirectLiNGAM | **4308.53** (anormalement élevé vs échelle score ~10²–10³) | ≈ 2.89×10⁵ | ≈ 2.85×10⁵ | **Aucun** sur ce run |
+| ExactBIC   | **−18.46** | ≈ 1040.0 | ≈ 1058.5 | **Aucun** sur ce run |
+
+**Lecture** : l’absence de warnings indique que les colonnes multi-parents sont bien présentes et que les facteurs ne sont plus remplacés par **1** de ce côté. Les ordres de grandeur **DirectLiNGAM** (potentiels ~10⁵) restent **suspects** (produit de densités / GMM sur \(Q\) dérivés, stabilité numérique, repli Σ) — à diagnostiquer avant de tirer conclusion sur l’effet. **ExactBIC** est dans une plage plus cohérente avec des scores de lecture agrégés. Les ATE « historiques » (~17 et ~21) avec warnings correspondaient à une **autre** fonctionnelle \(\tilde{\mathfrak{F}}\) ; les nouveaux chiffres visent \(\mathfrak{F}\) plug-in **sans** facteurs manquants, mais avec les approximations ci-dessus.
+ et 
 ### Effet sur l’évaluation numérique
 
 Si aucun estimateur n’est enregistré pour un nœud `_ASTConditional`, `_eval_formula` retourne le facteur **constant 1.0** pour ce nœud (produit global inchangé **multiplicativement** par ce facteur « neutre » au lieu du vrai noyau).

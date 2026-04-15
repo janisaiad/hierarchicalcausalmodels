@@ -183,7 +183,7 @@ def plot_hist_normal_and_student_t(
     values: np.ndarray,
     title: str,
     *,
-    fixed_df: float = 5.0,
+    fixed_df: float = 3.0,
 ) -> tuple[float, float, float]:
     """Histogramme + PDF normale, Student-t MLE, et t à ``fixed_df`` (échelle = σ√((ν-1)/ν)) pour contraste visuel."""
     values = np.asarray(values, dtype=float)
@@ -395,7 +395,7 @@ def plot_qq_gaussian_body_heavy_tail(
         label=f"réf. t MLE → z (ν={df_mle:.1f})",
         zorder=3,
     )
-    nu0 = 5.0
+    nu0 = 3.0
     sc0 = sd * float(np.sqrt(max(nu0 - 2.0, 0.1) / nu0))
     y_t0 = (scipy_student_t.ppf(p_line, nu0, loc=mu, scale=sc0) - mu) / sd
     ax.plot(
@@ -414,7 +414,7 @@ def plot_qq_gaussian_body_heavy_tail(
     ax.set_ylabel("z trié = (score−μ̂)/σ̂")
     sub = f"n_croisements={len(cr)}" + (" (fenêtre 15–85)" if fb else "")
     ax.set_title(f"{title}\n{sub}")
-    ax.legend(loc="lower right", fontsize=6)
+    ax.legend(loc="lower left", fontsize=6)
     il = int(np.searchsorted(xq, x_lo, side="left"))
     ih = int(np.searchsorted(xq, x_hi, side="right")) - 1
     il = max(0, min(il, n - 1))
@@ -423,7 +423,7 @@ def plot_qq_gaussian_body_heavy_tail(
         il, ih = 0, n - 1
     ordered_v = np.sort(v_raw)
     if il >= 8:
-        _tail_t_qq_inset(ax, ordered_v[:il], "lower left", "Queue gauche", side="left")
+        _tail_t_qq_inset(ax, ordered_v[:il], "upper left", "Queue gauche", side="left")
     if n - 1 - ih >= 8:
         _tail_t_qq_inset(ax, ordered_v[ih + 1 :], "lower right", "Queue droite", side="right")
     return x_lo, x_hi, il, ih, fb, mu, sd
@@ -438,40 +438,60 @@ def plot_hist_full_and_body_models(
     mu: float,
     sigma: float,
 ) -> None:
-    """Histogramme : empirique, N/LN globaux, LN (et N) ajustés sur le corps seulement."""
+    """Histogramme : empirique, N globale, N corps, et queues Student-t à partir des croisements."""
     v = np.asarray(values, dtype=float)
     v = v[np.isfinite(v)]
     ax.hist(v, bins=40, density=True, color="lightgray", alpha=0.55, edgecolor="white", label="empirique")
     xs = np.linspace(float(v.min()), float(v.max()), 320)
     ax.plot(xs, scipy_norm.pdf(xs, mu, sigma), color="gray", lw=1.4, ls=":", label="N global")
-    if np.min(v) > 0:
-        sh_g, loc_g, sc_g = scipy_lognorm.fit(v, floc=0)
-        ax.plot(xs, scipy_lognorm.pdf(xs, sh_g, loc_g, sc_g), color="gray", lw=1.4, ls="--", label="LN global")
     ordered = np.sort(v)
     body = ordered[il : ih + 1]
-    if len(body) >= 4 and float(np.min(body)) > 0:
-        sh_b, loc_b, sc_b = scipy_lognorm.fit(body, floc=0)
-        ax.plot(
-            xs,
-            scipy_lognorm.pdf(xs, sh_b, loc_b, sc_b),
-            color="darkgreen",
-            lw=2.6,
-            label=f"LN « corps » (n={len(body)})",
-        )
+    left_tail = ordered[:il]
+    right_tail = ordered[ih + 1 :]
+    x_left = float(ordered[il]) if len(ordered) else float(v.min())
+    x_right = float(ordered[ih]) if len(ordered) else float(v.max())
     if len(body) >= 3:
         mu_b = float(np.mean(body))
         sig_b = max(float(np.std(body, ddof=1)), 1e-9)
-        ax.plot(
-            xs,
-            scipy_norm.pdf(xs, mu_b, sig_b),
-            color="darkviolet",
-            lw=1.7,
-            ls="--",
-            label="N « corps »",
-        )
+        xs_body = xs[(xs >= x_left) & (xs <= x_right)]
+        if len(xs_body):
+            ax.plot(
+                xs_body,
+                scipy_norm.pdf(xs_body, mu_b, sig_b),
+                color="darkviolet",
+                lw=2.2,
+                ls="-",
+                label="N « corps » (entre croisements)",
+            )
+    if len(left_tail) >= 8:
+        df_l, loc_l, sc_l = _fit_student_t_safe(left_tail)
+        xs_left = xs[xs <= x_left]
+        if len(xs_left):
+            ax.plot(
+                xs_left,
+                scipy_student_t.pdf(xs_left, df_l, loc=loc_l, scale=sc_l),
+                color="darkred",
+                lw=1.9,
+                ls="--",
+                label=f"t queue gauche (ν={df_l:.1f})",
+            )
+    if len(right_tail) >= 8:
+        df_r, loc_r, sc_r = _fit_student_t_safe(right_tail)
+        xs_right = xs[xs >= x_right]
+        if len(xs_right):
+            ax.plot(
+                xs_right,
+                scipy_student_t.pdf(xs_right, df_r, loc=loc_r, scale=sc_r),
+                color="darkblue",
+                lw=1.9,
+                ls="--",
+                label=f"t queue droite (ν={df_r:.1f})",
+            )
+    ax.axvline(x_left, color="purple", lw=1.0, ls=":")
+    ax.axvline(x_right, color="purple", lw=1.0, ls=":")
     ax.set_title(title)
     ax.set_ylabel("densité")
-    ax.legend(loc="upper right", fontsize=6)
+    ax.legend(loc="lower left", fontsize=6)
 
 
 def plot_qq_student_t(ax_qq: plt.Axes, values: np.ndarray, df: float, loc: float, scale: float, title: str) -> None:
