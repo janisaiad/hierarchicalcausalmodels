@@ -1,0 +1,139 @@
+{
+  "DirectLiNGAM": {
+    "factor1_symbols": [
+      "Qy_g_l_m",
+      "Qm_a_e_g_l"
+    ],
+    "factor1_mapped_edges_raw": [
+      [
+        "G",
+        "Y"
+      ],
+      [
+        "L",
+        "Y"
+      ],
+      [
+        "M",
+        "Y"
+      ],
+      [
+        "A",
+        "M"
+      ],
+      [
+        "E",
+        "M"
+      ],
+      [
+        "G",
+        "M"
+      ],
+      [
+        "L",
+        "M"
+      ]
+    ],
+    "factor1_mapped_edges_hcm": [
+      [
+        "_G",
+        "_Y"
+      ],
+      [
+        "_L",
+        "_Y"
+      ],
+      [
+        "_M",
+        "_Y"
+      ],
+      [
+        "_A",
+        "_M"
+      ],
+      [
+        "_E",
+        "_M"
+      ],
+      [
+        "_G",
+        "_M"
+      ],
+      [
+        "_L",
+        "_M"
+      ]
+    ],
+    "removed_edges_present_in_graph": [
+      [
+        "_A",
+        "_M"
+      ],
+      [
+        "_E",
+        "_M"
+      ],
+      [
+        "_G",
+        "_M"
+      ],
+      [
+        "_G",
+        "_Y"
+      ],
+      [
+        "_L",
+        "_M"
+      ],
+      [
+        "_L",
+        "_Y"
+      ],
+      [
+        "_M",
+        "_Y"
+      ]
+    ],
+    "mapped_edges_not_in_graph": [],
+    "n_removed_present": 7,
+    "figure": "examples/STAR/figures/factor_missing_graphs/DirectLiNGAM_with_factor1_effective_graph.png"
+  },
+  "ExactBIC": {
+    "factor1_symbols": [
+      "Qy_a_g"
+    ],
+    "factor1_mapped_edges_raw": [
+      [
+        "A",
+        "Y"
+      ],
+      [
+        "G",
+        "Y"
+      ]
+    ],
+    "factor1_mapped_edges_hcm": [
+      [
+        "_A",
+        "_Y"
+      ],
+      [
+        "_G",
+        "_Y"
+      ]
+    ],
+    "removed_edges_present_in_graph": [
+      [
+        "_A",
+        "_Y"
+      ],
+      [
+        "_G",
+        "_Y"
+      ]
+    ],
+    "mapped_edges_not_in_graph": [],
+    "n_removed_present": 2,
+    "figure": "examples/STAR/figures/factor_missing_graphs/ExactBIC_with_factor1_effective_graph.png"
+  }
+}

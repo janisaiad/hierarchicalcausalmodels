@@ -1,0 +1,114 @@
+{
+  "DirectLiNGAM": {
+    "ATE_official": 17.618368229358794,
+    "trace_eval_delta": 0.0,
+    "top_5": [
+      {
+        "key": "('P', ('Qe',), ())",
+        "mean_trace_do1": 0.6745339813664596,
+        "mean_trace_do0": 0.6745339813664596,
+        "delta_trace": 0.0,
+        "ratio_trace_do1_do0": 1.0,
+        "count_trace_do1": 680,
+        "count_trace_do0": 680,
+        "missing_estimator_any": 0
+      },
+      {
+        "key": "('P', ('Qg',), ())",
+        "mean_trace_do1": 0.5080745341614906,
+        "mean_trace_do0": 0.5080745341614906,
+        "delta_trace": 0.0,
+        "ratio_trace_do1_do0": 1.0,
+        "count_trace_do1": 680,
+        "count_trace_do0": 680,
+        "missing_estimator_any": 0
+      },
+      {
+        "key": "('P', ('Ql_e',), ('S',))",
+        "mean_trace_do1": 0.574637320564387,
+        "mean_trace_do0": 0.574637320564387,
+        "delta_trace": 0.0,
+        "ratio_trace_do1_do0": 1.0,
+        "count_trace_do1": 680,
+        "count_trace_do0": 680,
+        "missing_estimator_any": 0
+      },
+      {
+        "key": "('P', ('Qm_a_e_g_l',), ())",
+        "mean_trace_do1": 1.0,
+        "mean_trace_do0": 1.0,
+        "delta_trace": 0.0,
+        "ratio_trace_do1_do0": 1.0,
+        "count_trace_do1": 680,
+        "count_trace_do0": 680,
+        "missing_estimator_any": 1
+      },
+      {
+        "key": "('P', ('Qy',), ('Qa', 'Qe', 'Qg', 'Ql_e', 'Qm_a_e_g_l', 'Qy_g_l_m'))",
+        "mean_trace_do1": 436.73344781361715,
+        "mean_trace_do0": 436.73344781361715,
+        "delta_trace": 0.0,
+        "ratio_trace_do1_do0": 1.0,
+        "count_trace_do1": 680,
+        "count_trace_do0": 680,
+        "missing_estimator_any": 0
+      }
+    ]
+  },
+  "ExactBIC": {
+    "ATE_official": 21.628105518204393,
+    "trace_eval_delta": 0.0,
+    "top_5": [
+      {
+        "key": "('P', ('Qe',), ())",
+        "mean_trace_do1": 0.6745339813664595,
+        "mean_trace_do0": 0.6745339813664595,
+        "delta_trace": 0.0,
+        "ratio_trace_do1_do0": 1.0,
+        "count_trace_do1": 70,
+        "count_trace_do0": 70,
+        "missing_estimator_any": 0
+      },
+      {
+        "key": "('P', ('Qg',), ())",
+        "mean_trace_do1": 0.5080745341614903,
+        "mean_trace_do0": 0.5080745341614903,
+        "delta_trace": 0.0,
+        "ratio_trace_do1_do0": 1.0,
+        "count_trace_do1": 70,
+        "count_trace_do0": 70,
+        "missing_estimator_any": 0
+      },
+      {
+        "key": "('P', ('Qy',), ('Qa', 'Qg', 'Qy_a_g'))",
+        "mean_trace_do1": 436.880434782609,
+        "mean_trace_do0": 436.880434782609,
+        "delta_trace": 0.0,
+        "ratio_trace_do1_do0": 1.0,
+        "count_trace_do1": 70,
+        "count_trace_do0": 70,
+        "missing_estimator_any": 0
+      },
+      {
+        "key": "('P', ('Qy_a_g',), ('S',))",
+        "mean_trace_do1": 1.0,
+        "mean_trace_do0": 1.0,
+        "delta_trace": 0.0,
+        "ratio_trace_do1_do0": 1.0,
+        "count_trace_do1": 70,
+        "count_trace_do0": 70,
+        "missing_estimator_any": 1
+      },
+      {
+        "key": "('P', ('S',), ('Qe',))",
+        "mean_trace_do1": 1.1879929886064855,
+        "mean_trace_do0": 1.1879929886064855,
+        "delta_trace": 0.0,
+        "ratio_trace_do1_do0": 1.0,
+        "count_trace_do1": 70,
+        "count_trace_do0": 70,
+        "missing_estimator_any": 0
+      }
+    ]
+  }
+}

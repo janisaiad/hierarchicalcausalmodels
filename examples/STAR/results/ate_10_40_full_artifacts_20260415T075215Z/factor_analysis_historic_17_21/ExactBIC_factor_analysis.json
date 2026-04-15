@@ -1,0 +1,113 @@
+{
+  "graph": "ExactBIC",
+  "E_do_1": 1788.1023959048073,
+  "E_do_0": 1766.474290386603,
+  "ATE": 21.628105518204393,
+  "n_terms": 5,
+  "product_proxy": {
+    "prod_terms_do1": 365.12652612596156,
+    "prod_terms_do0": 365.12652612596156,
+    "delta_prod_terms": 0.0,
+    "note": "Proxy basé sur le produit des moyennes de facteurs; utile pour interpréter, pas égal à l estimand complet."
+  },
+  "top_terms_by_abs_delta_product_proxy": [
+    {
+      "key": "('P', ('S',), ('Qe',))",
+      "outcome": [
+        "S"
+      ],
+      "cond": [
+        "Qe"
+      ],
+      "mean_do1": 2.438650306748466,
+      "mean_do0": 2.438650306748466,
+      "delta": 0.0,
+      "ratio_do1_do0": 1.0,
+      "missing_estimator_do1": 0,
+      "missing_estimator_do0": 0,
+      "missing_estimator_any": 0,
+      "one_factor_swap_product_do0_to_do1": 365.12652612596156,
+      "delta_product_proxy": 0.0,
+      "log10_mean_do0": 0.38714952858853124,
+      "log10_mean_do1": 0.38714952858853124
+    },
+    {
+      "key": "('P', ('Qy_a_g',), ('S',))",
+      "outcome": [
+        "Qy_a_g"
+      ],
+      "cond": [
+        "S"
+      ],
+      "mean_do1": 1.0,
+      "mean_do0": 1.0,
+      "delta": 0.0,
+      "ratio_do1_do0": 1.0,
+      "missing_estimator_do1": 1,
+      "missing_estimator_do0": 1,
+      "missing_estimator_any": 1,
+      "one_factor_swap_product_do0_to_do1": 365.12652612596156,
+      "delta_product_proxy": 0.0,
+      "log10_mean_do0": 0.0,
+      "log10_mean_do1": 0.0
+    },
+    {
+      "key": "('P', ('Qy',), ('Qa', 'Qg', 'Qy_a_g'))",
+      "outcome": [
+        "Qy"
+      ],
+      "cond": [
+        "Qa",
+        "Qg",
+        "Qy_a_g"
+      ],
+      "mean_do1": 436.88043478260914,
+      "mean_do0": 436.88043478260914,
+      "delta": 0.0,
+      "ratio_do1_do0": 1.0,
+      "missing_estimator_do1": 0,
+      "missing_estimator_do0": 0,
+      "missing_estimator_any": 0,
+      "one_factor_swap_product_do0_to_do1": 365.12652612596156,
+      "delta_product_proxy": 0.0,
+      "log10_mean_do0": 2.6403625957367756,
+      "log10_mean_do1": 2.6403625957367756
+    },
+    {
+      "key": "('P', ('Qg',), ())",
+      "outcome": [
+        "Qg"
+      ],
+      "cond": [],
+      "mean_do1": 0.5080745341614906,
+      "mean_do0": 0.5080745341614906,
+      "delta": 0.0,
+      "ratio_do1_do0": 1.0,
+      "missing_estimator_do1": 0,
+      "missing_estimator_do0": 0,
+      "missing_estimator_any": 0,
+      "one_factor_swap_product_do0_to_do1": 365.12652612596156,
+      "delta_product_proxy": 0.0,
+      "log10_mean_do0": -0.29407257236052675,
+      "log10_mean_do1": -0.29407257236052675
+    },
+    {
+      "key": "('P', ('Qe',), ())",
+      "outcome": [
+        "Qe"
+      ],
+      "cond": [],
+      "mean_do1": 0.6745339813664597,
+      "mean_do0": 0.6745339813664597,
+      "delta": 0.0,
+      "ratio_do1_do0": 1.0,
+      "missing_estimator_do1": 0,
+      "missing_estimator_do0": 0,
+      "missing_estimator_any": 0,
+      "one_factor_swap_product_do0_to_do1": 365.12652612596156,
+      "delta_product_proxy": 0.0,
+      "log10_mean_do0": -0.17099616675085996,
+      "log10_mean_do1": -0.17099616675085996
+    }
+  ]
+}

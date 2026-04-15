@@ -1,0 +1,87 @@
+{
+  "graph": "ExactBIC",
+  "ATE": 21.628105518204393,
+  "E_do_1": 1788.1023959048073,
+  "E_do_0": 1766.474290386603,
+  "terms_sorted_by_abs_delta_unit": [
+    {
+      "key": "('P', ('Qy',), ('Qa', 'Qg', 'Qy_a_g'))",
+      "outcome": [
+        "Qy"
+      ],
+      "cond": [
+        "Qa",
+        "Qg",
+        "Qy_a_g"
+      ],
+      "mean_unit_do1": 440.1533939755954,
+      "mean_unit_do0": 434.83070077346974,
+      "delta_unit": 5.322693202125663,
+      "std_unit_do1": 3.3452177360107456,
+      "std_unit_do0": 3.3452177360107545,
+      "ratio_unit_do1_do0": 1.012240840383758,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('S',), ('Qe',))",
+      "outcome": [
+        "S"
+      ],
+      "cond": [
+        "Qe"
+      ],
+      "mean_unit_do1": 2.438650306748466,
+      "mean_unit_do0": 2.438650306748466,
+      "delta_unit": 0.0,
+      "std_unit_do1": 0.0,
+      "std_unit_do0": 0.0,
+      "ratio_unit_do1_do0": 1.0,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('Qy_a_g',), ('S',))",
+      "outcome": [
+        "Qy_a_g"
+      ],
+      "cond": [
+        "S"
+      ],
+      "mean_unit_do1": 1.0,
+      "mean_unit_do0": 1.0,
+      "delta_unit": 0.0,
+      "std_unit_do1": 0.0,
+      "std_unit_do0": 0.0,
+      "ratio_unit_do1_do0": 1.0,
+      "missing_estimator_any": 1
+    },
+    {
+      "key": "('P', ('Qg',), ())",
+      "outcome": [
+        "Qg"
+      ],
+      "cond": [],
+      "mean_unit_do1": 0.5080745341614906,
+      "mean_unit_do0": 0.5080745341614906,
+      "delta_unit": 0.0,
+      "std_unit_do1": 0.0,
+      "std_unit_do0": 0.0,
+      "ratio_unit_do1_do0": 1.0,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('Qe',), ())",
+      "outcome": [
+        "Qe"
+      ],
+      "cond": [],
+      "mean_unit_do1": 0.6745339813664595,
+      "mean_unit_do0": 0.6745339813664595,
+      "delta_unit": 0.0,
+      "std_unit_do1": 2.220446049250313e-16,
+      "std_unit_do0": 2.220446049250313e-16,
+      "ratio_unit_do1_do0": 1.0,
+      "missing_estimator_any": 0
+    }
+  ],
+  "note": "Contribution par terme evalué au niveau unite avec contexte intervention (proche logique estimateur)."
+}

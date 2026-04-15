@@ -1,0 +1,85 @@
+{
+  "graph": "DirectLiNGAM",
+  "ATE_official": 17.618368229358794,
+  "E_do_1_official": 1451.3002598815938,
+  "E_do_0_official": 1433.681891652235,
+  "trace_eval_mean_do1": 1135.816992408772,
+  "trace_eval_std_do1": 0.14337809217897113,
+  "trace_eval_mean_do0": 1135.816992408772,
+  "trace_eval_std_do0": 0.14337809217897113,
+  "trace_eval_delta": 0.0,
+  "n_terms_seen_in_trace": 7,
+  "terms_sorted_by_abs_delta_trace": [
+    {
+      "key": "('P', ('Qe',), ())",
+      "mean_trace_do1": 0.6745339813664596,
+      "mean_trace_do0": 0.6745339813664596,
+      "delta_trace": 0.0,
+      "ratio_trace_do1_do0": 1.0,
+      "count_trace_do1": 680,
+      "count_trace_do0": 680,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('Qg',), ())",
+      "mean_trace_do1": 0.5080745341614906,
+      "mean_trace_do0": 0.5080745341614906,
+      "delta_trace": 0.0,
+      "ratio_trace_do1_do0": 1.0,
+      "count_trace_do1": 680,
+      "count_trace_do0": 680,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('Ql_e',), ('S',))",
+      "mean_trace_do1": 0.574637320564387,
+      "mean_trace_do0": 0.574637320564387,
+      "delta_trace": 0.0,
+      "ratio_trace_do1_do0": 1.0,
+      "count_trace_do1": 680,
+      "count_trace_do0": 680,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('Qm_a_e_g_l',), ())",
+      "mean_trace_do1": 1.0,
+      "mean_trace_do0": 1.0,
+      "delta_trace": 0.0,
+      "ratio_trace_do1_do0": 1.0,
+      "count_trace_do1": 680,
+      "count_trace_do0": 680,
+      "missing_estimator_any": 1
+    },
+    {
+      "key": "('P', ('Qy',), ('Qa', 'Qe', 'Qg', 'Ql_e', 'Qm_a_e_g_l', 'Qy_g_l_m'))",
+      "mean_trace_do1": 436.73344781361715,
+      "mean_trace_do0": 436.73344781361715,
+      "delta_trace": 0.0,
+      "ratio_trace_do1_do0": 1.0,
+      "count_trace_do1": 680,
+      "count_trace_do0": 680,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('Qy_g_l_m',), ())",
+      "mean_trace_do1": 1.0,
+      "mean_trace_do0": 1.0,
+      "delta_trace": 0.0,
+      "ratio_trace_do1_do0": 1.0,
+      "count_trace_do1": 680,
+      "count_trace_do0": 680,
+      "missing_estimator_any": 1
+    },
+    {
+      "key": "('P', ('S',), ('Qe',))",
+      "mean_trace_do1": 2.30990617105738,
+      "mean_trace_do0": 2.30990617105738,
+      "delta_trace": 0.0,
+      "ratio_trace_do1_do0": 1.0,
+      "count_trace_do1": 680,
+      "count_trace_do0": 680,
+      "missing_estimator_any": 0
+    }
+  ],
+  "note": "Analyse par traces internes de l evaluation (sommations/MC incluses)."
+}

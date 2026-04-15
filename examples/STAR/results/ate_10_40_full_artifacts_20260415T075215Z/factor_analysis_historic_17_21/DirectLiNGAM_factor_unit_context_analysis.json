@@ -1,0 +1,118 @@
+{
+  "graph": "DirectLiNGAM",
+  "ATE": 17.618368229358794,
+  "E_do_1": 1451.3002598815938,
+  "E_do_0": 1433.681891652235,
+  "terms_sorted_by_abs_delta_unit": [
+    {
+      "key": "('P', ('Qy',), ('Qa', 'Qe', 'Qg', 'Ql_e', 'Qm_a_e_g_l', 'Qy_g_l_m'))",
+      "outcome": [
+        "Qy"
+      ],
+      "cond": [
+        "Qa",
+        "Qe",
+        "Qg",
+        "Ql_e",
+        "Qm_a_e_g_l",
+        "Qy_g_l_m"
+      ],
+      "mean_unit_do1": 440.16170729281396,
+      "mean_unit_do0": 434.8254944485428,
+      "delta_unit": 5.336212844271131,
+      "std_unit_do1": 4.233304457525409,
+      "std_unit_do0": 4.2333044575254135,
+      "ratio_unit_do1_do0": 1.0122720790579187,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('S',), ('Qe',))",
+      "outcome": [
+        "S"
+      ],
+      "cond": [
+        "Qe"
+      ],
+      "mean_unit_do1": 2.438650306748466,
+      "mean_unit_do0": 2.438650306748466,
+      "delta_unit": 0.0,
+      "std_unit_do1": 0.0,
+      "std_unit_do0": 0.0,
+      "ratio_unit_do1_do0": 1.0,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('Qy_g_l_m',), ())",
+      "outcome": [
+        "Qy_g_l_m"
+      ],
+      "cond": [],
+      "mean_unit_do1": 1.0,
+      "mean_unit_do0": 1.0,
+      "delta_unit": 0.0,
+      "std_unit_do1": 0.0,
+      "std_unit_do0": 0.0,
+      "ratio_unit_do1_do0": 1.0,
+      "missing_estimator_any": 1
+    },
+    {
+      "key": "('P', ('Qm_a_e_g_l',), ())",
+      "outcome": [
+        "Qm_a_e_g_l"
+      ],
+      "cond": [],
+      "mean_unit_do1": 1.0,
+      "mean_unit_do0": 1.0,
+      "delta_unit": 0.0,
+      "std_unit_do1": 0.0,
+      "std_unit_do0": 0.0,
+      "ratio_unit_do1_do0": 1.0,
+      "missing_estimator_any": 1
+    },
+    {
+      "key": "('P', ('Ql_e',), ('S',))",
+      "outcome": [
+        "Ql_e"
+      ],
+      "cond": [
+        "S"
+      ],
+      "mean_unit_do1": 0.5750400353490147,
+      "mean_unit_do0": 0.5750400353490147,
+      "delta_unit": 0.0,
+      "std_unit_do1": 1.1102230246251565e-16,
+      "std_unit_do0": 1.1102230246251565e-16,
+      "ratio_unit_do1_do0": 1.0,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('Qg',), ())",
+      "outcome": [
+        "Qg"
+      ],
+      "cond": [],
+      "mean_unit_do1": 0.5080745341614906,
+      "mean_unit_do0": 0.5080745341614906,
+      "delta_unit": 0.0,
+      "std_unit_do1": 0.0,
+      "std_unit_do0": 0.0,
+      "ratio_unit_do1_do0": 1.0,
+      "missing_estimator_any": 0
+    },
+    {
+      "key": "('P', ('Qe',), ())",
+      "outcome": [
+        "Qe"
+      ],
+      "cond": [],
+      "mean_unit_do1": 0.6745339813664595,
+      "mean_unit_do0": 0.6745339813664595,
+      "delta_unit": 0.0,
+      "std_unit_do1": 2.220446049250313e-16,
+      "std_unit_do0": 2.220446049250313e-16,
+      "ratio_unit_do1_do0": 1.0,
+      "missing_estimator_any": 0
+    }
+  ],
+  "note": "Contribution par terme evalué au niveau unite avec contexte intervention (proche logique estimateur)."
+}
