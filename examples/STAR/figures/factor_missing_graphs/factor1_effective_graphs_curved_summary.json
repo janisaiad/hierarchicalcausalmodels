@@ -1,0 +1,14 @@
+{
+  "DirectLiNGAM": {
+    "figure_curved": "examples/STAR/figures/factor_missing_graphs/DirectLiNGAM_with_factor1_effective_graph_curved.png",
+    "n_edges_full": 12,
+    "n_edges_effective": 5,
+    "n_removed": 7
+  },
+  "ExactBIC": {
+    "figure_curved": "examples/STAR/figures/factor_missing_graphs/ExactBIC_with_factor1_effective_graph_curved.png",
+    "n_edges_full": 12,
+    "n_edges_effective": 10,
+    "n_removed": 2
+  }
+}
