@@ -1,0 +1,1 @@
+examples/STAR/results/ate_10_40_full_artifacts_20260415T075215Z

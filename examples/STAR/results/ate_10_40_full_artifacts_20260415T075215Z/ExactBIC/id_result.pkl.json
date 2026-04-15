@@ -1,0 +1,50 @@
+{
+  "__source_pickle__": "ate_10_40_full_artifacts_20260415T075215Z/ExactBIC/id_result.pkl",
+  "__converted_at_utc__": "2026-04-15T07:54:22.386111+00:00",
+  "data": {
+    "__type__": "DoCalculusResult",
+    "__module__": "hierarchicalcausalmodels.do_calculus",
+    "__attrs__": {
+      "identifiable": true,
+      "formula_latex": "\\sum_{Qe,Qg,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qg,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "explanation": "Do-calculus identification succeeded.",
+      "ast": {
+        "__type__": "ASTsum",
+        "__module__": "pyagrum.causal._doAST",
+        "__attrs__": {
+          "_type": "_sum_",
+          "_ASTtree__continueNextLine": "| ",
+          "_verbose": false,
+          "var": "Qe",
+          "_term": {
+            "__type__": "ASTsum",
+            "__module__": "pyagrum.causal._doAST",
+            "__attrs__": {
+              "_type": "_sum_",
+              "_ASTtree__continueNextLine": "| ",
+              "_verbose": false,
+              "var": "Qy_a_g",
+              "_term": {
+                "__type__": "ASTsum",
+                "__module__": "pyagrum.causal._doAST",
+                "__attrs__": {
+                  "_type": "_sum_",
+                  "_ASTtree__continueNextLine": "| ",
+                  "_verbose": false,
+                  "var": "Qg",
+                  "_term": {
+                    "__type__": "ASTsum",
+                    "__module__": "pyagrum.causal._doAST",
+                    "__attrs__": "<max_depth_reached:dict>"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "impact_tensor": null,
+      "error": null
+    }
+  }
+}

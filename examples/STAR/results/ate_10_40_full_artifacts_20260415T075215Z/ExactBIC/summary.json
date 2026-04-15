@@ -1,0 +1,167 @@
+{
+  "graph_name": "ExactBIC",
+  "formula_latex": "\\sum_{Qe,Qg,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qg,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+  "identifiable": true,
+  "E_do_1": 1788.1023959048073,
+  "E_do_0": 1766.474290386603,
+  "ATE": 21.628105518204393,
+  "paths": {
+    "do1_artifacts_pkl": "examples/STAR/results/ate_10_40_full_artifacts_20260415T075215Z/ExactBIC/do1_artifacts.pkl",
+    "do0_artifacts_pkl": "examples/STAR/results/ate_10_40_full_artifacts_20260415T075215Z/ExactBIC/do0_artifacts.pkl",
+    "id_result_pkl": "examples/STAR/results/ate_10_40_full_artifacts_20260415T075215Z/ExactBIC/id_result.pkl"
+  },
+  "do1": {
+    "enriched_keys": [
+      "A",
+      "E",
+      "G",
+      "L",
+      "M",
+      "Q^a",
+      "Q^e",
+      "Q^g",
+      "Q^l",
+      "Q^m",
+      "Q^y",
+      "S",
+      "Y"
+    ],
+    "enriched_shapes": {
+      "A": [
+        322,
+        10
+      ],
+      "Y": [
+        322,
+        10
+      ],
+      "M": [
+        322,
+        10
+      ],
+      "G": [
+        322,
+        10
+      ],
+      "E": [
+        322,
+        10
+      ],
+      "L": [
+        322,
+        10
+      ],
+      "S": [
+        322
+      ],
+      "Q^a": [
+        322
+      ],
+      "Q^y": [
+        322,
+        2
+      ],
+      "Q^m": [
+        322,
+        2
+      ],
+      "Q^g": [
+        322
+      ],
+      "Q^e": [
+        322
+      ],
+      "Q^l": [
+        322
+      ]
+    },
+    "n_unique_terms": 5,
+    "n_fitted_terms": 4,
+    "fitted_keys": [
+      "('P', ('S',), ('Qe',))",
+      "('P', ('Qy',), ('Qa', 'Qg', 'Qy_a_g'))",
+      "('P', ('Qg',), ())",
+      "('P', ('Qe',), ())"
+    ],
+    "intervention_map": {
+      "Q^a": 1.0
+    }
+  },
+  "do0": {
+    "enriched_keys": [
+      "A",
+      "E",
+      "G",
+      "L",
+      "M",
+      "Q^a",
+      "Q^e",
+      "Q^g",
+      "Q^l",
+      "Q^m",
+      "Q^y",
+      "S",
+      "Y"
+    ],
+    "enriched_shapes": {
+      "A": [
+        322,
+        10
+      ],
+      "Y": [
+        322,
+        10
+      ],
+      "M": [
+        322,
+        10
+      ],
+      "G": [
+        322,
+        10
+      ],
+      "E": [
+        322,
+        10
+      ],
+      "L": [
+        322,
+        10
+      ],
+      "S": [
+        322
+      ],
+      "Q^a": [
+        322
+      ],
+      "Q^y": [
+        322,
+        2
+      ],
+      "Q^m": [
+        322,
+        2
+      ],
+      "Q^g": [
+        322
+      ],
+      "Q^e": [
+        322
+      ],
+      "Q^l": [
+        322
+      ]
+    },
+    "n_unique_terms": 5,
+    "n_fitted_terms": 4,
+    "fitted_keys": [
+      "('P', ('S',), ('Qe',))",
+      "('P', ('Qy',), ('Qa', 'Qg', 'Qy_a_g'))",
+      "('P', ('Qg',), ())",
+      "('P', ('Qe',), ())"
+    ],
+    "intervention_map": {
+      "Q^a": 0.0
+    }
+  }
+}

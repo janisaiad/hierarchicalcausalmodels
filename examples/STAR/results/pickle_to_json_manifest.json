@@ -1,0 +1,98 @@
+{
+  "root": "/home/janis/hcm/hierarchicalcausalmodels/examples/STAR/results",
+  "n_pickles_found": 18,
+  "n_ok": 18,
+  "n_error": 0,
+  "conversions": [
+    {
+      "pickle": "ate_10_40_full_artifacts_20260415T075215Z/DirectLiNGAM/do0_artifacts.pkl",
+      "json": "ate_10_40_full_artifacts_20260415T075215Z/DirectLiNGAM/do0_artifacts.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ate_10_40_full_artifacts_20260415T075215Z/DirectLiNGAM/do1_artifacts.pkl",
+      "json": "ate_10_40_full_artifacts_20260415T075215Z/DirectLiNGAM/do1_artifacts.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ate_10_40_full_artifacts_20260415T075215Z/DirectLiNGAM/id_result.pkl",
+      "json": "ate_10_40_full_artifacts_20260415T075215Z/DirectLiNGAM/id_result.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ate_10_40_full_artifacts_20260415T075215Z/ExactBIC/do0_artifacts.pkl",
+      "json": "ate_10_40_full_artifacts_20260415T075215Z/ExactBIC/do0_artifacts.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ate_10_40_full_artifacts_20260415T075215Z/ExactBIC/do1_artifacts.pkl",
+      "json": "ate_10_40_full_artifacts_20260415T075215Z/ExactBIC/do1_artifacts.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ate_10_40_full_artifacts_20260415T075215Z/ExactBIC/id_result.pkl",
+      "json": "ate_10_40_full_artifacts_20260415T075215Z/ExactBIC/id_result.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ate_10_40_rerun_artifacts/DirectLiNGAM/do0_artifacts.pkl",
+      "json": "ate_10_40_rerun_artifacts/DirectLiNGAM/do0_artifacts.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ate_10_40_rerun_artifacts/DirectLiNGAM/do1_artifacts.pkl",
+      "json": "ate_10_40_rerun_artifacts/DirectLiNGAM/do1_artifacts.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ate_10_40_rerun_artifacts/ExactBIC/do0_artifacts.pkl",
+      "json": "ate_10_40_rerun_artifacts/ExactBIC/do0_artifacts.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ate_10_40_rerun_artifacts/ExactBIC/do1_artifacts.pkl",
+      "json": "ate_10_40_rerun_artifacts/ExactBIC/do1_artifacts.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "star_lingam_bic_gaussian_artifacts/DirectLiNGAM_outcome_M/do0/bundle.pkl",
+      "json": "star_lingam_bic_gaussian_artifacts/DirectLiNGAM_outcome_M/do0/bundle.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "star_lingam_bic_gaussian_artifacts/DirectLiNGAM_outcome_M/do1/bundle.pkl",
+      "json": "star_lingam_bic_gaussian_artifacts/DirectLiNGAM_outcome_M/do1/bundle.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "star_lingam_bic_gaussian_artifacts/DirectLiNGAM_outcome_Y/do0/bundle.pkl",
+      "json": "star_lingam_bic_gaussian_artifacts/DirectLiNGAM_outcome_Y/do0/bundle.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "star_lingam_bic_gaussian_artifacts/DirectLiNGAM_outcome_Y/do1/bundle.pkl",
+      "json": "star_lingam_bic_gaussian_artifacts/DirectLiNGAM_outcome_Y/do1/bundle.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "star_lingam_bic_gaussian_artifacts/ExactBIC_outcome_M/do0/bundle.pkl",
+      "json": "star_lingam_bic_gaussian_artifacts/ExactBIC_outcome_M/do0/bundle.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "star_lingam_bic_gaussian_artifacts/ExactBIC_outcome_M/do1/bundle.pkl",
+      "json": "star_lingam_bic_gaussian_artifacts/ExactBIC_outcome_M/do1/bundle.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "star_lingam_bic_gaussian_artifacts/ExactBIC_outcome_Y/do0/bundle.pkl",
+      "json": "star_lingam_bic_gaussian_artifacts/ExactBIC_outcome_Y/do0/bundle.pkl.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "star_lingam_bic_gaussian_artifacts/ExactBIC_outcome_Y/do1/bundle.pkl",
+      "json": "star_lingam_bic_gaussian_artifacts/ExactBIC_outcome_Y/do1/bundle.pkl.json",
+      "status": "ok"
+    }
+  ]
+}

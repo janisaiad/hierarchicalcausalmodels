@@ -1,0 +1,71 @@
+{
+  "__source_pickle__": "DirectLiNGAM/id_result.pkl",
+  "__conversion_mode__": "full_values_for_ndarray",
+  "__converted_at_utc__": "2026-04-15T07:54:52.524627+00:00",
+  "data": {
+    "__type__": "DoCalculusResult",
+    "__module__": "hierarchicalcausalmodels.do_calculus",
+    "__attrs__": {
+      "identifiable": true,
+      "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_g_l_m\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+      "explanation": "Do-calculus identification succeeded.",
+      "ast": {
+        "__type__": "ASTsum",
+        "__module__": "pyagrum.causal._doAST",
+        "__attrs__": {
+          "_type": "_sum_",
+          "_ASTtree__continueNextLine": "| ",
+          "_verbose": false,
+          "var": "Qe",
+          "_term": {
+            "__type__": "ASTsum",
+            "__module__": "pyagrum.causal._doAST",
+            "__attrs__": {
+              "_type": "_sum_",
+              "_ASTtree__continueNextLine": "| ",
+              "_verbose": false,
+              "var": "S",
+              "_term": {
+                "__type__": "ASTsum",
+                "__module__": "pyagrum.causal._doAST",
+                "__attrs__": {
+                  "_type": "_sum_",
+                  "_ASTtree__continueNextLine": "| ",
+                  "_verbose": false,
+                  "var": "Qy_g_l_m",
+                  "_term": {
+                    "__type__": "ASTsum",
+                    "__module__": "pyagrum.causal._doAST",
+                    "__attrs__": {
+                      "_type": "_sum_",
+                      "_ASTtree__continueNextLine": "| ",
+                      "_verbose": false,
+                      "var": "Qm_a_e_g_l",
+                      "_term": {
+                        "__type__": "ASTsum",
+                        "__module__": "pyagrum.causal._doAST",
+                        "__attrs__": {
+                          "_type": "_sum_",
+                          "_ASTtree__continueNextLine": "| ",
+                          "_verbose": false,
+                          "var": "Qg",
+                          "_term": {
+                            "__type__": "ASTsum",
+                            "__module__": "pyagrum.causal._doAST",
+                            "__attrs__": "<max_depth_reached:dict>"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "impact_tensor": null,
+      "error": null
+    }
+  }
+}

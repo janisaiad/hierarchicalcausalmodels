@@ -1,0 +1,189 @@
+{
+  "graph_name": "DirectLiNGAM",
+  "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_g_l_m\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+  "identifiable": true,
+  "E_do_1": 1451.3002598815938,
+  "E_do_0": 1433.681891652235,
+  "ATE": 17.618368229358794,
+  "paths": {
+    "do1_artifacts_pkl": "examples/STAR/results/ate_10_40_full_artifacts_20260415T075215Z/DirectLiNGAM/do1_artifacts.pkl",
+    "do0_artifacts_pkl": "examples/STAR/results/ate_10_40_full_artifacts_20260415T075215Z/DirectLiNGAM/do0_artifacts.pkl",
+    "id_result_pkl": "examples/STAR/results/ate_10_40_full_artifacts_20260415T075215Z/DirectLiNGAM/id_result.pkl"
+  },
+  "do1": {
+    "enriched_keys": [
+      "A",
+      "E",
+      "G",
+      "L",
+      "M",
+      "Q^a",
+      "Q^e",
+      "Q^g",
+      "Q^l",
+      "Q^m",
+      "Q^y",
+      "Q^{l|e}",
+      "Ql_e",
+      "S",
+      "Y"
+    ],
+    "enriched_shapes": {
+      "A": [
+        322,
+        10
+      ],
+      "Y": [
+        322,
+        10
+      ],
+      "M": [
+        322,
+        10
+      ],
+      "G": [
+        322,
+        10
+      ],
+      "E": [
+        322,
+        10
+      ],
+      "L": [
+        322,
+        10
+      ],
+      "S": [
+        322
+      ],
+      "Q^a": [
+        322
+      ],
+      "Q^y": [
+        322,
+        2
+      ],
+      "Q^m": [
+        322,
+        2
+      ],
+      "Q^g": [
+        322
+      ],
+      "Q^e": [
+        322
+      ],
+      "Q^l": [
+        322
+      ],
+      "Q^{l|e}": [
+        322,
+        2
+      ],
+      "Ql_e": [
+        322,
+        2
+      ]
+    },
+    "n_unique_terms": 7,
+    "n_fitted_terms": 5,
+    "fitted_keys": [
+      "('P', ('S',), ('Qe',))",
+      "('P', ('Ql_e',), ('S',))",
+      "('P', ('Qy',), ('Qa', 'Qe', 'Qg', 'Ql_e', 'Qm_a_e_g_l', 'Qy_g_l_m'))",
+      "('P', ('Qg',), ())",
+      "('P', ('Qe',), ())"
+    ],
+    "intervention_map": {
+      "Q^a": 1.0
+    }
+  },
+  "do0": {
+    "enriched_keys": [
+      "A",
+      "E",
+      "G",
+      "L",
+      "M",
+      "Q^a",
+      "Q^e",
+      "Q^g",
+      "Q^l",
+      "Q^m",
+      "Q^y",
+      "Q^{l|e}",
+      "Ql_e",
+      "S",
+      "Y"
+    ],
+    "enriched_shapes": {
+      "A": [
+        322,
+        10
+      ],
+      "Y": [
+        322,
+        10
+      ],
+      "M": [
+        322,
+        10
+      ],
+      "G": [
+        322,
+        10
+      ],
+      "E": [
+        322,
+        10
+      ],
+      "L": [
+        322,
+        10
+      ],
+      "S": [
+        322
+      ],
+      "Q^a": [
+        322
+      ],
+      "Q^y": [
+        322,
+        2
+      ],
+      "Q^m": [
+        322,
+        2
+      ],
+      "Q^g": [
+        322
+      ],
+      "Q^e": [
+        322
+      ],
+      "Q^l": [
+        322
+      ],
+      "Q^{l|e}": [
+        322,
+        2
+      ],
+      "Ql_e": [
+        322,
+        2
+      ]
+    },
+    "n_unique_terms": 7,
+    "n_fitted_terms": 5,
+    "fitted_keys": [
+      "('P', ('S',), ('Qe',))",
+      "('P', ('Ql_e',), ('S',))",
+      "('P', ('Qy',), ('Qa', 'Qe', 'Qg', 'Ql_e', 'Qm_a_e_g_l', 'Qy_g_l_m'))",
+      "('P', ('Qg',), ())",
+      "('P', ('Qe',), ())"
+    ],
+    "intervention_map": {
+      "Q^a": 0.0
+    }
+  }
+}

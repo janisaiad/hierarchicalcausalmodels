@@ -1,0 +1,38 @@
+{
+  "root": "/home/janis/hcm/hierarchicalcausalmodels/examples/STAR/results/ate_10_40_full_artifacts_20260415T075215Z",
+  "mode": "full_values_for_ndarray",
+  "n_pickles_found": 6,
+  "n_ok": 6,
+  "conversions": [
+    {
+      "pickle": "DirectLiNGAM/do0_artifacts.pkl",
+      "json_full": "DirectLiNGAM/do0_artifacts.pkl.full.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "DirectLiNGAM/do1_artifacts.pkl",
+      "json_full": "DirectLiNGAM/do1_artifacts.pkl.full.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "DirectLiNGAM/id_result.pkl",
+      "json_full": "DirectLiNGAM/id_result.pkl.full.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ExactBIC/do0_artifacts.pkl",
+      "json_full": "ExactBIC/do0_artifacts.pkl.full.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ExactBIC/do1_artifacts.pkl",
+      "json_full": "ExactBIC/do1_artifacts.pkl.full.json",
+      "status": "ok"
+    },
+    {
+      "pickle": "ExactBIC/id_result.pkl",
+      "json_full": "ExactBIC/id_result.pkl.full.json",
+      "status": "ok"
+    }
+  ]
+}
