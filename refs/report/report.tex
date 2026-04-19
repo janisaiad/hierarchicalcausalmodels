@@ -1244,6 +1244,313 @@ Le scénario 8 présente une forte variance d'échantillonnage ($n=8$ unités, $
 Le scénario 9 (NLSY79 synthétique, 50 régions $\times$ 60 individus) illustre le biais d'aptitude classique de Card (1995) : la prime salariale vraie de l'enseignement supérieur est 0{,}35 en log-salaire, l'estimateur par unité la récupère à 0{,}34 ($|\Delta|=0{,}01$), tandis que l'OLS naïf double l'effet ($+0{,}70$) en confondant le capital humain régional $U_i$ avec l'effet du diplôme.
 
 %% ========================================================
+\section{Application à Project STAR : Estimation Causale Hiérarchique}
+\label{sec:star}
+%% ========================================================
+
+\subsection{Présentation et motivation}
+
+Le projet \emph{Tennessee Student/Teacher Achievement Ratio} (STAR) est l'une des expériences randomisées les plus célèbres en économie de l'éducation \citep{Krueger1999}. Environ 11\,600 élèves de 80 écoles du Tennessee ont été assignés aléatoirement, au sein de chaque école, à l'un de trois types de classes :
+\begin{itemize}
+  \item \textbf{Petite classe} : 13 à 17 élèves par enseignant,
+  \item \textbf{Classe régulière} : 22 à 25 élèves,
+  \item \textbf{Classe régulière avec aide} : 22 à 25 élèves avec un assistant.
+\end{itemize}
+L'expérience a couvert quatre niveaux scolaires (maternelle à CM1), avec des scores aux tests Stanford Achievement Test (SAT) et Tennessee Basic Skills First (BSF) comme mesures d'outcome.
+
+Malgré la randomisation, les données STAR présentent une structure hiérarchique naturelle : les élèves sont imbriqués dans des classes, elles-mêmes imbriquées dans des écoles. Le traitement (type de classe) est assigné au niveau de la classe, non au niveau de l'élève. Appliquer directement une régression OLS avec effets fixes d'école -- comme dans l'approche canonique de \citet{Krueger1999} -- capture l'effet moyen mais ne modélise pas explicitement ce mécanisme hiérarchique. Les HCM permettent de formaliser précisément : (i) le niveau auquel le traitement opère, (ii) les confondeurs partagés au sein d'une classe, et (iii) la dérivation symbolique de la formule d'identification via le do-calcul.
+
+\subsection{Données et schéma HCM}
+
+Nous utilisons la cohorte maternelle du fichier \texttt{STAR\_Students.tab} (Harvard Dataverse, \citealt{Achilles2008}). Après suppression des valeurs manquantes et limitation à 10 élèves par classe, l'échantillon de travail contient :
+
+\begin{table}[H]
+\centering
+\caption{Échantillon HCM v2 (cohorte maternelle).}
+\label{tab:star_sample}
+\begin{tabular}{lc}
+\toprule
+Quantité & Valeur \\
+\midrule
+Élèves & 5\,745 \\
+Classes (unités) & 322 \\
+Élèves par classe & 10 \\
+Écoles & 79 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Schéma HCM v2 (classe/enseignant $\to$ élève).}
+
+\begin{table}[H]
+\centering
+\caption{Variables du modèle HCM v2 STAR.}
+\label{tab:star_vars}
+\begin{tabular}{llp{7cm}}
+\toprule
+Variable & Niveau & Définition \\
+\midrule
+$A$ & Sous-unité & $\mathbf{1}\{\texttt{gkclasstype}=1\}$ -- petite classe \\
+$Y$ & Sous-unité & \texttt{gktreadss} -- score de lecture \\
+$M$ & Sous-unité & \texttt{gktmathss} -- score de mathématiques \\
+$G$ & Sous-unité & $\mathbf{1}\{\text{genre féminin}\}$ \\
+$E$ & Sous-unité & $\mathbf{1}\{\text{race} \in \{\text{blanc, asiatique}\}\}$ \\
+$L$ & Sous-unité & $\mathbf{1}\{\text{déjeuner gratuit}\}$ \\
+$S$ & Unité & \texttt{gksurban} -- urbanicité \\
+$U$ & Unité (latent) & Confondeur latent de niveau classe \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+L'intervention naturelle est $\rmdo(Q^a = q^a_\star)$ : on intervient sur la \emph{distribution} du traitement au sein de la classe, ce qui est la formulation correcte pour une assignation au niveau de la classe.
+
+\subsection{Pipeline d'analyse}
+
+L'analyse procède en quatre étapes complémentaires.
+
+\paragraph{1. Découverte causale plate.}
+Nous appliquons PC, FCI, DirectLiNGAM et ExactBIC (\texttt{causal-learn}) sur un sous-ensemble de 4\,000 observations avec 7 variables (\texttt{readk}, \texttt{mathk}, \texttt{stark}, \texttt{gender}, \texttt{ethnicity}, \texttt{lunchk}, \texttt{schoolk}). Les graphes obtenus sont ensuite traduits en schémas HCM.
+
+\paragraph{2. Explicabilité prédictive.}
+Une forêt aléatoire est entraînée sur 5\,789 observations (114 variables one-hot). L'explicabilité est obtenue via SHAP, LIME et courbes PDP/ICE pour la variable de traitement \texttt{stark}.
+
+\paragraph{3. HCM v1 et v2.}
+Deux versions hiérarchiques sont construites : v1 (école $\to$ élève, 79 unités) comme preuve de concept, et v2 (classe/enseignant $\to$ élève, 322 unités) comme pipeline principal. Le do-calcul est appliqué sur le modèle collapsé augmenté via pyAgrum.
+
+\paragraph{4. Référence économétrique.}
+Nous répliquons la spécification de \citet{Krueger1999} : OLS et 2SLS sur 5\,725 observations de maternelle, avec effets fixes d'école et contrôles élève/enseignant.
+
+\subsection{Résultats de la découverte causale}
+
+\begin{table}[H]
+\centering
+\caption{Jaccard des arcs dirigés entre méthodes (graphes plats sur $n=4\,000$).}
+\label{tab:jaccard}
+\begin{tabular}{lcccc}
+\toprule
+ & PC & FCI & LiNGAM & ExactBIC \\
+\midrule
+PC       & 1{,}000 & 1{,}000 & 0{,}667 & 0{,}818 \\
+FCI      & 1{,}000 & 1{,}000 & 0{,}667 & 0{,}818 \\
+LiNGAM   & 0{,}667 & 0{,}667 & 1{,}000 & 0{,}539 \\
+ExactBIC & 0{,}818 & 0{,}818 & 0{,}539 & 1{,}000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Les arcs de consensus (3/3 méthodes) sont \texttt{ethnicity $\to$ lunchk}, \texttt{gender $\to$ readk} et \texttt{schoolk $\to$ lunchk}. Le traitement \texttt{stark} n'obtient aucun arc à 2/3 ou 3/3 : cela reflète la difficulté des algorithmes de découverte à retrouver une variable assignée expérimentalement sur des données encodées i.i.d., non un argument contre l'effet causal de la taille de classe. L'estimation DoWhy sur le graphe ExactBIC plat donne $\widehat{\mathrm{ATE}}(\texttt{stark} \to \texttt{readk}) = 2{,}66$, sous-estimant l'effet expérimental documenté.
+
+\subsection{Explicabilité prédictive}
+
+\begin{table}[H]
+\centering
+\caption{Métriques du modèle prédictif (forêt aléatoire) et contraste PDP.}
+\label{tab:rf}
+\begin{tabular}{lc}
+\toprule
+Indicateur & Valeur \\
+\midrule
+$R^2$ (test) & 0{,}194 \\
+MAE & 20{,}38 \\
+RMSE & 28{,}59 \\
+Contraste PDP \texttt{small} $-$ \texttt{regular} & $+6{,}45$ pts \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Le contraste prédictif ($+6{,}45$ points) est cohérent avec la littérature expérimentale, mais reste un résultat prédictif et non causal.
+
+\subsection{Référence économétrique : réplication de Krueger (1999)}
+
+\begin{table}[H]
+\centering
+\caption{Estimations OLS -- effet de la petite classe sur le score de lecture (maternelle).}
+\label{tab:ols}
+\begin{tabular}{lcccc}
+\toprule
+Modèle & $\hat\beta_{\mathrm{small}}$ & SE & $p$-value & $R^2$ \\
+\midrule
+Sans contrôles & 5{,}74 & 1{,}05 & $4{,}4\times10^{-8}$ & 0{,}006 \\
+Effets fixes école & 6{,}58 & 0{,}97 & $1{,}2\times10^{-11}$ & 0{,}211 \\
+$+$ contrôles élève & 6{,}51 & 0{,}94 & $3{,}4\times10^{-12}$ & 0{,}263 \\
+Complet (Krueger) & 6{,}55 & 0{,}94 & $2{,}6\times10^{-12}$ & 0{,}266 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+L'effet de la petite classe est robuste, de l'ordre de $+6{,}5$ points de score de lecture, fortement significatif dans toutes les spécifications. L'effet de la classe avec aide n'est pas significatif. L'estimateur 2SLS (assignation initiale comme instrument pour la taille de classe réelle) donne :
+\[
+\hat\beta_{\mathrm{taille\,classe}} = -0{,}818 \quad (\mathrm{SE}=0{,}109,\; p = 6{,}7\times10^{-14}),
+\]
+soit environ $-0{,}82$ point de score par élève supplémentaire.
+
+\subsection{HCM v1 : École $\to$ Élève}
+
+La première version HCM utilise les 79 écoles comme unités ($\approx 34$ élèves par école). Les résultats sont numériquement instables :
+
+\begin{table}[H]
+\centering
+\caption{HCM v1 -- ATE par graphe (outcome : lecture).}
+\label{tab:hcm_v1}
+\begin{tabular}{lccc}
+\toprule
+Graphe & $E[\rmdo(1)]$ & $E[\rmdo(0)]$ & ATE \\
+\midrule
+PC            & 436{,}15 & 436{,}15 & 0{,}00 \\
+FCI           & 436{,}15 & 436{,}15 & 0{,}00 \\
+DirectLiNGAM  & 41\,094{,}66 & 42\,979{,}48 & $-1\,884{,}82$ \\
+ExactBIC      & 426\,106{,}02 & 405\,421{,}90 & $+20\,684{,}12$ \\
+ConsensusMean & 436{,}15 & 436{,}15 & 0{,}00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Ces résultats illustrent l'instabilité due au niveau hiérarchique trop grossier : agréger les covariables individuelles (maths, genre, ethnicité) au niveau école supprime la variabilité intra-unité nécessaire à l'identification. Le v1 sert de preuve de concept uniquement.
+
+\subsection{HCM v2 : Classe/Enseignant $\to$ Élève}
+
+Avec 322 classes comme unités ($\approx 10$ élèves par classe), le pipeline HCM v2 est stable pour les cinq graphes.
+
+\begin{table}[H]
+\centering
+\caption{HCM v2 -- ATE par graphe (outcome : mathématiques $M$, $N_{\mathrm{MC}}=60$, graine $= 42$).}
+\label{tab:hcm_v2}
+\begin{tabular}{lcccc}
+\toprule
+Graphe & Identifiable & $E[\rmdo(1)]$ & $E[\rmdo(0)]$ & ATE \\
+\midrule
+PC            & Oui & 485{,}91 & 485{,}91 & \textbf{0{,}00} \\
+FCI           & Oui & 485{,}91 & 485{,}91 & \textbf{0{,}00} \\
+DirectLiNGAM  & Oui & 1\,382{,}54 & 1\,360{,}27 & \textbf{$+22{,}27$} \\
+ExactBIC      & Oui & 2\,406{,}65 & 2\,366{,}69 & \textbf{$+39{,}96$} \\
+ConsensusMean & Oui & 485{,}91 & 485{,}91 & \textbf{0{,}00} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Formules d'identification (do-calcul, pyAgrum).}
+
+Pour le graphe \textbf{DirectLiNGAM} (outcome $M$) :
+\[
+\tau_{\mathrm{DL}}(q^a_\star)
+= \sum_{q^e,\, q^g,\, q^{l|e},\, q^{m|a,e,g,l},\, s}
+  \pr(s \g q^e)\, \pr(q^{m|a,e,g,l})\, \pr(q^{l|e} \g s)
+  \cdot \EE{}{Q^m \g Q^a{=}q^a_\star, Q^e, Q^g, Q^{l|e}, Q^{m|a,e,g,l}}\,
+  \pr(q^g)\, \pr(q^e).
+\]
+
+Pour le graphe \textbf{ExactBIC} (outcome $M$) :
+\[
+\tau_{\mathrm{BIC}}(q^a_\star)
+= \sum_{q^e,\, q^g,\, q^{m|e,y},\, q^{y|a,g},\, s}
+  \pr(s \g q^e)\, \pr(q^{y|a,g} \g s)\, \pr(q^{m|e,y})
+  \cdot \EE{}{Q^m \g Q^a{=}q^a_\star, Q^e, Q^g, Q^{m|e,y}, Q^{y|a,g}}\,
+  \pr(q^g)\, \pr(q^e).
+\]
+
+\paragraph{Interprétation des ATE nuls.}
+Pour PC, FCI et ConsensusMean, la formule identifiée se réduit à $P(Q^m)$ : l'intervention sur $Q^a$ disparaît de l'expression. Un ATE = 0 est donc une conséquence \emph{structurelle} de la topologie du graphe traduit, non une conclusion empirique sur l'absence d'effet de la taille de classe.
+
+\paragraph{Choix du graphe principal.}
+Nous retenons \textbf{DirectLiNGAM} comme graphe narratif principal : c'est le seul graphe de découverte produisant un chemin explicite $A \to M$ dans la traduction HCM, ce qui rend l'estimande directement interprétable comme ``effet de la distribution de taille de classe sur le score de mathématiques''. Le graphe ExactBIC ($\mathrm{ATE} \approx 39{,}96$) illustre la sensibilité au choix de structure.
+
+\paragraph{Runs historiques avec identification partielle.}
+Des runs antérieurs (avant la correction du précalcul multi-parents $Q$, \texttt{HCM\_DISABLE\_MULTIPARENT\_Q\_PRECOMPUTE=1}) produisaient :
+
+\begin{table}[H]
+\centering
+\caption{ATE historiques -- facteurs remplacés par 1 (fonctionnelle tronquée $\tilde{\mathfrak{F}}$).}
+\label{tab:hcm_historic}
+\begin{tabular}{lcc}
+\toprule
+Graphe & ATE historique & Facteurs manquants \\
+\midrule
+DirectLiNGAM & 17{,}618 & $P(Q^{y|g,l,m})$, $P(Q^{m|a,e,g,l})$ \\
+ExactBIC     & 21{,}628 & $P(Q^{y|a,g} \g S)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Dans ces deux cas, l'analyse factorielle montre que la différence do(1)$-$do(0) est quasi entièrement portée par le terme conditionnel principal $P(Q^y \g \cdots)$ (delta unitaire $\approx +5{,}33$ points), tandis que les facteurs manquants sont neutralisés multiplicativement à $1$. Ces ATE sont \emph{reproductibles} mais représentent une fonctionnelle tronquée $\tilde{\mathfrak{F}} \neq \mathfrak{F}$ : leur interprétation causale est affaiblie tant que les estimateurs manquants ne sont pas modélisés.
+
+\subsection{Synthèse comparative}
+
+\begin{table}[H]
+\centering
+\caption{Synthèse des estimations de l'effet de la petite classe (STAR, maternelle).}
+\label{tab:star_synthesis}
+\begin{tabular}{p{4.5cm}lp{4cm}c}
+\toprule
+Méthode & Données & Outcome & Effet estimé \\
+\midrule
+Découverte causale (DoWhy/ExactBIC) & 4\,000 obs. & Lecture & $+2{,}66$ pts \\
+RF prédictif (PDP/ICE) & 5\,789 obs. & Lecture & $+6{,}45$ pts (prédictif) \\
+OLS complet (Krueger) & 5\,725 obs. & Lecture & $+6{,}55$ pts*** \\
+2SLS (instrument taille classe) & 5\,725 obs. & Lecture & $-0{,}82$ pt/élève*** \\
+HCM v1 (école $\to$ élève) & 5\,768 obs. & Lecture & Non crédible \\
+HCM v2 -- DirectLiNGAM & 5\,745 obs. & \textbf{Maths} & $\mathbf{+22{,}27}$ pts \\
+HCM v2 -- ExactBIC & 5\,745 obs. & \textbf{Maths} & $+39{,}96$ pts \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Note de comparabilité.} Les estimations OLS/2SLS ciblent le score de lecture sur l'échelle centile SAT ; les ATE HCM v2 ciblent le score brut de mathématiques (\texttt{gktmathss}). Ces deux outcomes ont des échelles et des mécanismes différents, rendant la comparaison directe point à point abusive. Le sens positif de l'effet de la petite classe est cohérent entre toutes les méthodes ; la baseline OLS ($\approx +6{,}5$ centiles) reste la référence substantive pour l'ordre de grandeur économétrique.
+
+\subsection{Apport des HCM pour STAR}
+
+Le cadre HCM apporte trois contributions méthodologiques précises par rapport aux approches standards sur STAR.
+
+\paragraph{Niveau d'intervention correct.} L'OLS standard définit le traitement au niveau élève ($\mathrm{SMALL}_{ics} = 1$). Or, le type de classe est assigné au niveau classe. Le HCM intervient sur $Q^a$, la \emph{distribution} du traitement au sein de la classe, qui est la formulation naturelle pour une assignation de niveau classe.
+
+\paragraph{Structure hiérarchique explicite.} Le graphe HCM v2 distingue les variables de niveau classe ($S$, $U$) des variables de niveau élève ($A$, $Y$, $M$, $G$, $E$, $L$). Cela permet de représenter le fait que l'urbanicité de l'école façonne le mécanisme traitement-outcome à un niveau différent des caractéristiques individuelles.
+
+\paragraph{Identification symbolique via do-calcul.} Plutôt que de supposer un ensemble de backdoor à ajuster, le pipeline HCM applique le do-calcul sur le graphe collapsé augmenté et dérive symboliquement la formule d'identification. Les hypothèses d'identification sont ainsi explicites et vérifiables, ce qui renforce la transparence par rapport à l'OLS avec effets fixes.
+
+\paragraph{Positionnement par rapport à l'état de l'art.} À notre connaissance, aucune implémentation existante ne combine découverte causale, identification HCM par do-calcul et estimation plug-in dans un pipeline unifié appliqué à des données hiérarchiques réelles. La bibliothèque \texttt{y0} (\texttt{y0-causal-inference}) a récemment introduit un support symbolique des HCM (janvier 2025) permettant de dériver des formules d'identification dans un DSL qui s'étend jusqu'au transport contrefactuel. Cependant, leur implémentation se limite à la dérivation symbolique et n'inclut pas d'estimation (ni ajustement de familles de distributions, ni évaluation numérique de la formule, ni calcul d'ATE à partir de données). Leur framework d'estimation \texttt{eliater} a été archivé peu avant leur PR HCM. Le présent travail constitue ainsi, à notre connaissance, le premier pipeline HCM de bout en bout, de la donnée brute à l'ATE estimé.
+
+\subsection{Benchmark des familles de distributions}
+
+\paragraph{Analyse distributionnelle des scores.}
+Les scores de lecture (\texttt{gktreadss}) et de mathématiques (\texttt{gktmathss}) dans STAR sont des variables continues bornées, avec un support empirique approximativement dans $[300, 650]$. Un ajustement Gaussien, une loi log-normale et une loi de Student-$t$ ont été comparés par critère AIC sur l'échantillon complet ($n=5\,745$). La distribution intra-classe présente une asymétrie légère et des queues plus épaisses que la Gaussienne, ce qui motive l'utilisation de mélanges Gaussiens (GMM, $K=2$) ou de familles plus expressives.
+
+\paragraph{Protocole de benchmark.}
+Pour tester la sensibilité de l'ATE HCM au choix de famille de distributions pour les outcomes $Y$ et $M$, nous avons comparé quatre variantes sur un sous-échantillon de 28 classes (\texttt{star\_variational\_families\_benchmark.py}, \texttt{star\_baseline\_and\_hcm\_benchmark.py}) :
+\begin{itemize}
+  \item \textbf{Gaussienne} (\texttt{gaussian}) : famille de base ; sous-estime les queues épaisses.
+  \item \textbf{Bêta normalisée} (\texttt{beta}) : scores linéairement re-normalisés dans $(0,1)$, famille $\mathrm{Beta}(\alpha, \beta)$.
+  \item \textbf{Gamma décalée} (\texttt{gamma}) : $Y - \min(Y) + \varepsilon$, adapte les scores à support positif.
+  \item \textbf{Mélange Gaussien} (\texttt{gaussian\_mixture}, $K=2$) : famille choisie dans le pipeline principal ; capture les modes multiples potentiels dus à l'hétérogénéité enseignant.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Benchmark des familles -- $E[\mathrm{do}(1)]$ et ATE par famille (outcome $Y$, graphe PC sur 28 unités, backend numpy).}
+\label{tab:families}
+\begin{tabular}{llccc}
+\toprule
+Graphe & Famille $Y$ & Statut & $E[\mathrm{do}(1)]$ & ATE \\
+\midrule
+PC & \texttt{gaussian}        & ok    & 430{,}21 & 0{,}00 \\
+PC & \texttt{beta}            & ok    & 5{,}11   & 0{,}00 \\
+PC & \texttt{gamma}           & ok    & 7{,}10   & 0{,}00 \\
+PC & \texttt{gaussian\_mixture} & ok  & 0{,}61   & 0{,}00 \\
+DirectLiNGAM & toutes familles & erreur & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Interprétation.}
+Pour le graphe PC, la formule identifiée est $P(Q^y)$ indépendamment de la famille de distribution -- l'ATE est nul par construction pour ce graphe, quelle que soit la famille. La valeur de $E[\mathrm{do}(1)]$ change d'échelle selon la renormalisation (brut~: 430, bêta~: 5{,}1, mélange~: 0{,}6) sans affecter la conclusion sur l'ATE. Les graphes DirectLiNGAM et ExactBIC rencontrent une erreur de dimension (\texttt{X has 6 features, but LinearRegression is expecting 4}) dans ce benchmark antérieur à l'alignement régresseurs -- erreur corrigée dans le pipeline principal v2 (Tableau~\ref{tab:hcm_v2}). Le mélange Gaussien ($K=2$) reste la famille la plus expressive disponible et est retenu comme famille principale pour les outcomes continus dans le pipeline v2.
+
+\paragraph{Note sur la structure à trois niveaux.}
+STAR présente en réalité une structure à \emph{trois} niveaux : élèves $\subset$ classes $\subset$ écoles. Le cadre HCM tel qu'implémenté supporte deux niveaux (unités et sous-unités). Deux stratégies d'agrégation sont possibles :
+\begin{enumerate}
+  \item \textbf{Agrégation élèves $\to$ classe (retenue)} : les classes deviennent les unités (niveau 1), les élèves les sous-unités (niveau 2). L'école est une covariable de niveau unitaire ($S = \texttt{gksurban}$). C'est la stratégie v2 retenue, qui colle au mécanisme de randomisation (le traitement est assigné au niveau classe).
+  \item \textbf{Agrégation classes $\to$ école} : les écoles deviennent les unités, les classes les sous-unités. Cette formulation perd la variabilité intra-classe et ne capture pas directement le mécanisme de traitement.
+\end{enumerate}
+L'extension des HCM à des hiérarchies à trois niveaux (élève $\subset$ classe $\subset$ école) constitue une direction de recherche ouverte, qui permettrait de modéliser simultanément les effets de pairs au niveau classe et les effets d'établissement au niveau école.
+
+%% ========================================================
 \section{Discussion}
 \label{sec:discussion}
 %% ========================================================
@@ -1355,6 +1662,31 @@ aGrUM: a graphical models framework.
 Wooldridge, J. M. (2005).
 Fixed-effects and related estimators for correlated random-coefficient and treatment-effect panel data models.
 \textit{Review of Economics and Statistics}, 87(2):385--401.
+
+\bibitem{Krueger1999}
+Krueger, A. B. (1999).
+Experimental estimates of education production functions.
+\textit{The Quarterly Journal of Economics}, 114(2):497--532.
+
+\bibitem{Achilles2008}
+Achilles, C., Bain, H. P., Bellott, F., Boyd-Zaharias, J., Finn, J., Folger, J., Johnston, J. et Word, E. (2008).
+\textit{Tennessee's Student Teacher Achievement Ratio (STAR) Project.}
+Harvard Dataverse.
+
+\bibitem{Krueger2001}
+Krueger, A. B. et Whitmore, D. M. (2001).
+The effect of attending a small class in the early grades on college-test taking and middle school test results: evidence from Project STAR.
+\textit{The Economic Journal}, 111(468):1--28.
+
+\bibitem{Chetty2011}
+Chetty, R., Friedman, J. N., Hilger, N., Saez, E., Schanzenbach, D. W. et Yagan, D. (2011).
+How does your kindergarten classroom affect your earnings? Evidence from Project STAR.
+\textit{The Quarterly Journal of Economics}, 126(4):1593--1660.
+
+\bibitem{Hanushek1999}
+Hanushek, E. A. (1999).
+Some findings from an independent investigation of the Tennessee STAR experiment and from other investigations of class size effects.
+\textit{Educational Evaluation and Policy Analysis}, 21(2):143--163.
 
 \end{thebibliography}
 

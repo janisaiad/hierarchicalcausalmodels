@@ -2,11 +2,11 @@
 \contentsline {section}{\numberline {1}Introduction}{6}{section.1}%
 \contentsline {subsection}{\numberline {1.1}Motivation et contexte}{6}{subsection.1.1}%
 \contentsline {subsection}{\numberline {1.2}Objectifs du PSC}{6}{subsection.1.2}%
-\contentsline {subsection}{\numberline {1.3}Structure du rapport}{7}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.3}Structure du rapport}{6}{subsection.1.3}%
 \contentsline {section}{\numberline {2}Rappels : Inférence Causale Classique}{7}{section.2}%
 \contentsline {subsection}{\numberline {2.1}Modèles Causaux Structurels (SCM)}{7}{subsection.2.1}%
 \contentsline {subsection}{\numberline {2.2}Modèles Graphiques Causaux (CGM)}{7}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Do-Calcul et ses Axiomes}{8}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.3}Do-Calcul et ses Axiomes}{7}{subsection.2.3}%
 \contentsline {subsection}{\numberline {2.4}Critère de porte arrière (Backdoor)}{8}{subsection.2.4}%
 \contentsline {paragraph}{Formule d'ajustement par porte arrière.}{9}{paragraph*.1}%
 \contentsline {paragraph}{Intuition.}{9}{paragraph*.2}%
@@ -68,21 +68,50 @@
 \contentsline {paragraph}{Scénarios 1–3 : HCMs binaires (Weinstein \& Blei, 2024).}{27}{paragraph*.35}%
 \contentsline {paragraph}{Scénarios 4–6 : HCMs spatio-temporels (Camellia et al., 2025).}{28}{paragraph*.37}%
 \contentsline {paragraph}{Scénarios 7–9 : Benchmarks inspirés de données réelles.}{28}{paragraph*.39}%
-\contentsline {section}{\numberline {8}Discussion}{29}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Enseignements clés}{29}{subsection.8.1}%
-\contentsline {paragraph}{Les données hiérarchiques comme ressource pour l'identification.}{29}{paragraph*.41}%
-\contentsline {paragraph}{Le rôle des variables Q.}{29}{paragraph*.42}%
-\contentsline {paragraph}{Le do-calcul comme moteur d'identification.}{29}{paragraph*.43}%
-\contentsline {subsection}{\numberline {8.2}Limitations et problèmes ouverts}{30}{subsection.8.2}%
-\contentsline {paragraph}{Hypothèse de $m$ grand.}{30}{paragraph*.44}%
-\contentsline {paragraph}{Hiérarchies multi-niveaux.}{30}{paragraph*.45}%
-\contentsline {paragraph}{Positivité et chevauchement.}{30}{paragraph*.46}%
-\contentsline {section}{\numberline {9}Conclusion}{30}{section.9}%
-\contentsline {paragraph}{Théorie.}{30}{paragraph*.47}%
-\contentsline {paragraph}{Implémentation.}{30}{paragraph*.48}%
-\contentsline {paragraph}{Expériences.}{30}{paragraph*.49}%
-\contentsline {paragraph}{Travaux futurs.}{31}{paragraph*.50}%
-\contentsline {section}{\numberline {A}Transformations de graphes complètes}{32}{appendix.A}%
-\contentsline {subsection}{\numberline {A.1}\textsc {Confondant} : transformation complète}{32}{subsection.A.1}%
-\contentsline {subsection}{\numberline {A.2}\textsc {Confondant et Interférence} : transformation complète}{33}{subsection.A.2}%
-\contentsline {subsection}{\numberline {A.3}\textsc {Instrument} : transformation complète}{33}{subsection.A.3}%
+\contentsline {section}{\numberline {8}Application à Project STAR : Estimation Causale Hiérarchique}{29}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Présentation et motivation}{29}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Données et schéma HCM}{30}{subsection.8.2}%
+\contentsline {paragraph}{Schéma HCM v2 (classe/enseignant $\to $ élève).}{30}{paragraph*.42}%
+\contentsline {subsection}{\numberline {8.3}Pipeline d'analyse}{30}{subsection.8.3}%
+\contentsline {paragraph}{1. Découverte causale plate.}{30}{paragraph*.44}%
+\contentsline {paragraph}{2. Explicabilité prédictive.}{31}{paragraph*.45}%
+\contentsline {paragraph}{3. HCM v1 et v2.}{31}{paragraph*.46}%
+\contentsline {paragraph}{4. Référence économétrique.}{31}{paragraph*.47}%
+\contentsline {subsection}{\numberline {8.4}Résultats de la découverte causale}{31}{subsection.8.4}%
+\contentsline {subsection}{\numberline {8.5}Explicabilité prédictive}{31}{subsection.8.5}%
+\contentsline {subsection}{\numberline {8.6}Référence économétrique : réplication de Krueger (1999)}{32}{subsection.8.6}%
+\contentsline {subsection}{\numberline {8.7}HCM v1 : École $\to $ Élève}{32}{subsection.8.7}%
+\contentsline {subsection}{\numberline {8.8}HCM v2 : Classe/Enseignant $\to $ Élève}{33}{subsection.8.8}%
+\contentsline {paragraph}{Formules d'identification (do-calcul, pyAgrum).}{33}{paragraph*.53}%
+\contentsline {paragraph}{Interprétation des ATE nuls.}{33}{paragraph*.54}%
+\contentsline {paragraph}{Choix du graphe principal.}{33}{paragraph*.55}%
+\contentsline {paragraph}{Runs historiques avec identification partielle.}{33}{paragraph*.56}%
+\contentsline {subsection}{\numberline {8.9}Synthèse comparative}{34}{subsection.8.9}%
+\contentsline {subsection}{\numberline {8.10}Apport des HCM pour STAR}{34}{subsection.8.10}%
+\contentsline {paragraph}{Niveau d'intervention correct.}{35}{paragraph*.59}%
+\contentsline {paragraph}{Structure hiérarchique explicite.}{35}{paragraph*.60}%
+\contentsline {paragraph}{Identification symbolique via do-calcul.}{35}{paragraph*.61}%
+\contentsline {paragraph}{Positionnement par rapport à l'état de l'art.}{35}{paragraph*.62}%
+\contentsline {subsection}{\numberline {8.11}Benchmark des familles de distributions}{35}{subsection.8.11}%
+\contentsline {paragraph}{Analyse distributionnelle des scores.}{35}{paragraph*.63}%
+\contentsline {paragraph}{Protocole de benchmark.}{35}{paragraph*.64}%
+\contentsline {paragraph}{Interprétation.}{36}{paragraph*.66}%
+\contentsline {paragraph}{Note sur la structure à trois niveaux.}{36}{paragraph*.67}%
+\contentsline {section}{\numberline {9}Discussion}{37}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Enseignements clés}{37}{subsection.9.1}%
+\contentsline {paragraph}{Les données hiérarchiques comme ressource pour l'identification.}{37}{paragraph*.68}%
+\contentsline {paragraph}{Le rôle des variables Q.}{37}{paragraph*.69}%
+\contentsline {paragraph}{Le do-calcul comme moteur d'identification.}{37}{paragraph*.70}%
+\contentsline {subsection}{\numberline {9.2}Limitations et problèmes ouverts}{37}{subsection.9.2}%
+\contentsline {paragraph}{Hypothèse de $m$ grand.}{37}{paragraph*.71}%
+\contentsline {paragraph}{Hiérarchies multi-niveaux.}{37}{paragraph*.72}%
+\contentsline {paragraph}{Positivité et chevauchement.}{37}{paragraph*.73}%
+\contentsline {section}{\numberline {10}Conclusion}{38}{section.10}%
+\contentsline {paragraph}{Théorie.}{38}{paragraph*.74}%
+\contentsline {paragraph}{Implémentation.}{38}{paragraph*.75}%
+\contentsline {paragraph}{Expériences.}{38}{paragraph*.76}%
+\contentsline {paragraph}{Travaux futurs.}{38}{paragraph*.77}%
+\contentsline {section}{\numberline {A}Transformations de graphes complètes}{40}{appendix.A}%
+\contentsline {subsection}{\numberline {A.1}\textsc {Confondant} : transformation complète}{40}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}\textsc {Confondant et Interférence} : transformation complète}{41}{subsection.A.2}%
+\contentsline {subsection}{\numberline {A.3}\textsc {Instrument} : transformation complète}{41}{subsection.A.3}%
