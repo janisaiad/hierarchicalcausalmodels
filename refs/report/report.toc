@@ -8,110 +8,121 @@
 \contentsline {subsection}{\numberline {2.2}Modèles Graphiques Causaux (CGM)}{7}{subsection.2.2}%
 \contentsline {subsection}{\numberline {2.3}Do-Calcul et ses Axiomes}{7}{subsection.2.3}%
 \contentsline {subsection}{\numberline {2.4}Critère de porte arrière (Backdoor)}{8}{subsection.2.4}%
-\contentsline {paragraph}{Formule d'ajustement par porte arrière.}{9}{paragraph*.1}%
-\contentsline {paragraph}{Intuition.}{9}{paragraph*.2}%
-\contentsline {paragraph}{Exemple.}{9}{paragraph*.3}%
-\contentsline {paragraph}{Cas particulier : régression linéaire.}{9}{paragraph*.4}%
+\contentsline {paragraph}{Formule d'ajustement par porte arrière.}{9}{paragraph*.2}%
+\contentsline {paragraph}{Intuition.}{9}{paragraph*.3}%
+\contentsline {paragraph}{Exemple.}{9}{paragraph*.4}%
+\contentsline {paragraph}{Cas particulier : régression linéaire.}{9}{paragraph*.5}%
 \contentsline {subsection}{\numberline {2.5}Critère de porte avant (Front-door)}{9}{subsection.2.5}%
-\contentsline {paragraph}{Formule d'ajustement par porte avant.}{9}{paragraph*.5}%
-\contentsline {paragraph}{Intuition.}{10}{paragraph*.6}%
-\contentsline {paragraph}{Exemple : motif fumeur-cancer.}{10}{paragraph*.7}%
-\contentsline {paragraph}{Lien avec le motif \textsc {Confondant \& Interférence} (HCM).}{10}{paragraph*.8}%
+\contentsline {paragraph}{Formule d'ajustement par porte avant.}{9}{paragraph*.7}%
+\contentsline {paragraph}{Intuition.}{10}{paragraph*.8}%
+\contentsline {paragraph}{Exemple : motif fumeur-cancer.}{10}{paragraph*.9}%
+\contentsline {paragraph}{Lien avec le motif \textsc {Confondant \& Interférence} (HCM).}{10}{paragraph*.10}%
 \contentsline {subsection}{\numberline {2.6}Ajustement par Variables Instrumentales (VI)}{10}{subsection.2.6}%
-\contentsline {paragraph}{Formule d'ajustement par VI (cas continu linéaire).}{10}{paragraph*.9}%
-\contentsline {paragraph}{Intuition.}{11}{paragraph*.10}%
-\contentsline {paragraph}{Exemple classique.}{11}{paragraph*.11}%
-\contentsline {paragraph}{Lien avec le motif \textsc {Instrument} (HCM).}{11}{paragraph*.12}%
-\contentsline {paragraph}{Limites des trois critères.}{11}{paragraph*.13}%
+\contentsline {paragraph}{Formule d'ajustement par VI (cas continu linéaire).}{10}{paragraph*.11}%
+\contentsline {paragraph}{Intuition.}{10}{paragraph*.12}%
+\contentsline {paragraph}{Exemple classique.}{11}{paragraph*.13}%
+\contentsline {paragraph}{Lien avec le motif \textsc {Instrument} (HCM).}{11}{paragraph*.14}%
+\contentsline {paragraph}{Limites des trois critères.}{11}{paragraph*.15}%
 \contentsline {subsection}{\numberline {2.7}Limitations avec les données hiérarchiques}{11}{subsection.2.7}%
 \contentsline {section}{\numberline {3}Modèles Causaux Hiérarchiques : Théorie}{12}{section.3}%
 \contentsline {subsection}{\numberline {3.1}Modèles Causaux Structurels Hiérarchiques (HSCM)}{12}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Trois Motifs Canoniques HCM}{13}{subsection.3.2}%
-\contentsline {paragraph}{\textsc {Confondant}.}{13}{paragraph*.15}%
-\contentsline {paragraph}{\textsc {Confondant \& Interférence}.}{13}{paragraph*.16}%
-\contentsline {paragraph}{\textsc {Instrument}.}{13}{paragraph*.17}%
-\contentsline {subsection}{\numberline {3.3}Variables Q et Modèles Graphiques Causaux Hiérarchiques}{13}{subsection.3.3}%
-\contentsline {section}{\numberline {4}Pipeline d'Identification HCM}{14}{section.4}%
+\contentsline {subsection}{\numberline {3.2}Trois Motifs Canoniques HCM}{12}{subsection.3.2}%
+\contentsline {paragraph}{\textsc {Confondant}.}{12}{paragraph*.17}%
+\contentsline {paragraph}{\textsc {Confondant \& Interférence}.}{12}{paragraph*.18}%
+\contentsline {paragraph}{\textsc {Instrument}.}{12}{paragraph*.19}%
+\contentsline {subsection}{\numberline {3.3}Variables Q et Modèles Graphiques Causaux Hiérarchiques}{12}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Pipeline d'Identification HCM}{13}{section.4}%
 \contentsline {subsection}{\numberline {4.1}Vue d'ensemble}{14}{subsection.4.1}%
+\contentsline {paragraph}{Rôle central de l'AST (backend formel de la librairie).}{14}{paragraph*.22}%
 \contentsline {subsection}{\numberline {4.2}Étape 1 : \texttt {collapse(hscm)}}{14}{subsection.4.2}%
-\contentsline {paragraph}{Exemple : motif \textsc {Confondant}.}{15}{paragraph*.20}%
+\contentsline {paragraph}{Exemple : motif \textsc {Confondant}.}{15}{paragraph*.23}%
 \contentsline {subsection}{\numberline {4.3}Étape 2 : \texttt {suggest\_augment\_for\_outcome}}{15}{subsection.4.3}%
-\contentsline {subsection}{\numberline {4.4}Étape 3 : \texttt {augment\_collapsed\_model} (variable par variable)}{16}{subsection.4.4}%
-\contentsline {paragraph}{Exemple : motif \textsc {Confondant}.}{16}{paragraph*.21}%
-\contentsline {paragraph}{Exemple : motif \textsc {Confondant \& Interférence}.}{17}{paragraph*.22}%
-\contentsline {subsection}{\numberline {4.5}Étape 4 : \texttt {marginalize\_augmented\_model}}{17}{subsection.4.5}%
-\contentsline {subsection}{\numberline {4.6}Étape 5 : \texttt {identify\_effect}}{18}{subsection.4.6}%
-\contentsline {paragraph}{Résultats d'identification pour les trois motifs.}{19}{paragraph*.24}%
-\contentsline {paragraph}{\textsc {Confondant}.}{19}{paragraph*.25}%
-\contentsline {paragraph}{\textsc {Confondant \& Interférence}.}{19}{paragraph*.26}%
-\contentsline {paragraph}{\textsc {Instrument}.}{19}{paragraph*.27}%
-\contentsline {section}{\numberline {5}Estimation}{19}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Vue d'ensemble}{19}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Étape 6 : \texttt {estimate\_causal\_effect} --- Estimation numérique de l'estimande}{20}{subsection.5.2}%
-\contentsline {paragraph}{Fonctionnement interne.}{20}{paragraph*.28}%
-\contentsline {subsection}{\numberline {5.3}Estimation par unité (\texttt {ConditionalDensityEstimator})}{21}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}Estimateur ATE : cas \textsc {Confondant}}{21}{subsection.5.4}%
-\contentsline {subsection}{\numberline {5.5}Estimateur neuronal : MLPRegressorPerUnit}{21}{subsection.5.5}%
-\contentsline {section}{\numberline {6}Implémentation}{22}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Structure du package}{22}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}HSCMParametric : Spécification du modèle}{23}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Pipeline complet : exemple bout-en-bout}{23}{subsection.6.3}%
-\contentsline {section}{\numberline {7}Résultats Expérimentaux}{25}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Récupération de l'ATE : motif \textsc {Confondant}}{25}{subsection.7.1}%
-\contentsline {paragraph}{Configuration.}{25}{paragraph*.29}%
-\contentsline {paragraph}{Résultats.}{25}{paragraph*.30}%
-\contentsline {paragraph}{Comparaison avec l'estimateur naïf.}{25}{paragraph*.32}%
-\contentsline {subsection}{\numberline {7.2}Suite de tests do-calcul}{25}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Récupération de l'ATE : les trois motifs}{26}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}Galerie do-calcul : estimation de l'ATE sur 13 configurations}{26}{subsection.7.4}%
-\contentsline {subsection}{\numberline {7.5}Suite de benchmarks : 9 scénarios avec vérité terrain}{27}{subsection.7.5}%
-\contentsline {paragraph}{Scénarios 1–3 : HCMs binaires (Weinstein \& Blei, 2024).}{27}{paragraph*.35}%
-\contentsline {paragraph}{Scénarios 4–6 : HCMs spatio-temporels (Camellia et al., 2025).}{28}{paragraph*.37}%
-\contentsline {paragraph}{Scénarios 7–9 : Benchmarks inspirés de données réelles.}{28}{paragraph*.39}%
-\contentsline {section}{\numberline {8}Application à Project STAR : Estimation Causale Hiérarchique}{29}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Présentation et motivation}{29}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}Données et schéma HCM}{30}{subsection.8.2}%
-\contentsline {paragraph}{Schéma HCM v2 (classe/enseignant $\to $ élève).}{30}{paragraph*.42}%
-\contentsline {subsection}{\numberline {8.3}Pipeline d'analyse}{30}{subsection.8.3}%
-\contentsline {paragraph}{1. Découverte causale plate.}{30}{paragraph*.44}%
-\contentsline {paragraph}{2. Explicabilité prédictive.}{31}{paragraph*.45}%
-\contentsline {paragraph}{3. HCM v1 et v2.}{31}{paragraph*.46}%
-\contentsline {paragraph}{4. Référence économétrique.}{31}{paragraph*.47}%
-\contentsline {subsection}{\numberline {8.4}Résultats de la découverte causale}{31}{subsection.8.4}%
-\contentsline {subsection}{\numberline {8.5}Explicabilité prédictive}{31}{subsection.8.5}%
-\contentsline {subsection}{\numberline {8.6}Référence économétrique : réplication de Krueger (1999)}{32}{subsection.8.6}%
-\contentsline {subsection}{\numberline {8.7}HCM v1 : École $\to $ Élève}{32}{subsection.8.7}%
-\contentsline {subsection}{\numberline {8.8}HCM v2 : Classe/Enseignant $\to $ Élève}{33}{subsection.8.8}%
-\contentsline {paragraph}{Formules d'identification (do-calcul, pyAgrum).}{33}{paragraph*.53}%
-\contentsline {paragraph}{Interprétation des ATE nuls.}{33}{paragraph*.54}%
-\contentsline {paragraph}{Choix du graphe principal.}{33}{paragraph*.55}%
-\contentsline {paragraph}{Runs historiques avec identification partielle.}{33}{paragraph*.56}%
-\contentsline {subsection}{\numberline {8.9}Synthèse comparative}{34}{subsection.8.9}%
-\contentsline {subsection}{\numberline {8.10}Apport des HCM pour STAR}{34}{subsection.8.10}%
-\contentsline {paragraph}{Niveau d'intervention correct.}{35}{paragraph*.59}%
-\contentsline {paragraph}{Structure hiérarchique explicite.}{35}{paragraph*.60}%
-\contentsline {paragraph}{Identification symbolique via do-calcul.}{35}{paragraph*.61}%
-\contentsline {paragraph}{Positionnement par rapport à l'état de l'art.}{35}{paragraph*.62}%
-\contentsline {subsection}{\numberline {8.11}Benchmark des familles de distributions}{35}{subsection.8.11}%
-\contentsline {paragraph}{Analyse distributionnelle des scores.}{35}{paragraph*.63}%
-\contentsline {paragraph}{Protocole de benchmark.}{35}{paragraph*.64}%
-\contentsline {paragraph}{Interprétation.}{36}{paragraph*.66}%
-\contentsline {paragraph}{Note sur la structure à trois niveaux.}{36}{paragraph*.67}%
-\contentsline {section}{\numberline {9}Discussion}{37}{section.9}%
-\contentsline {subsection}{\numberline {9.1}Enseignements clés}{37}{subsection.9.1}%
-\contentsline {paragraph}{Les données hiérarchiques comme ressource pour l'identification.}{37}{paragraph*.68}%
-\contentsline {paragraph}{Le rôle des variables Q.}{37}{paragraph*.69}%
-\contentsline {paragraph}{Le do-calcul comme moteur d'identification.}{37}{paragraph*.70}%
-\contentsline {subsection}{\numberline {9.2}Limitations et problèmes ouverts}{37}{subsection.9.2}%
-\contentsline {paragraph}{Hypothèse de $m$ grand.}{37}{paragraph*.71}%
-\contentsline {paragraph}{Hiérarchies multi-niveaux.}{37}{paragraph*.72}%
-\contentsline {paragraph}{Positivité et chevauchement.}{37}{paragraph*.73}%
-\contentsline {section}{\numberline {10}Conclusion}{38}{section.10}%
-\contentsline {paragraph}{Théorie.}{38}{paragraph*.74}%
-\contentsline {paragraph}{Implémentation.}{38}{paragraph*.75}%
-\contentsline {paragraph}{Expériences.}{38}{paragraph*.76}%
-\contentsline {paragraph}{Travaux futurs.}{38}{paragraph*.77}%
-\contentsline {section}{\numberline {A}Transformations de graphes complètes}{40}{appendix.A}%
-\contentsline {subsection}{\numberline {A.1}\textsc {Confondant} : transformation complète}{40}{subsection.A.1}%
-\contentsline {subsection}{\numberline {A.2}\textsc {Confondant et Interférence} : transformation complète}{41}{subsection.A.2}%
-\contentsline {subsection}{\numberline {A.3}\textsc {Instrument} : transformation complète}{41}{subsection.A.3}%
+\contentsline {subsection}{\numberline {4.4}Étape 3 : \texttt {augment\_collapsed\_model} (variable par variable)}{15}{subsection.4.4}%
+\contentsline {paragraph}{Exemple : motif \textsc {Confondant}.}{16}{paragraph*.24}%
+\contentsline {paragraph}{Exemple : motif \textsc {Confondant \& Interférence}.}{16}{paragraph*.25}%
+\contentsline {subsection}{\numberline {4.5}Étape 4 : \texttt {marginalize\_augmented\_model}}{16}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Étape 5 : \texttt {identify\_effect}}{17}{subsection.4.6}%
+\contentsline {paragraph}{Résultats d'identification pour les trois motifs.}{17}{paragraph*.27}%
+\contentsline {paragraph}{\textsc {Confondant}.}{17}{paragraph*.28}%
+\contentsline {paragraph}{\textsc {Confondant \& Interférence}.}{17}{paragraph*.29}%
+\contentsline {paragraph}{\textsc {Instrument}.}{17}{paragraph*.30}%
+\contentsline {section}{\numberline {5}Estimation}{17}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Vue d'ensemble}{17}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Étape 6 : \texttt {estimate\_causal\_effect} --- Estimation numérique de l'estimande}{18}{subsection.5.2}%
+\contentsline {paragraph}{Fonctionnement interne.}{18}{paragraph*.31}%
+\contentsline {subsection}{\numberline {5.3}Estimation par unit (\texttt {ConditionalDensityEstimator})}{18}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Estimateur ATE : cas \textsc {Confondant}}{19}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Parallélisation des calculs d'ATE}{19}{subsection.5.5}%
+\contentsline {subsection}{\numberline {5.6}Estimateur neuronal : MLPRegressorPerUnit}{19}{subsection.5.6}%
+\contentsline {section}{\numberline {6}Implémentation}{20}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Structure du package}{20}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}HSCMParametric : Spécification du modèle}{20}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Pipeline complet : exemple bout-en-bout}{20}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Résultats Expérimentaux}{20}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Récupération de l'ATE : motif \textsc {Confondant}}{21}{subsection.7.1}%
+\contentsline {paragraph}{Configuration.}{21}{paragraph*.33}%
+\contentsline {paragraph}{Résultats.}{21}{paragraph*.34}%
+\contentsline {paragraph}{Comparaison avec l'estimateur naïf.}{21}{paragraph*.36}%
+\contentsline {subsection}{\numberline {7.2}Suite de tests do-calculus}{21}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Récupération de l'ATE : les trois motifs}{22}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Galerie do-calculus : estimation de l'ATE sur 13 configurations}{22}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Suite de benchmarks : 9 scénarios avec vérité terrain}{22}{subsection.7.5}%
+\contentsline {paragraph}{Scénarios 1–3 : HCMs binaires (Weinstein \& Blei, 2024).}{22}{paragraph*.39}%
+\contentsline {paragraph}{Scénarios 4–6 : HCMs spatio-temporels (Camellia et al., 2025).}{23}{paragraph*.41}%
+\contentsline {paragraph}{Scénarios 7–9 : Benchmarks inspirés de données réelles.}{24}{paragraph*.43}%
+\contentsline {section}{\numberline {8}Nouvelle application à Project STAR : Estimation Causale Hiérarchique}{24}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Présentation et motivation}{24}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Données et schéma HCM}{25}{subsection.8.2}%
+\contentsline {paragraph}{Schéma HCM v2 (classe/enseignant $\to $ élève).}{25}{paragraph*.46}%
+\contentsline {subsection}{\numberline {8.3}Pipeline d'analyse}{28}{subsection.8.3}%
+\contentsline {paragraph}{1. Découverte causale plate.}{28}{paragraph*.51}%
+\contentsline {paragraph}{2. Explicabilité prédictive.}{28}{paragraph*.52}%
+\contentsline {paragraph}{3. HCM v1 et v2.}{28}{paragraph*.53}%
+\contentsline {paragraph}{4. Référence économétrique.}{28}{paragraph*.54}%
+\contentsline {paragraph}{Diagnostics graphiques utilisés dans le pipeline.}{28}{paragraph*.55}%
+\contentsline {subsection}{\numberline {8.4}Résultats de la découverte causale}{29}{subsection.8.4}%
+\contentsline {subsection}{\numberline {8.5}Explicabilité prédictive}{29}{subsection.8.5}%
+\contentsline {subsection}{\numberline {8.6}Référence économétrique : réplication de Krueger (1999)}{29}{subsection.8.6}%
+\contentsline {subsection}{\numberline {8.7}HCM v1 : École $\to $ Élève}{30}{subsection.8.7}%
+\contentsline {subsection}{\numberline {8.8}HCM v2 : Classe/Enseignant $\to $ Élève}{30}{subsection.8.8}%
+\contentsline {paragraph}{Formules d'identification (do-calculus, pyAgrum).}{30}{paragraph*.61}%
+\contentsline {paragraph}{Interprétation structurelle (PC, FCI, ConsensusMean).}{31}{paragraph*.62}%
+\contentsline {paragraph}{Choix du graphe principal.}{31}{paragraph*.63}%
+\contentsline {paragraph}{Runs historiques avec identification partielle.}{31}{paragraph*.64}%
+\contentsline {subsection}{\numberline {8.9}Synthèse comparative}{31}{subsection.8.9}%
+\contentsline {subsection}{\numberline {8.10}Apport des HCM pour STAR}{32}{subsection.8.10}%
+\contentsline {paragraph}{Niveau d'intervention correct.}{32}{paragraph*.67}%
+\contentsline {paragraph}{Structure hiérarchique explicite.}{32}{paragraph*.68}%
+\contentsline {paragraph}{Identification symbolique via do-calculus.}{32}{paragraph*.69}%
+\contentsline {paragraph}{Positionnement par rapport à l'état de l'art.}{32}{paragraph*.70}%
+\contentsline {subsection}{\numberline {8.11}Benchmark des familles de distributions}{32}{subsection.8.11}%
+\contentsline {paragraph}{Analyse distributionnelle des scores.}{32}{paragraph*.71}%
+\contentsline {paragraph}{Protocole de benchmark.}{32}{paragraph*.72}%
+\contentsline {paragraph}{Interprétation.}{33}{paragraph*.73}%
+\contentsline {paragraph}{Note sur la structure à trois niveaux.}{33}{paragraph*.74}%
+\contentsline {section}{\numberline {9}Discussion}{33}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Enseignements clés}{33}{subsection.9.1}%
+\contentsline {paragraph}{Les données hiérarchiques comme ressource pour l'identification.}{33}{paragraph*.75}%
+\contentsline {paragraph}{Le rôle des variables Q.}{34}{paragraph*.76}%
+\contentsline {paragraph}{Le do-calculus comme moteur d'identification.}{34}{paragraph*.77}%
+\contentsline {subsection}{\numberline {9.2}Limitations et problèmes ouverts}{34}{subsection.9.2}%
+\contentsline {paragraph}{Hypothèse de $m$ grand.}{34}{paragraph*.78}%
+\contentsline {paragraph}{Hiérarchies multi-niveaux.}{34}{paragraph*.79}%
+\contentsline {paragraph}{Positivité et chevauchement.}{34}{paragraph*.80}%
+\contentsline {section}{\numberline {10}Conclusion}{34}{section.10}%
+\contentsline {paragraph}{Théorie.}{34}{paragraph*.81}%
+\contentsline {paragraph}{Implémentation.}{34}{paragraph*.82}%
+\contentsline {paragraph}{Expériences.}{35}{paragraph*.83}%
+\contentsline {paragraph}{Travaux futurs.}{35}{paragraph*.84}%
+\contentsline {section}{\numberline {A}Transformations de graphes complètes}{37}{appendix.A}%
+\contentsline {subsection}{\numberline {A.1}\textsc {Confondant} : transformation complète}{37}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}\textsc {Confondant et Interférence} : transformation complète}{37}{subsection.A.2}%
+\contentsline {subsection}{\numberline {A.3}\textsc {Instrument} : transformation complète}{38}{subsection.A.3}%
+\contentsline {section}{\numberline {B}Annexe STAR : plots et tableau complet}{38}{appendix.B}%
+\contentsline {subsection}{\numberline {B.1}Tableau complet HCM v2 (tous graphes)}{38}{subsection.B.1}%
+\contentsline {subsection}{\numberline {B.2}Plots STAR}{38}{subsection.B.2}%
+\contentsline {section}{\numberline {C}Détails d'implémentation}{39}{appendix.C}%
+\contentsline {subsection}{\numberline {C.1}Structure du package}{39}{subsection.C.1}%
+\contentsline {subsection}{\numberline {C.2}HSCMParametric : spécification du modèle}{39}{subsection.C.2}%
+\contentsline {subsection}{\numberline {C.3}Pipeline complet : exemple bout-en-bout}{40}{subsection.C.3}%
+\contentsline {subsection}{\numberline {C.4}Identification via do-calculus}{41}{subsection.C.4}%

@@ -1,0 +1,354 @@
+{
+  "data_summary": {
+    "n_rows_complete": 5725,
+    "n_schools": 79,
+    "n_classes": 323,
+    "baseline_outcome_col": "gktmathss",
+    "meta_hcm": {
+      "source_table": "examples/STAR/STA-207/STAR_Students.tab",
+      "grade": "kindergarten",
+      "n_rows_after_dropna": 5745,
+      "n_units_classes": 322,
+      "balanced_students_per_class": 10,
+      "regressor_choice_rationale": [
+        "Keep the same discovery notebook variables for comparability.",
+        "Move only school urbanicity to the unit level.",
+        "Keep math, gender, ethnicity, and lunch at the student level.",
+        "Use binary codings for categorical student regressors to stabilize first-pass HCM estimation."
+      ],
+      "variable_mapping": {
+        "A": "1{gkclasstype == 1} = small class",
+        "Y": "gktreadss",
+        "M": "gktmathss",
+        "G": "1{gender == female}",
+        "E": "1{race in {white, asian}}",
+        "L": "1{free lunch}",
+        "S": "gksurban",
+        "unit_id": "gktchid"
+      }
+    }
+  },
+  "econometric": {
+    "ols": {
+      "ols_minimal": {
+        "formula": "gktmathss ~ small + reg_aide",
+        "elapsed_seconds": 0.016826954999942245,
+        "nobs": 5725,
+        "r2": 0.006372697611382816,
+        "coef_small": 8.096167478734737,
+        "se_small": 1.5974107615092106,
+        "p_small": 4.013705520858946e-07,
+        "coef_reg_aide": -0.38652837618971886,
+        "se_reg_aide": 1.4817250918248503,
+        "p_reg_aide": 0.7941975740822982
+      },
+      "ols_school_fe": {
+        "formula": "gktmathss ~ small + reg_aide + C(gkschid)",
+        "elapsed_seconds": 0.6553544270000202,
+        "nobs": 5725,
+        "r2": 0.2192578917113901,
+        "coef_small": 9.498821372845299,
+        "se_small": 1.4633403673135619,
+        "p_small": 8.516060360525726e-11,
+        "coef_reg_aide": 0.8076497285922144,
+        "se_reg_aide": 1.3328350122910988,
+        "p_reg_aide": 0.544538811854639
+      },
+      "ols_with_student_controls": {
+        "formula": "gktmathss ~ small + reg_aide + white_asian + female + free_lunch + C(gkschid)",
+        "elapsed_seconds": 1.0136266370000158,
+        "nobs": 5725,
+        "r2": 0.2676375401032175,
+        "coef_small": 9.379671377329549,
+        "se_small": 1.4149435741285321,
+        "p_small": 3.379517170950288e-11,
+        "coef_reg_aide": 1.0486095082218552,
+        "se_reg_aide": 1.2917531520853427,
+        "p_reg_aide": 0.4169222633192029
+      },
+      "ols_full_like_startenesse": {
+        "formula": "gktmathss ~ small + reg_aide + white_asian + female + free_lunch + white_teacher + gktyears + masters_plus + C(gkschid)",
+        "elapsed_seconds": 1.1424206270003197,
+        "nobs": 5725,
+        "r2": 0.2694730289922792,
+        "coef_small": 9.43164701813453,
+        "se_small": 1.419166586521845,
+        "p_small": 3.013585779209876e-11,
+        "coef_reg_aide": 0.8313302055599121,
+        "se_reg_aide": 1.309724072402987,
+        "p_reg_aide": 0.5256000192007875
+      }
+    },
+    "iv": {
+      "n_rows": 5725,
+      "iv_2sls": {
+        "elapsed_seconds": 1.5070368819997384,
+        "nobs": 5725,
+        "coef_classsize": -1.2185702251000834,
+        "se_classsize": 0.1631948353490431,
+        "t_classsize": -7.466965621147204,
+        "p_classsize": 9.456748190250527e-14,
+        "instrument_names": [
+          "small",
+          "reg_aide"
+        ]
+      }
+    }
+  },
+  "hcm_benchmark": {
+    "all_gaussian_except_A": {
+      "note": "Near the original first-pass convention.",
+      "families": {
+        "A": "bernoulli",
+        "Y": "gaussian",
+        "M": "gaussian",
+        "G": "gaussian",
+        "E": "gaussian",
+        "L": "gaussian",
+        "S": "categorical"
+      },
+      "elapsed_seconds_total": 31.817740994999895,
+      "results": [
+        {
+          "graph_name": "PC",
+          "note": "PC + orientation heuristique des arêtes non orientées.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "P\\left(Qy\\right)",
+          "status": "ok",
+          "E_do_1": 436.88043478260903,
+          "E_do_0": 436.88043478260903,
+          "ATE": 0.0,
+          "elapsed_seconds": 0.14370333300030325
+        },
+        {
+          "graph_name": "FCI",
+          "note": "FCI squelette seulement; orientation heuristique imposée.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "P\\left(Qy\\right)",
+          "status": "ok",
+          "E_do_1": 436.88043478260903,
+          "E_do_0": 436.88043478260903,
+          "ATE": 0.0,
+          "elapsed_seconds": 0.10566735700012941
+        },
+        {
+          "graph_name": "DirectLiNGAM",
+          "note": "Arcs dirigés repris de DirectLiNGAM.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_g_l_m\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+          "status": "ok",
+          "E_do_1": 208747513.67852756,
+          "E_do_0": 208747486.0758136,
+          "ATE": 27.602713972330093,
+          "elapsed_seconds": 21.25434782000002
+        },
+        {
+          "graph_name": "ExactBIC",
+          "note": "DAG score-based repris de ExactBIC.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "\\sum_{Qe,Qg,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qg,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+          "status": "ok",
+          "E_do_1": 782805.1266124534,
+          "E_do_0": 782852.1698689581,
+          "ATE": -47.043256504694,
+          "elapsed_seconds": 10.168611592999696
+        },
+        {
+          "graph_name": "ConsensusMean",
+          "note": "Graphe moyen majoritaire de `preliminar_results.md`.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "P\\left(Qy\\right)",
+          "status": "ok",
+          "E_do_1": 436.88043478260903,
+          "E_do_0": 436.88043478260903,
+          "ATE": 0.0,
+          "elapsed_seconds": 0.14537352299976192
+        }
+      ]
+    },
+    "mixed_binary_gmm2_ym": {
+      "note": "Aligné sur star_hcm v2 : Y,M = mélange gaussien K=2 par école.",
+      "families": {
+        "A": "bernoulli",
+        "Y": "gaussian_mixture",
+        "M": "gaussian_mixture",
+        "G": "bernoulli",
+        "E": "bernoulli",
+        "L": "bernoulli",
+        "S": "categorical"
+      },
+      "elapsed_seconds_total": 96.99001078599986,
+      "results": [
+        {
+          "graph_name": "PC",
+          "note": "PC + orientation heuristique des arêtes non orientées.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "P\\left(Qy\\right)",
+          "status": "ok",
+          "E_do_1": 0.5732457821401723,
+          "E_do_0": 0.5732457821401723,
+          "ATE": 0.0,
+          "elapsed_seconds": 9.55149017399981
+        },
+        {
+          "graph_name": "FCI",
+          "note": "FCI squelette seulement; orientation heuristique imposée.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "P\\left(Qy\\right)",
+          "status": "ok",
+          "E_do_1": 0.5732457821401723,
+          "E_do_0": 0.5732457821401723,
+          "ATE": 0.0,
+          "elapsed_seconds": 8.707605022999815
+        },
+        {
+          "graph_name": "DirectLiNGAM",
+          "note": "Arcs dirigés repris de DirectLiNGAM.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_g_l_m\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+          "status": "ok",
+          "E_do_1": 289256.84631188354,
+          "E_do_0": 284948.31698911864,
+          "ATE": 4308.5293227648945,
+          "elapsed_seconds": 46.086428633000196
+        },
+        {
+          "graph_name": "ExactBIC",
+          "note": "DAG score-based repris de ExactBIC.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "\\sum_{Qe,Qg,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qg,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+          "status": "ok",
+          "E_do_1": 1040.0171399788858,
+          "E_do_0": 1058.4816725371008,
+          "ATE": -18.46453255821507,
+          "elapsed_seconds": 25.211537809999754
+        },
+        {
+          "graph_name": "ConsensusMean",
+          "note": "Graphe moyen majoritaire de `preliminar_results.md`.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "P\\left(Qy\\right)",
+          "status": "ok",
+          "E_do_1": 0.5732457821401723,
+          "E_do_0": 0.5732457821401723,
+          "ATE": 0.0,
+          "elapsed_seconds": 7.43291406399976
+        }
+      ]
+    },
+    "mixed_with_poisson_count_proxy": {
+      "note": "Stress-test Poisson sur S ; Y,M en GMM K=2.",
+      "families": {
+        "A": "bernoulli",
+        "Y": "gaussian_mixture",
+        "M": "gaussian_mixture",
+        "G": "bernoulli",
+        "E": "bernoulli",
+        "L": "bernoulli",
+        "S": "poisson"
+      },
+      "elapsed_seconds_total": 88.8313633140001,
+      "results": [
+        {
+          "graph_name": "PC",
+          "note": "PC + orientation heuristique des arêtes non orientées.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "P\\left(Qy\\right)",
+          "status": "ok",
+          "E_do_1": 0.5732457821401723,
+          "E_do_0": 0.5732457821401723,
+          "ATE": 0.0,
+          "elapsed_seconds": 8.266751084999669
+        },
+        {
+          "graph_name": "FCI",
+          "note": "FCI squelette seulement; orientation heuristique imposée.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "P\\left(Qy\\right)",
+          "status": "ok",
+          "E_do_1": 0.5732457821401723,
+          "E_do_0": 0.5732457821401723,
+          "ATE": 0.0,
+          "elapsed_seconds": 8.112329741999929
+        },
+        {
+          "graph_name": "DirectLiNGAM",
+          "note": "Arcs dirigés repris de DirectLiNGAM.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "\\sum_{Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_g_l_m\\right) \\cdot P\\left(Qm_a_e_g_l\\right) \\cdot P\\left(Ql_e\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qe,Qg,Ql_e,Qm_a_e_g_l,Qy_g_l_m\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+          "status": "ok",
+          "E_do_1": 275303.1487042777,
+          "E_do_0": 271500.4029382752,
+          "ATE": 3802.74576600251,
+          "elapsed_seconds": 41.31478272100003
+        },
+        {
+          "graph_name": "ExactBIC",
+          "note": "DAG score-based repris de ExactBIC.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "\\sum_{Qe,Qg,Qy_a_g,S}{P\\left(S\\mid Qe\\right) \\cdot P\\left(Qy_a_g\\mid S\\right) \\cdot P\\left(Qy\\mid Qa,Qg,Qy_a_g\\right) \\cdot P\\left(Qg\\right) \\cdot P\\left(Qe\\right)}",
+          "status": "ok",
+          "E_do_1": 988.1474839992313,
+          "E_do_0": 1005.1718416442868,
+          "ATE": -17.02435764505549,
+          "elapsed_seconds": 23.354413313999885
+        },
+        {
+          "graph_name": "ConsensusMean",
+          "note": "Graphe moyen majoritaire de `preliminar_results.md`.",
+          "dag_ok": true,
+          "identifiable": true,
+          "formula_latex": "P\\left(Qy\\right)",
+          "status": "ok",
+          "E_do_1": 0.5732457821401723,
+          "E_do_0": 0.5732457821401723,
+          "ATE": 0.0,
+          "elapsed_seconds": 7.783064918000036
+        }
+      ]
+    }
+  },
+  "best_hcm_variant": {
+    "ranking": [
+      {
+        "name": "all_gaussian_except_A",
+        "n_ok": 5,
+        "n_err": 0,
+        "mean_abs_ate": 14.929194095404819,
+        "median_abs_dev_from_startenesse": 5.34,
+        "elapsed_seconds_total": 31.817740994999895
+      },
+      {
+        "name": "mixed_with_poisson_count_proxy",
+        "n_ok": 5,
+        "n_err": 0,
+        "mean_abs_ate": 763.9540247295132,
+        "median_abs_dev_from_startenesse": 5.34,
+        "elapsed_seconds_total": 88.8313633140001
+      },
+      {
+        "name": "mixed_binary_gmm2_ym",
+        "n_ok": 5,
+        "n_err": 0,
+        "mean_abs_ate": 865.3987710646219,
+        "median_abs_dev_from_startenesse": 5.34,
+        "elapsed_seconds_total": 96.99001078599986
+      }
+    ],
+    "best_name": "all_gaussian_except_A"
+  }
+}

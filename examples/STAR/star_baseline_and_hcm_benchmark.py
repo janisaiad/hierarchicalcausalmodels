@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
@@ -25,8 +26,6 @@ if str(STAR_DIR) not in sys.path:
 from star_hcm_v2_teacher_student import GraphSpec, load_graph_specs, load_teacher_student_data
 
 RAW_TAB = STAR_DIR / "STA-207" / "STAR_Students.tab"
-OUT_JSON = RESULTS_DIR / "star_baseline_and_hcm_benchmark.json"
-OUT_MD = STAR_DIR / "star_baseline_and_hcm_benchmark.md"
 
 
 @dataclass
@@ -65,7 +64,7 @@ def load_kindergarten_student_level() -> pd.DataFrame:
     return df
 
 
-def fit_ols_and_rf_like_startenesse(df: pd.DataFrame) -> dict[str, Any]:
+def fit_ols_and_rf_like_startenesse(df: pd.DataFrame, outcome_col: str) -> dict[str, Any]:
     results: dict[str, Any] = {
         "n_rows": int(len(df)),
         "n_schools": int(df["gkschid"].nunique()),
@@ -73,10 +72,10 @@ def fit_ols_and_rf_like_startenesse(df: pd.DataFrame) -> dict[str, Any]:
     }
 
     formulas = {
-        "ols_minimal": "gktreadss ~ small + reg_aide",
-        "ols_school_fe": "gktreadss ~ small + reg_aide + C(gkschid)",
-        "ols_with_student_controls": "gktreadss ~ small + reg_aide + white_asian + female + free_lunch + C(gkschid)",
-        "ols_full_like_startenesse": "gktreadss ~ small + reg_aide + white_asian + female + free_lunch + white_teacher + gktyears + masters_plus + C(gkschid)",
+        "ols_minimal": f"{outcome_col} ~ small + reg_aide",
+        "ols_school_fe": f"{outcome_col} ~ small + reg_aide + C(gkschid)",
+        "ols_with_student_controls": f"{outcome_col} ~ small + reg_aide + white_asian + female + free_lunch + C(gkschid)",
+        "ols_full_like_startenesse": f"{outcome_col} ~ small + reg_aide + white_asian + female + free_lunch + white_teacher + gktyears + masters_plus + C(gkschid)",
     }
 
     fits: dict[str, Any] = {}
@@ -100,7 +99,7 @@ def fit_ols_and_rf_like_startenesse(df: pd.DataFrame) -> dict[str, Any]:
     return results
 
 
-def fit_iv_like_startenesse(df: pd.DataFrame) -> dict[str, Any]:
+def fit_iv_like_startenesse(df: pd.DataFrame, outcome_col: str) -> dict[str, Any]:
     out: dict[str, Any] = {
         "n_rows": int(len(df)),
     }
@@ -138,7 +137,7 @@ def fit_iv_like_startenesse(df: pd.DataFrame) -> dict[str, Any]:
         ],
         axis=1,
     )
-    y = df["gktreadss"].to_numpy(dtype=float)
+    y = df[outcome_col].to_numpy(dtype=float)
 
     t0 = time.perf_counter()
     fit = IV2SLS(y, exog_with_endog.to_numpy(dtype=float), instruments.to_numpy(dtype=float)).fit()
@@ -311,6 +310,8 @@ def build_markdown(payload: dict[str, Any]) -> str:
     lines: list[str] = []
     lines.append("# STAR baseline econometric benchmark and HCM family benchmark")
     lines.append("")
+    lines.append(f"- outcome baseline économétrique: `{payload['data_summary']['baseline_outcome_col']}`")
+    lines.append("")
     lines.append("## Econometric baseline")
     lines.append("")
     ols = payload["econometric"]["ols"]
@@ -359,10 +360,28 @@ def build_markdown(payload: dict[str, Any]) -> str:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--outcome",
+        type=str,
+        default="read",
+        choices=("read", "math"),
+        help="Outcome baseline econometrique: read=gktreadss, math=gktmathss.",
+    )
+    args = parser.parse_args()
+
+    outcome_col = "gktmathss" if str(args.outcome) == "math" else "gktreadss"
+    if str(args.outcome) == "math":
+        out_json = RESULTS_DIR / "star_baseline_math_benchmark.json"
+        out_md = STAR_DIR / "star_baseline_math_benchmark.md"
+    else:
+        out_json = RESULTS_DIR / "star_baseline_and_hcm_benchmark.json"
+        out_md = STAR_DIR / "star_baseline_and_hcm_benchmark.md"
+
     df = load_kindergarten_student_level()
     econometric = {
-        "ols": fit_ols_and_rf_like_startenesse(df)["ols"],
-        "iv": fit_iv_like_startenesse(df),
+        "ols": fit_ols_and_rf_like_startenesse(df, outcome_col=outcome_col)["ols"],
+        "iv": fit_iv_like_startenesse(df, outcome_col=outcome_col),
     }
     data, meta = load_teacher_student_data()
     specs = load_graph_specs()
@@ -374,16 +393,17 @@ def main() -> None:
             "n_rows_complete": int(len(df)),
             "n_schools": int(df["gkschid"].nunique()),
             "n_classes": int(df["gktchid"].nunique()),
+            "baseline_outcome_col": outcome_col,
             "meta_hcm": meta,
         },
         "econometric": econometric,
         "hcm_benchmark": hcm_benchmark,
         "best_hcm_variant": best_hcm_variant,
     }
-    OUT_JSON.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
-    OUT_MD.write_text(build_markdown(payload))
-    print(f"Wrote JSON: {OUT_JSON.relative_to(REPO_ROOT)}")
-    print(f"Wrote Markdown: {OUT_MD.relative_to(REPO_ROOT)}")
+    out_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+    out_md.write_text(build_markdown(payload))
+    print(f"Wrote JSON: {out_json.relative_to(REPO_ROOT)}")
+    print(f"Wrote Markdown: {out_md.relative_to(REPO_ROOT)}")
 
 
 if __name__ == "__main__":

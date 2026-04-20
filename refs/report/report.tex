@@ -1,4 +1,4 @@
-\documentclass[12pt,a4paper]{article}
+\documentclass[11pt,a4paper]{article}
 
 %% ===== Gabarit École polytechnique (comme main.tex) =====
 \usepackage[a4paper,fancysections,titlepage]{polytechnique}
@@ -96,7 +96,7 @@
 \textit{Encadré par :} David Cortés et Janis Aiad%
 }
 \date{Année académique 2025--2026}
-\logo{typographix}
+\logo{logo}
 
 %% ===== Theorem environments =====
 \newtheorem{definition}{Définition}
@@ -114,7 +114,7 @@
 %% ========================================================
 \begin{abstract}
 \setlength{\parindent}{0pt}
-L'inférence causale à partir de données hiérarchiques (imbriquées) est un défi fondamental dans les sciences naturelles et sociales. Ce rapport décrit les travaux réalisés lors du PSC sur les Modèles Causaux Hiérarchiques (HCM), un cadre introduit par Weinstein et Blei (2023) qui étend les Modèles Causaux Structurels (SCM) et les Modèles Graphiques Causaux (CGM) pour traiter des données collectées sur des sous-unités imbriquées à l'intérieur d'unités. Notre travail a couvert trois aspects complémentaires : (1)~une compréhension approfondie et une redérivation du cadre théorique---transformations de graphes (\textit{collapse}, \textit{augment}, \textit{marginalize}), identification par do-calcul, et théorie de l'estimation ; (2)~une implémentation Python complète du pipeline HCM, articulée autour des fonctions \texttt{collapse}, \texttt{suggest} \texttt{\_augment\_for\_outcome}, \texttt{augment\_collapsed\_model}, \texttt{marginalize\_augmented\_model}, \texttt{identify\_effect} et \texttt{estimate\_causal\_effect} ; et (3)~une validation expérimentale par des études de récupération de l'Effet Moyen du Traitement (ATE) sur des données synthétiques générées à partir de modèles \textit{ground-truth} connus. L'implémentation est organisée comme un package Python (\texttt{hierarchicalcausalmodels}) et reproduit les principaux résultats de l'article sur les trois motifs canoniques HCM : \textsc{confondant}, \textsc{confondant \& interférence}, et \textsc{instrument}.
+Nous présentons une implémentation de bout en bout des Modèles Causaux Hiérarchiques (HCM) pour l'inférence causale sur données imbriquées, en prolongeant les SCM/CGM classiques vers des structures unit--sub unit. Notre contribution combine : (i)~la redérivation du cadre théorique (transformations \textit{collapse/augment/marginalize}, critères d'identification, do-calculus), (ii)~un backend formel--numérique unifié où l'identification pyAgrum produit à la fois une formule LaTeX et une AST exécutable, ensuite compilée en estimateur via \texttt{ast\_to\_estimator}, et (iii)~une validation expérimentale extensive sur motifs canoniques, suites synthétiques avec vérités terrain, et étude appliquée STAR. Les résultats confirment la validité du pipeline d'identification/estimation, mettent en évidence les régimes de stabilité/instabilité selon la structure de graphe, et documentent l'impact de facteurs manquants sur la fonctionnelle effectivement estimée. Nous montrons en outre que la parallélisation des évaluations d'ATE est un levier pratique majeur pour la scalabilité de la bibliothèque. Le package \texttt{hierarchicalcausalmodels} fournit ainsi une base reproductible, formellement fondée et opérationnelle pour l'inférence causale hiérarchique.
 \end{abstract}
 
 \tableofcontents
@@ -129,18 +129,20 @@ L'inférence causale à partir de données hiérarchiques (imbriquées) est un d
 
 Un défi fondamental en inférence causale est que de nombreux jeux de données sont hiérarchiques : les observations ne sont pas des unités indépendantes mais des sous-unités imbriquées dans des unités plus grandes.
 Considérons des élèves au sein d'écoles, des cellules au sein de patients, ou des citoyens au sein d'États.
-Dans de tels contextes, les variables au niveau de l'unité (par ex., le budget d'une école) peuvent affecter les variables au niveau de la sous-unité (par ex., les notes d'élèves individuels), et vice versa.
-Les outils classiques d'inférence causale---Modèles Causaux Structurels (SCM), do-calcul, ajustement par porte arrière/avant---sont construits pour des données plates, non hiérarchiques.
+Dans de tels contextes, les variables au niveau de l'unité (par ex., le budget d'une école) peuvent affecter les variables au niveau des sous-unités (par ex., les notes d'élèves individuels), et vice versa.
+Les outils classiques d'inférence causale---Modèles Causaux Structurels (SCM), do-calculus, ajustement par porte arrière/avant---sont construits pour des données plates, non hiérarchiques.
 Lorsque les données sont hiérarchiques, agréger simplement les données de sous-unités en résumés au niveau de l'unité (par ex., moyennes de classe) jette des informations cruciales pour l'identification.
 
 Ce PSC est centré sur l'article \emph{Hierarchical Causal Models} d'Eli N. Weinstein et David M. Blei (2023), qui propose un cadre systématique pour l'inférence causale avec des données imbriquées.
 L'idée clé est que la structure des données hiérarchiques peut souvent \emph{permettre} l'identification causale dans des situations où elle serait impossible avec des données non hiérarchiques.
 
+À notre connaissance, peu de travaux offrent un pipeline unifié pour données hiérarchiques réelles combinant découverte causale, identification HCM par do-calculus et estimation plug-in de bout en bout (de la donnée brute à l'ATE), les outils récents comme \texttt{y0} restant principalement symboliques et ne couvrant pas cette chaîne d'estimation numérique complète.
+
 \subsection{Objectifs du PSC}
 
 Notre PSC avait trois objectifs principaux :
 \begin{enumerate}
-  \item \textbf{Compréhension théorique :} Lire, comprendre et redériver le cadre mathématique des HCM, incluant les définitions de graphes, les transformations collapse/augment/marginalize, l'extension du do-calcul aux HCM, et la théorie de l'estimation.
+  \item \textbf{Compréhension théorique :} Lire, comprendre et redériver le cadre mathématique des HCM, incluant les définitions de graphes, les transformations collapse/augment/marginalize, l'extension du do-calculus aux HCM, et la théorie de l'estimation.
   \item \textbf{Implémentation :} Construire un package Python modulaire et complet implémentant le pipeline HCM---de la spécification du modèle à l'identification puis à l'estimation---en suivant la théorie de l'article.
   \item \textbf{Validation :} Valider l'implémentation en récupérant des Effets Moyens du Traitement (ATE) connus sur des jeux de données synthétiques générés à partir de HCM paramétriques pour les trois motifs principaux.
 \end{enumerate}
@@ -148,7 +150,7 @@ Notre PSC avait trois objectifs principaux :
 \subsection{Structure du rapport}
 
 Ce rapport est organisé comme suit.
-La Section~\ref{sec:background} fournit un arrière-plan sur l'inférence causale classique, incluant les SCM, les CGM, et le do-calcul avec ses axiomes.
+La Section~\ref{sec:background} fournit un arrière-plan sur l'inférence causale classique, incluant les SCM, les CGM, et le do-calculus avec ses axiomes.
 La Section~\ref{sec:hcm_theory} présente le cadre théorique des HCM.
 La Section~\ref{sec:pipeline} détaille le pipeline d'identification HCM étape par étape.
 La Section~\ref{sec:estimation} couvre le pipeline d'estimation.
@@ -183,7 +185,7 @@ Un Modèle Graphique Causal (CGM) est une paire $(\mathcal{G}, \pr)$ où $\mathc
 Chaque variable se factorise comme $\pr(\mathbf{V}) = \prod_i \pr(V_i \g \pa(V_i))$.
 \end{definition}
 
-Les CGM supportent le \emph{do-calcul} pour le raisonnement interventionnel : l'intervention $\rmdo(V_i = v)$ coupe tous les arcs entrants vers $V_i$ et fixe sa valeur à $v$.
+Les CGM supportent le \emph{do-calculus} pour le raisonnement interventionnel : l'intervention $\rmdo(V_i = v)$ coupe tous les arcs entrants vers $V_i$ et fixe sa valeur à $v$.
 On note $\mathcal{G}_{\overline{X}}$ le graphe obtenu en supprimant tous les arcs entrant dans $X$, et $\mathcal{G}_{\underline{X}}$ celui obtenu en supprimant tous les arcs sortant de $X$.
 
 \subsection{Do-Calcul et ses Axiomes}
@@ -194,7 +196,7 @@ L'\emph{identification} est le problème d'exprimer une quantité interventionne
 Une quantité causale est dite \emph{identifiable} si elle peut être calculée de manière unique à partir de la distribution observationnelle, pour tout SCM compatible avec le graphe.
 \end{definition}
 
-Le do-calcul de Pearl \citep{Pearl2009} fournit un système complet de règles pour manipuler des expressions interventionnelles.
+Le do-calculus de Pearl \citep{Pearl2009} fournit un système complet de règles pour manipuler des expressions interventionnelles.
 Il est fondé sur la notion de \emph{d-séparation} dans des graphes modifiés.
 
 \begin{theorem}[Do-Calcul de Pearl --- Trois Règles]
@@ -233,8 +235,71 @@ où $Z(W)$ désigne les nœuds de $Z$ qui ne sont pas ancêtres de $W$ dans $\ma
 
 \end{theorem}
 
+\begin{figure}[h!]
+\centering
+\begin{subfigure}[t]{0.32\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.9, every node/.style={font=\small}]
+\node[draw,circle] (z) at (0,1.2) {$Z$};
+\node[draw,circle] (x) at (1.6,1.2) {$X$};
+\node[draw,circle] (y) at (3.2,1.2) {$Y$};
+\node[draw,circle] (w) at (1.6,0) {$W$};
+\draw[->] (z) -- (x);
+\draw[->] (x) -- (y);
+\draw[->] (w) -- (x);
+\draw[->] (w) -- (y);
+\draw[red,thick,dashed] (0.8,1.55) -- (0.8,0.85);
+\node[red] at (0.8,1.75) {\scriptsize coupe vers $X$};
+\node at (1.6,-0.55) {\scriptsize $\mathcal{G}_{\overline{X}}$};
+\end{tikzpicture}
+\caption{Règle 1}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.32\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.9, every node/.style={font=\small}]
+\node[draw,circle] (z) at (0,1.2) {$Z$};
+\node[draw,circle] (x) at (1.6,1.2) {$X$};
+\node[draw,circle] (y) at (3.2,1.2) {$Y$};
+\node[draw,circle] (w) at (1.6,0) {$W$};
+\draw[->] (z) -- (x);
+\draw[->] (z) -- (y);
+\draw[->] (x) -- (y);
+\draw[->] (w) -- (x);
+\draw[red,thick,dashed] (0.8,1.55) -- (0.8,0.85);
+\draw[red,thick,dashed] (0.4,1.2) -- (1.2,1.2);
+\node[red] at (0.8,1.75) {\scriptsize coupe vers $X$};
+\node[red] at (0.35,1.45) {\scriptsize coupe sorties de $Z$};
+\node at (1.6,-0.55) {\scriptsize $\mathcal{G}_{\overline{X},\underline{Z}}$};
+\end{tikzpicture}
+\caption{Règle 2}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.32\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.9, every node/.style={font=\small}]
+\node[draw,circle] (z) at (0,1.2) {$Z$};
+\node[draw,circle] (x) at (1.6,1.2) {$X$};
+\node[draw,circle] (y) at (3.2,1.2) {$Y$};
+\node[draw,circle] (w) at (1.6,0) {$W$};
+\draw[->] (z) -- (x);
+\draw[->] (x) -- (y);
+\draw[->] (z) -- (w);
+\draw[->] (w) -- (y);
+\draw[red,thick,dashed] (0.8,1.55) -- (0.8,0.85);
+\draw[red,thick,dashed] (0.2,1.2) -- (1.0,0.2);
+\node[red] at (0.8,1.75) {\scriptsize coupe vers $X$};
+\node[red] at (0.55,0.55) {\scriptsize coupe $Z(W)$};
+\node at (1.6,-0.55) {\scriptsize $\mathcal{G}_{\overline{X},\overline{Z(W)}}$};
+\end{tikzpicture}
+\caption{Règle 3}
+\end{subfigure}
+\caption{Schémas explicatifs des trois règles du do-calculus : suppression d'arcs entrants dans $X$, échange action/observation via coupure des sorties de $Z$, puis suppression d'actions sur $Z(W)$.}
+\label{fig:do_calculus_rules_tikz}
+\end{figure}
+
 Ces trois règles sont \emph{complètes} : tout effet causal identifiable peut être dérivé par application successive de ces règles \citep{Pearl2009}.
-Le système est implémenté dans notre pipeline via la bibliothèque \textbf{pyAgrum}, qui automatise l'application du do-calcul sur les graphes collapsés et augmentés des HCM.
+Le système est implémenté dans notre pipeline via la bibliothèque \textbf{pyAgrum}, qui automatise l'application du do-calculus sur les graphes collapsés et augmentés des HCM.
 
 \subsection{Critère de porte arrière (Backdoor)}
 
@@ -274,6 +339,44 @@ Si $U$ est \emph{non observé}, le critère n'est plus satisfait par aucun ensem
 Lorsque les équations structurelles sont linéaires et $\mathbf{Z}$ inclut tous les confondants, Éq.~\eqref{eq:backdoor} se réduit à l'estimateur MCO standard.
 La formule de porte arrière est donc une généralisation non-paramétrique de la régression ajustée sur les covariables.
 
+\begin{figure}[h!]
+\centering
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\begin{tikzpicture}[scale=1.0, every node/.style={font=\small}]
+\node[draw,circle] (u) at (0,1.2) {$U$};
+\node[draw,circle] (a) at (1.6,0.6) {$A$};
+\node[draw,circle] (y) at (3.2,0.6) {$Y$};
+\node[draw,circle,fill=gray!15] (z) at (1.6,-0.8) {$Z$};
+\draw[->] (u) -- (a);
+\draw[->] (u) -- (y);
+\draw[->] (a) -- (y);
+\draw[->,thick,blue] (z) -- (a);
+\draw[->,thick,blue] (z) -- (y);
+\node[blue] at (1.6,-1.35) {\scriptsize ajustement backdoor};
+\end{tikzpicture}
+\caption{Backdoor}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\begin{tikzpicture}[scale=1.0, every node/.style={font=\small}]
+\node[draw,circle] (u) at (0,1.2) {$U$};
+\node[draw,circle] (a) at (1.4,0.6) {$A$};
+\node[draw,circle,fill=gray!15] (m) at (2.8,0.6) {$M$};
+\node[draw,circle] (y) at (4.2,0.6) {$Y$};
+\draw[->] (u) -- (a);
+\draw[->] (u) -- (y);
+\draw[->] (a) -- (m);
+\draw[->] (m) -- (y);
+\node[blue] at (2.8,-0.05) {\scriptsize médiateur observé};
+\end{tikzpicture}
+\caption{Frontdoor}
+\end{subfigure}
+\caption{Schémas explicatifs des critères backdoor et frontdoor.}
+\label{fig:backdoor_frontdoor_tikz}
+\end{figure}
+
 \subsection{Critère de porte avant (Front-door)}
 
 \begin{definition}[Critère de porte avant]
@@ -307,7 +410,7 @@ On a $U \to A$, $U \to Y$, $A \to M \to Y$.
 Ici $M$ satisfait le critère de porte avant et permet d'identifier l'effet du tabagisme sur le cancer malgré la prédisposition génétique non observée.
 
 \paragraph{Lien avec le motif \textsc{Confondant \& Interférence} (HCM).}
-Dans le modèle collapsé, $Z_i$ (agrégat des traitements sous-unité) joue le rôle du médiateur $M$ : $Q^a_i \to Z_i \to Q^{y|a}_i$, avec $U_i$ confondant $Q^a_i$ et $Q^{y|a}_i$.
+Dans le modèle collapsé, $Z_i$ (agrégat des traitements sub unit) joue le rôle du médiateur $M$ : $Q^a_i \to Z_i \to Q^{y|a}_i$, avec $U_i$ confondant $Q^a_i$ et $Q^{y|a}_i$.
 La formule de porte avant donne alors Éq.~\eqref{eq:interference_id}.
 
 \subsection{Ajustement par Variables Instrumentales (VI)}
@@ -332,7 +435,7 @@ Plus généralement, dans le cadre non-paramétrique, l'effet causal est identif
   \pr(Y \g \rmdo(A=a)) = \sum_{z} \frac{\pr(Y, A=a \g Z=z)\, \pr(Z=z)}{\pr(A=a \g Z=z)},
   \label{eq:iv_general}
 \end{equation}
-qui découle de l'application du do-calcul (Règle 2) dans le graphe où $Z$ est d-séparé des confondants.
+qui découle de l'application du do-calculus (Règle 2) dans le graphe où $Z$ est d-séparé des confondants.
 
 \paragraph{Intuition.}
 L'instrument $Z$ crée une variation \emph{exogène} de $A$ : la partie de $A$ induite par $Z$ est non confondante, car $Z$ est indépendant des variables cachées.
@@ -353,18 +456,18 @@ La formule de repondération Éq.~\eqref{eq:instrument_id} est l'analogue non-pa
   \item \textbf{Porte avant} : requiert l'existence d'un médiateur \emph{observable} interceptant tout le chemin causal, et l'absence de chemin de porte arrière de $A$ vers ce médiateur.
   \item \textbf{Variables instrumentales} : requiert un instrument parfaitement exogène (indépendant de $U$). En pratique, cette hypothèse d'exclusion est souvent difficile à vérifier et peut être violée.
 \end{itemize}
-Ces limitations motivent précisément l'extension aux HCM : la structure hiérarchique fournit une source \emph{interne} d'identification (les données intra-unité) qui peut se substituer à des instruments extérieurs ou des confondants observés.
+Ces limitations motivent précisément l'extension aux HCM : la structure hiérarchique fournit une source \emph{interne} d'identification (les données intra-unit) qui peut se substituer à des instruments extérieurs ou des confondants observés.
 
 \subsection{Limitations avec les données hiérarchiques}
 
-Les CGM standards modélisent $n$ unités échangeables indépendantes.
-Lorsque les données ont une structure hiérarchique (sous-unités $j$ au sein d'unités $i$), l'agrégation naïve (par ex., moyenner $Y_{ij}$ pour obtenir $\bar{Y}_i$) peut perdre les informations nécessaires à l'identification.
-La variable confondante $U_i$ rend l'identification impossible à partir des moyennes d'unités $(\bar{A}_i, \bar{Y}_i)$, mais avec des données au niveau des sous-unités $(A_{ij}, Y_{ij})$, l'identification devient possible.
+Les CGM standards modélisent $n$ unit échangeables indépendantes.
+Lorsque les données ont une structure hiérarchique (sub unit $j$ au sein d'unit $i$), l'agrégation naïve (par ex., moyenner $Y_{ij}$ pour obtenir $\bar{Y}_i$) peut perdre les informations nécessaires à l'identification.
+La variable confondante $U_i$ rend l'identification impossible à partir des moyennes d'unit $(\bar{A}_i, \bar{Y}_i)$, mais avec des données au niveau des sub unit $(A_{ij}, Y_{ij})$, l'identification devient possible.
 
 \begin{figure}[h!]
 \centering
 \begin{subfigure}[c]{0.40\textwidth}
-\caption{CGM au niveau unité : non identifiable} \label{fig:intro_flat}
+\caption{CGM au niveau unit : non identifiable} \label{fig:intro_flat}
 \centering
 \begin{tikzpicture}
 \node[obs]                               (y) {$\bar{Y}_i$};
@@ -387,7 +490,7 @@ La variable confondante $U_i$ rend l'identification impossible à partir des moy
 \plate {out} {(in)(u)} {$n$} ;
 \end{tikzpicture}
 \end{subfigure}
-\caption{\textbf{La hiérarchie permet l'identification.} (a) Avec seulement les moyennes au niveau de l'unité, la variable confondante cachée $U_i$ empêche l'identification causale. (b) Avec les données au niveau des sous-unités, l'ajustement par unité conditionne implicitement sur $U_i$, permettant l'identification.}
+\caption{\textbf{La hiérarchie permet l'identification.} (a) Avec seulement les moyennes au niveau de l'unit, la variable confondante cachée $U_i$ empêche l'identification causale. (b) Avec les données au niveau des sub unit, l'ajustement par unit conditionne implicitement sur $U_i$, permettant l'identification.}
 \label{fig:hierarchy_enables}
 \end{figure}
 
@@ -401,31 +504,31 @@ La variable confondante $U_i$ rend l'identification impossible à partir des moy
 \begin{definition}[Modèle Causal Structurel Hiérarchique (HSCM)]
 Un HSCM $\Mc$ étend un SCM classique à deux niveaux d'observation :
 \begin{itemize}
-  \item \textbf{Variables au niveau de l'unité} $\mathbf{S} = \{S_1, \ldots\}$ avec équations structurelles $S_k = f_k(\pa_\Sc(S_k), E_{S_k})$.
-  \item \textbf{Variables au niveau de la sous-unité} $\mathbf{L} = \{L_1, \ldots\}$ avec équations structurelles $L_k = f_k(\pa_\Sc(L_k), E_{L_k})$.
-  \item Une plaque extérieure indexant les unités $i \in \{1,\ldots,n\}$ et une plaque intérieure en pointillé indexant les sous-unités $j \in \{1,\ldots,m\}$.
-  \item Bruits exogènes : au niveau de l'unité $\{E_{S_k,i}\}$ et au niveau de la sous-unité $\{E_{L_k,ij}\}$, tous mutuellement indépendants.
+  \item \textbf{Variables au niveau de l'unit} $\mathbf{S} = \{S_1, \ldots\}$ avec équations structurelles $S_k = f_k(\pa_\Sc(S_k), E_{S_k})$.
+  \item \textbf{Variables au niveau de la sub unit} $\mathbf{L} = \{L_1, \ldots\}$ avec équations structurelles $L_k = f_k(\pa_\Sc(L_k), E_{L_k})$.
+  \item Une plaque extérieure indexant les unit $i \in \{1,\ldots,n\}$ et une plaque intérieure en pointillé indexant les sub unit $j \in \{1,\ldots,m\}$.
+  \item Bruits exogènes : au niveau de l'unit $\{E_{S_k,i}\}$ et au niveau de la sub unit $\{E_{L_k,ij}\}$, tous mutuellement indépendants.
 \end{itemize}
 \end{definition}
 
-La caractéristique graphique clé est la \emph{plaque intérieure} : les variables à l'intérieur (au niveau sous-unité) sont répliquées $m$ fois par unité, tandis que les variables extérieures (au niveau unité) apparaissent une fois par unité.
+La caractéristique graphique clé est la \emph{plaque intérieure} : les variables à l'intérieur (au niveau sub unit) sont répliquées $m$ fois par unit, tandis que les variables extérieures (au niveau unit) apparaissent une fois par unit.
 
 \subsection{Trois Motifs Canoniques HCM}
 
 Tout au long de ce travail, trois structures HCM fondamentales apparaissent régulièrement :
 
 \paragraph{\textsc{Confondant}.}
-Unités : $U_i$ (latent). Sous-unités : $A_{ij}$ (traitement), $Y_{ij}$ (résultat).
+Units : $U_i$ (latent). Sub unit : $A_{ij}$ (traitement), $Y_{ij}$ (résultat).
 Équations structurelles : $A_{ij} = f_A(U_i, E_{A,ij})$, $Y_{ij} = f_Y(A_{ij}, U_i, E_{Y,ij})$.
-Avec seulement les moyennes d'unités, l'effet causal de $A$ sur $Y$ est non identifiable ; avec les données de sous-unités, il est identifiable via régression par unité.
+Avec seulement les moyennes d'unit, l'effet causal de $A$ sur $Y$ est non identifiable ; avec les données de sub unit, il est identifiable via régression par unit.
 
 \paragraph{\textsc{Confondant \& Interférence}.}
-Ajoute une variable observée au niveau de l'unité $Z_i$ qui agrège les traitements individuels : $Z_i = g(\{A_{ij}\}_j)$.
+Ajoute une variable observée au niveau de l'unit $Z_i$ qui agrège les traitements individuels : $Z_i = g(\{A_{ij}\}_j)$.
 $Z_i$ affecte ensuite $Y_{ij}$ via un effet de débordement (interférence).
 Le modèle collapsé a $Q^a_i \to Z_i \to Q^{y|a}_i$, permettant l'identification via un raisonnement de type porte avant.
 
 \paragraph{\textsc{Instrument}.}
-Le résultat $Y_i$ est au niveau de l'unité, tandis que l'instrument $Z_{ij}$ et le traitement $A_{ij}$ sont au niveau de la sous-unité.
+Le résultat $Y_i$ est au niveau de l'unit, tandis que l'instrument $Z_{ij}$ et le traitement $A_{ij}$ sont au niveau de la sub unit.
 $Z_{ij}$ est un instrument exogène affectant $A_{ij}$, qui à son tour affecte $Y_i$.
 L'identification utilise une stratégie de type VI dans le modèle collapsé.
 
@@ -475,23 +578,23 @@ L'identification utilise une stratégie de type VI dans le modèle collapsé.
 \plate {out} {(in)(u)(y)} {$n$} ;
 \end{tikzpicture}
 \end{subfigure}
-\caption{\textbf{Trois motifs HCM canoniques.} Les plaques en pointillé désignent la plaque intérieure (sous-unité). Les nœuds latents sont représentés par des cercles non ombrés. Les trois motifs ont une variable confondante cachée $U_i$ au niveau de l'unité.}
+\caption{\textbf{Trois motifs HCM canoniques.} Les plaques en pointillé désignent la plaque intérieure (sub unit). Les nœuds latents sont représentés par des cercles non ombrés. Les trois motifs ont une variable confondante cachée $U_i$ au niveau de l'unit.}
 \label{fig:motifs}
 \end{figure}
 
 \subsection{Variables Q et Modèles Graphiques Causaux Hiérarchiques}
 
-Pour réaliser l'identification, le HSCM est d'abord converti en un \emph{Modèle Graphique Causal Hiérarchique} (HCGM) en rendant explicite le rôle de l'aléatoire au niveau de l'unité via les \textbf{variables Q}.
+Pour réaliser l'identification, le HSCM est d'abord converti en un \emph{Modèle Graphique Causal Hiérarchique} (HCGM) en rendant explicite le rôle de l'aléatoire au niveau de l'unit via les \textbf{variables Q}.
 
 \begin{definition}[Variable Q]
-Pour une variable au niveau sous-unité $L$ avec parents au niveau sous-unité $\mathrm{pa}_L(L) \subseteq \mathbf{L}$, la variable Q est :
+Pour une variable au niveau sub unit $L$ avec parents au niveau sub unit $\mathrm{pa}_L(L) \subseteq \mathbf{L}$, la variable Q est :
 \begin{equation}
-  Q^{L \g \mathrm{pa}_L(L)}_i \;:=\; \pr\!\left(L \g \mathrm{pa}_L(L), \text{unité}=i\right),
+  Q^{L \g \mathrm{pa}_L(L)}_i \;:=\; \pr\!\left(L \g \mathrm{pa}_L(L), \text{unit}=i\right),
 \end{equation}
-c'est-à-dire la distribution conditionnelle de $L$ étant donné ses parents sous-unité, telle qu'induite par l'aléatoire au niveau de l'unité $U_i$.
+c'est-à-dire la distribution conditionnelle de $L$ étant donné ses parents sub unit, telle qu'induite par l'aléatoire au niveau de l'unit $U_i$.
 \end{definition}
 
-Intuitivement, les variables Q sont des distributions aléatoires au niveau de l'unité : $Q^{Y|A}_i$ représente ``comment l'unité $i$ mappe les traitements aux résultats'', capturant le mécanisme causal spécifique de l'unité.
+Intuitivement, les variables Q sont des distributions aléatoires au niveau de l'unit : $Q^{Y|A}_i$ représente ``comment l'unit $i$ mappe les traitements aux résultats'', capturant le mécanisme causal spécifique de l'unit.
 
 \begin{figure}[h!]
 \centering
@@ -525,7 +628,7 @@ Intuitivement, les variables Q sont des distributions aléatoires au niveau de l
 \plate {ayu} {(a)(y)(u)} {$n$} ;
 \end{tikzpicture}
 \end{subfigure}
-\caption{\textbf{Du HCGM au modèle collapsé.} (a) Le HCGM montre les variables Q médiantes entre la variable confondante $U_i$ et les variables sous-unité. (b) Le modèle collapsé est un CGM plat où les variables Q sont les résumés ``observés'' au niveau de l'unité (dans la limite $m$ grand).}
+\caption{\textbf{Du HCGM au modèle collapsé.} (a) Le HCGM montre les variables Q médiantes entre la variable confondante $U_i$ et les variables sub unit. (b) Le modèle collapsé est un CGM plat où les variables Q sont les résumés ``observés'' au niveau de l'unit (dans la limite $m$ grand).}
 \label{fig:hcgm_to_collapsed}
 \end{figure}
 
@@ -544,27 +647,32 @@ Chacune correspond à une fonction spécifique de notre code :
 \label{alg:pipeline}
 \begin{algorithmic}[1]
 \Require HSCM $\Mc$ avec graphe $\mathcal{G}$, traitement $A$, résultat $Y$
-\State \textbf{collapse}$(\Mc)$ : convertir $\mathcal{G}$ en $\mathcal{G}_\col$ en remplaçant les variables sous-unité par leurs variables Q.
+\State \textbf{collapse}$(\Mc)$ : convertir $\mathcal{G}$ en $\mathcal{G}_\col$ en remplaçant les variables sub unit par leurs variables Q.
 \State \textbf{suggest\_augment\_for\_outcome}$(\Mc, Y)$ : suggérer les variables Q à ajouter pour rendre $P(Y|\rmdo(\cdot))$ identifiable.
 \State \textbf{augment\_collapsed\_model}$(\mathcal{G}_\col, \hat{q}, \text{parents})$ : augmenter une variable à la fois.
 \State \textbf{marginalize\_augmented\_model}$(\mathcal{G}_\aug, \hat{q}, \text{parents spéciaux})$ : marginaliser si nécessaire.
-\State \textbf{identify\_effect}$(\mathcal{G}_{\aug/\mar}, Y, X)$ : appliquer le do-calcul via pyAgrum.
+\State \textbf{identify\_effect}$(\mathcal{G}_{\aug/\mar}, Y, X)$ : appliquer le do-calculus via pyAgrum.
 \State \textbf{ast\_to\_estimator}$(\text{ast}, \text{données}, a_\star)$ : évaluer numériquement l'estimande identifié.
 \end{algorithmic}
 \end{algorithm}
 
+\paragraph{Rôle central de l'AST (backend formel de la librairie).}
+Le point clé de ce pipeline est la transition \emph{formel $\rightarrow$ numérique}. La fonction \texttt{identify\_effect} (pyAgrum) ne renvoie pas seulement une formule lisible (\texttt{formula\_latex}) : elle renvoie aussi une représentation arborescente de l'expression causale (\texttt{ast}). Cette AST encode explicitement les opérateurs (sommes, produits, intégrales, conditionnelles, interventions) et la structure exacte de la fonctionnelle identifiée.
+
+Dans notre backend, cette AST est l'objet de référence pour les calculs formels : elle sert à vérifier la forme de l'estimand, à tracer les dépendances de facteurs, et surtout à construire l'évaluateur numérique via \texttt{ast\_to\_estimator}. Autrement dit, \texttt{formula\_latex} est la vue humaine, tandis que \texttt{ast} est la vue exécutable ; c'est ce couplage qui constitue le cœur de la librairie.
+
 \subsection{Étape 1 : \texttt{collapse(hscm)}}
 
 \begin{definition}[Collapse]
-Le modèle collapsé $\mathcal{G}_\col$ est un CGM plat sur les variables au niveau de l'unité.
-Les variables sous-unité $L_{ij}$ sont remplacées par leurs variables Q $Q^{L|\text{pa}_L(L)}_i$, qui sont des objets au niveau de l'unité.
-Formellement, c'est le CGM limite quand le nombre de sous-unités $m \to \infty$ : dans cette limite, les distributions empiriques des variables sous-unité convergent vers les variables Q, et le modèle résultant au niveau de l'unité est un CGM standard.
+Le modèle collapsé $\mathcal{G}_\col$ est un CGM plat sur les variables au niveau de l'unit.
+Les variables sub unit $L_{ij}$ sont remplacées par leurs variables Q $Q^{L|\text{pa}_L(L)}_i$, qui sont des objets au niveau de l'unit.
+Formellement, c'est le CGM limite quand le nombre de sub unit $m \to \infty$ : dans cette limite, les distributions empiriques des variables sub unit convergent vers les variables Q, et le modèle résultant au niveau de l'unit est un CGM standard.
 \end{definition}
 
-La fonction \texttt{collapse} implémente l'Algorithme 1 de l'article : chaque variable sous-unité $v$ est remplacée par $Q^v$ (si $v$ n'a pas de parents sous-unité) ou $Q^{v|\text{pa}_S(v)}$ (sinon). Les arcs sont mis à jour selon :
+La fonction \texttt{collapse} implémente l'Algorithme 1 de l'article : chaque variable sub unit $v$ est remplacée par $Q^v$ (si $v$ n'a pas de parents sub unit) ou $Q^{v|\text{pa}_S(v)}$ (sinon). Les arcs sont mis à jour selon :
 \begin{itemize}
-  \item parent unité $\to$ sous-unité $v$ devient parent unité $\to Q^v$,
-  \item sous-unité $v \to$ unité $w$ devient $Q^v \to w$.
+  \item parent unit $\to$ sub unit $v$ devient parent unit $\to Q^v$,
+  \item sub unit $v \to$ unit $w$ devient $Q^v \to w$.
 \end{itemize}
 
 \begin{lstlisting}[caption={Utilisation de \texttt{collapse}}]
@@ -585,29 +693,29 @@ le collapse donne : $Q^a_i \leftarrow U_i \rightarrow Q^{y|a}_i$. Les deux varia
 \subsection{Étape 2 : \texttt{suggest\_augment\_for\_outcome}}
 
 Avant d'augmenter, il faut savoir \emph{quelles} variables Q ajouter.
-La fonction \texttt{suggest\_augment\_for\_outcome} implémente la stratégie de l'article : pour rendre $E[Y|\rmdo(\cdot)]$ identifiable, on ajoute un nœud $\hat{Q}^y$ représentant la distribution marginale de $Y$ au sein de l'unité.
+La fonction \texttt{suggest\_augment\_for\_outcome} implémente la stratégie de l'article : pour rendre $E[Y|\rmdo(\cdot)]$ identifiable, on ajoute un nœud $\hat{Q}^y$ représentant la distribution marginale de $Y$ au sein de l'unit.
 
 \begin{lstlisting}[caption={Suggestion des variables d'augmentation}]
 from hierarchicalcausalmodels.do_calculus import suggest_augment_for_outcome
 
 q_hat, q_hat_parents = suggest_augment_for_outcome(hscm, outcome_subunit='Y')
 # q_hat = "Q^y"
-# q_hat_parents = {"Q^a", "Q^{y|a}"}  (ancetres sous-unite de Y)
+# q_hat_parents = {"Q^a", "Q^{y|a}"}  (ancetres sub unit de Y)
 \end{lstlisting}
 
-La logique suit l'équation (4140) de l'article : la marginalisation $Q^y$ est une fonction déterministe des conditionnelles $Q^{v|\text{pa}_S(v)}$ pour tout $v$ ancêtre sous-unité de $Y$.
+La logique suit l'équation (4140) de l'article : la marginalisation $Q^y$ est une fonction déterministe des conditionnelles $Q^{v|\text{pa}_S(v)}$ pour tout $v$ ancêtre sub unit de $Y$.
 Les parents de $\hat{Q}^y$ sont donc $\{Q^{v|\text{pa}_S(v)} : v \in \text{an}_S(Y)\}$.
 
 \subsection{Étape 3 : \texttt{augment\_collapsed\_model} (variable par variable)}
 
 \begin{definition}[Augmentation]
-Le modèle augmenté $\mathcal{G}_\aug$ est construit à partir de $\mathcal{G}_\col$ en ajoutant un nœud auxiliaire $Q^Y_i$ (la distribution marginale du résultat dans l'unité $i$).
+Le modèle augmenté $\mathcal{G}_\aug$ est construit à partir de $\mathcal{G}_\col$ en ajoutant un nœud auxiliaire $Q^Y_i$ (la distribution marginale du résultat dans l'unit $i$).
 Ses parents sont toutes les variables Q qui ont un chemin causal vers $Y$.
 Cette augmentation est nécessaire pour rendre certains chemins d'identification disponibles dans le CGM plat.
 \end{definition}
 
-L'augmentation se fait \emph{variable par variable} : pour chaque variable suggérée, on appelle \texttt{augment\_collapsed\_model} séparément.
-Le nœud $\hat{q}$ est marqué observé si et seulement si tous ses parents Q sont observables (calculables à partir des données de sous-unités).
+L'augmentation se fait \emph{variable par variable} : pour chaque variable suggérée, on appelle séparément la fonction \texttt{augment\_collapsed\_\allowbreak model}.
+Le nœud $\hat{q}$ est marqué observé si et seulement si tous ses parents Q sont observables (calculables à partir des données de sub unit).
 
 \begin{lstlisting}[caption={Augmentation variable par variable}]
 from hierarchicalcausalmodels.do_calculus import augment_collapsed_model
@@ -705,7 +813,7 @@ marginalized = marginalize_augmented_model(
 \subsection{Étape 5 : \texttt{identify\_effect}}
 
 \begin{definition}[Problème d'identification dans les HCM]
-Étant donné un HCM, on souhaite identifier l'effet causal d'un traitement sous-unité $A$ sur un résultat sous-unité (ou unité) $Y$ sous une intervention douce $\rmdo(A \sim q^a_\star)$ :
+Étant donné un HCM, on souhaite identifier l'effet causal d'un traitement sub unit $A$ sur un résultat sub unit (ou unit) $Y$ sous une intervention douce $\rmdo(A \sim q^a_\star)$ :
 \begin{equation}
   \pr\!\left(Y \g \rmdo(A \sim q^a_\star)\right) = \int \pr(Y \g \rmdo(A = a))\, q^a_\star(a) \, \di a.
   \label{eq:soft_intervention}
@@ -713,54 +821,25 @@ marginalized = marginalize_augmented_model(
 L'intervention douce remplace la variable Q $Q^a_i$ par une distribution fixe $q^a_\star$, ce qui est une intervention plus naturelle dans les contextes hiérarchiques qu'une intervention dure (masse ponctuelle).
 \end{definition}
 
-La fonction \texttt{identify\_effect} est le point d'entrée unique pour le moteur de do-calcul.
+La fonction \texttt{identify\_effect} est le point d'entrée unique pour le moteur de do-calculus.
 Elle s'appuie sur pyAgrum pour construire un \texttt{CausalModel} à partir du CGM collapsé/augmenté/marginalisé et applique l'algorithme d'identification de Shpitser-Pearl.
-
-\begin{lstlisting}[caption={Identification via do-calcul}]
-from hierarchicalcausalmodels.do_calculus import identify_effect
-
-result = identify_effect(
-    cgm=marginalized,       # ou augmented selon le motif
-    Y="Q^y",                # variable resultat (notation papier)
-    X="Q^a",                # variable intervention
-    unobserved={"U"},       # variables non observees
-    with_impact=False
-)
-
-if result.identifiable:
-    print("Formule LaTeX :", result.formula_latex)
-    print("AST disponible :", result.ast is not None)
-else:
-    print("Non identifiable :", result.explanation)
-\end{lstlisting}
-
-La fonction retourne un \texttt{DoCalculusResult} :
-\begin{lstlisting}[caption={Structure de DoCalculusResult}]
-@dataclass
-class DoCalculusResult:
-    identifiable: bool          # l'effet est-il identifiable ?
-    formula_latex: str          # formule LaTeX de l'effet identifie
-    explanation: str            # justification en langage naturel
-    ast: Optional[ASTtree]      # Arbre Syntaxique Abstrait de la formule
-    impact_tensor: Any          # tableau d'impact numerique (optionnel)
-    error: Optional[str]        # message d'erreur si non identifiable
-\end{lstlisting}
+Les listings complets de l'appel \texttt{identify\_effect} et de la structure \texttt{DoCalculusResult} sont fournis en annexe (\hyperref[app:implementation_details]{Détails d'implémentation}).
 
 \begin{theorem}[Identification HCM via le modèle collapsé]
 \label{thm:identification}
 Soit $\Mc$ un HSCM avec modèle collapsé $\mathcal{G}_\col$ et modèle augmenté/marginalisé $\mathcal{G}_{\aug/\mar}$.
-L'effet causal $\pr(Y \g \rmdo(A \sim q^a_\star))$ est identifiable à partir du HSCM si et seulement si l'effet correspondant sur les variables Q est identifiable dans $\mathcal{G}_{\aug/\mar}$ en utilisant le do-calcul.
+L'effet causal $\pr(Y \g \rmdo(A \sim q^a_\star))$ est identifiable à partir du HSCM si et seulement si l'effet correspondant sur les variables Q est identifiable dans $\mathcal{G}_{\aug/\mar}$ en utilisant le do-calculus.
 \end{theorem}
 
 \paragraph{Résultats d'identification pour les trois motifs.}
 
 \paragraph{\textsc{Confondant}.}
-Le do-calcul sur le modèle augmenté donne :
+Le do-calculus sur le modèle augmenté donne :
 \begin{equation}
   \pr(Q^y \g \rmdo(Q^a = q^a_\star)) = \EE{Q^{y|a}}{\sum_a q^a_\star(a)\, Q^{y|a}(a)},
   \label{eq:confounder_id}
 \end{equation}
-ce qui se traduit par : faire la moyenne de la régression par unité $\hat{\mu}_i(a)$ évaluée en $a_\star$ sur toutes les unités.
+ce qui se traduit par : faire la moyenne de la régression par unit $\hat{\mu}_i(a)$ évaluée en $a_\star$ sur toutes les unit.
 
 \paragraph{\textsc{Confondant \& Interférence}.}
 Identification de type porte avant :
@@ -784,12 +863,13 @@ Formule de repondération de type VI :
 \subsection{Vue d'ensemble}
 
 Étant donné une formule identifiée (par ex., Éq.~\eqref{eq:confounder_id}), il faut estimer les distributions conditionnelles requises à partir des données.
-La structure des données est : $n$ unités, chacune contenant $m$ observations de sous-unités $\{(a_{ij}, y_{ij})\}_{j=1}^m$.
+La structure des données est : $n$ unit, chacune contenant $m$ observations de sub unit $\{(a_{ij}, y_{ij})\}_{j=1}^m$.
 
 \subsection{Étape 6 : \texttt{estimate\_causal\_effect} --- Estimation numérique de l'estimande}
 
-La fonction \texttt{estimate\_causal\_effect} (dans \texttt{examples/new/estimation.py}) est le point d'entrée principal pour l'estimation numérique.
+La fonction \texttt{estimate\_causal\_effect} (dans \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/new/estimation.py}{\texttt{examples/new/estimation.py}}) est le point d'entrée principal pour l'estimation numérique.
 Elle prend le \texttt{DoCalculusResult} retourné par \texttt{identify\_effect} et évalue l'estimande numériquement à partir des données observées, en s'appuyant en interne sur \texttt{ast\_to\_estimator}.
+Les paramètres détaillés utilisés dans les expériences sont externalisés \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/STAR/params.md}{ici}.
 
 \begin{lstlisting}[caption={Estimation numérique via \texttt{estimate\_causal\_effect}}]
 from estimation import estimate_causal_effect
@@ -801,12 +881,6 @@ ate_estimate = estimate_causal_effect(
         "Y": Y_matrix,          # shape (n_units, n_subunits)
     },
     intervention={"Q^a": 1.0},  # do(Q^a = 1.0)
-    distribution_families={
-        "Q^{y|a}": "gaussian",
-        "Q^a":     "gaussian",
-    },
-    n_mc_samples=1000,
-    random_seed=42,
 )
 print(f"ATE estime : {ate_estimate:.4f}")
 \end{lstlisting}
@@ -814,38 +888,27 @@ print(f"ATE estime : {ate_estimate:.4f}")
 \paragraph{Fonctionnement interne.}
 La fonction délègue à \texttt{ast\_to\_estimator}, qui parcourt l'AST pyAgrum et construit un pipeline d'estimation composé :
 \begin{itemize}
-  \item Nœuds \texttt{Sum} $\to$ sommation Monte Carlo sur les unités.
+  \item Nœuds \texttt{Sum} $\to$ sommation Monte Carlo sur les unit.
   \item Nœuds \texttt{Integral} $\to$ intégration numérique.
   \item Nœuds \texttt{ConditionalDensity} $\to$ \texttt{ConditionalDensityEstimator} (paramétrique ou neuronal).
   \item Nœuds \texttt{Intervention} $\to$ remplace la distribution de la variable Q par $q^a_\star$.
 \end{itemize}
-Pour les variables Q (distributions aléatoires au niveau de l'unité), les matrices 2D brutes de sous-unités sont automatiquement converties en paramètres par unité via \texttt{SubunitParamEstimator}.
+Pour les variables Q (distributions aléatoires au niveau de l'unit), les matrices 2D brutes de sub unit sont automatiquement converties en paramètres par unit via \texttt{SubunitParamEstimator}.
 
-\subsection{Estimation par unité (\texttt{ConditionalDensityEstimator})}
+\subsection{Estimation par unit (\texttt{ConditionalDensityEstimator})}
 
-Pour chaque unité $i$, on estime la distribution conditionnelle $\pr(Y_{ij} \g A_{ij} = a, \text{unité}=i)$.
-La classe \texttt{ConditionalDensityEstimator} supporte plus de 15 familles paramétriques :
+Pour chaque unit $i$, on estime la distribution conditionnelle $\pr(Y_{ij} \g A_{ij} = a, \text{unit}=i)$.
+La classe \texttt{ConditionalDensityEstimator} supporte plus de 15 familles ; les paramètres détaillés sont documentés dans \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/STAR/params.md}{\texttt{examples/STAR/params.md}}.
 
-\begin{center}
-\begin{tabular}{lll}
-\toprule
-\textbf{Famille} & \textbf{Paramètres} & \textbf{Fonction de lien} \\
-\midrule
-Gaussienne & $\mu, \sigma$ & identité, softplus \\
-Beta & $\alpha, \beta$ & softplus \\
-Gamma & $k, \theta$ & softplus \\
-Log-normale & $\mu, \sigma$ & identité, softplus \\
-Laplace & $\mu, b$ & identité, softplus \\
-Bernoulli & $p$ & sigmoïde \\
-Poisson & $\lambda$ & softplus \\
-Student-t & $\nu, \mu, \sigma$ & identité, softplus \\
-Exponentielle & $\lambda$ & softplus \\
-Gaussienne inverse & $\mu, \lambda$ & identité, softplus \\
-Half-Cauchy & $\gamma$ & softplus \\
-Non-paramétrique & --- & KDE / k-NN \\
-\bottomrule
-\end{tabular}
-\end{center}
+\begin{itemize}
+  \item \textbf{Continue :} Gaussienne, Laplace.
+  \item \textbf{Continue bornée :} Beta.
+  \item \textbf{Continue positive :} Gamma, Log-normale, Exponentielle, Gaussienne inverse, Half-Cauchy.
+  \item \textbf{Continue à queues lourdes :} Student-t.
+  \item \textbf{Binaire :} Bernoulli.
+  \item \textbf{Comptage :} Poisson.
+  \item \textbf{Non-paramétrique :} KDE / k-NN.
+\end{itemize}
 
 \subsection{Estimateur ATE : cas \textsc{Confondant}}
 
@@ -855,7 +918,7 @@ L'estimateur résultant suit Éq.~\eqref{eq:confounder_id} :
   \widehat{\text{ATE}}(a_\star) = \frac{1}{n} \sum_{i=1}^n \hat{\mu}_i(a_\star),
   \label{eq:ate_estimator}
 \end{equation}
-où $\hat{\mu}_i(a_\star) = \int y \, \hat{Q}^{y|a}_i(y \g a_\star) \, \di y$ est la moyenne prédite du résultat pour l'unité $i$ au traitement $a_\star$.
+où $\hat{\mu}_i(a_\star) = \int y \, \hat{Q}^{y|a}_i(y \g a_\star) \, \di y$ est la moyenne prédite du résultat pour l'unit $i$ au traitement $a_\star$.
 
 Cet estimateur est cohérent quand $n \to \infty$ et $m \to \infty$ :
 \begin{itemize}
@@ -863,9 +926,36 @@ Cet estimateur est cohérent quand $n \to \infty$ et $m \to \infty$ :
   \item La moyenne sur $i$ converge vers $\E{Y \g \rmdo(A=a_\star)}$ quand $n \to \infty$.
 \end{itemize}
 
+\subsection{Parallélisation des calculs d'ATE}
+
+La parallélisation est un enjeu majeur pour la librairie : les évaluations de formules HCM (en particulier sur des graphes denses) peuvent devenir coûteuses dès que l'on multiplie les runs \texttt{do(1)}/\texttt{do(0)}, les variantes de graphes et les diagnostics.
+Nous avons donc benchmarké trois modes d'exécution pour les calculs ATE sur les runs de référence 10--40 (source : \texttt{examples/STAR/results/ate\_10\_40\_parallel\_speed\_test.json}, avec \texttt{HCM\_DISABLE\_MULTIPARENT\_Q\_PRECOMPUTE=1}).
+
+\begin{table}[h!]
+\centering
+\caption{Benchmark de parallélisation pour les calculs ATE (temps total \texttt{do(1)+do(0)}).}
+\label{tab:parallel_ate_benchmark}
+\begin{tabular}{llrr}
+\toprule
+\textbf{Graphe} & \textbf{Mode} & \textbf{Temps (s)} & \textbf{Speedup vs seq} \\
+\midrule
+DirectLiNGAM & seq (1 job, threads) & 9.307 & 1.000 \\
+DirectLiNGAM & threads4              & 10.731 & 0.867 \\
+DirectLiNGAM & proc4                 & 8.501 & 1.095 \\
+\midrule
+ExactBIC     & seq (1 job, threads) & 3.109 & 1.000 \\
+ExactBIC     & threads4              & 3.630 & 0.856 \\
+ExactBIC     & proc4                 & 1.897 & 1.639 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\texttt{proc4} désigne ici une exécution en \emph{quatre processus CPU} (backend \texttt{processes}, et non un calcul GPU), alors que \texttt{threads4} utilise quatre threads dans un même processus, ce qui explique que \texttt{proc4} soit souvent plus robuste sur ces estimations.
+Sur un dataset d'ordre $\sim 10^4$ lignes avec environ une centaine d'élèves par établissement, le gain de parallélisation reste modéré, mais il devient nettement plus marqué sur des jeux de données beaucoup plus volumineux.
+
 \subsection{Estimateur neuronal : MLPRegressorPerUnit}
 
-Pour l'estimation par unité non paramétrique, nous avons implémenté \texttt{MLPRegressorPerUnit} (PyTorch) :
+Pour l'estimation par unit non paramétrique, nous avons implémenté \texttt{MLPRegressorPerUnit} (PyTorch) :
 
 \begin{lstlisting}[caption={\texttt{MLPRegressorPerUnit}}]
 from hierarchicalcausalmodels.estimation.torch_estimators import (
@@ -873,10 +963,7 @@ from hierarchicalcausalmodels.estimation.torch_estimators import (
 )
 
 model = MLPRegressorPerUnit(
-    hidden_layer_sizes=(64, 32),
-    activation='relu',
-    max_iter=500,
-    learning_rate_init=1e-3
+    activation='relu'
 )
 model.fit(X_train, y_train)   # X : (m, d), y : (m,)
 y_pred = model.predict(X_test)
@@ -889,112 +976,15 @@ y_pred = model.predict(X_test)
 
 \subsection{Structure du package}
 
-L'implémentation est organisée comme un package Python \texttt{hierarchicalcausalmodels} :
-
-\begin{verbatim}
-hierarchicalcausalmodels/
-  src/hierarchicalcausalmodels/
-    models/
-      HSCMParametric/
-        HSCMParametric.py       # Classe de modele HSCM
-    do_calculus.py              # Moteur d'identification
-      collapse()
-      suggest_augment_for_outcome()
-      augment_collapsed_model()
-      marginalize_augmented_model()
-      identify_effect()         -> DoCalculusResult
-    estimation/
-      causal_estimators.py      # ConditionalDensityEstimator,
-                                #   SubunitParamEstimator,
-                                #   QDensityEstimator,
-                                #   ast_to_estimator()
-      per_unit.py               # fit_per_unit_estimators(),
-                                #   estimate_ate_confounder()
-      torch_estimators.py       # MLPRegressorPerUnit (PyTorch)
-  examples/
-    estimation.py               # Demo pipeline complet
-    gallery_pipeline.py         # Test cadre complet
-\end{verbatim}
+L'implémentation est organisée autour de trois blocs : \texttt{models} (spécification HSCM), \texttt{do\_calculus} (identification symbolique), et \texttt{estimation} (évaluation numérique de la formule). Les scripts \texttt{examples/new/estimation.py} et \texttt{examples/new/gallery\_pipeline.py} servent respectivement de démonstration minimale et de validation complète.
 
 \subsection{HSCMParametric : Spécification du modèle}
 
-La classe \texttt{HSCMParametric} permet à l'utilisateur de spécifier un HSCM en déclarant :
-
-\begin{lstlisting}[caption={Spécification d'un HCM \textsc{Confondant}}]
-import numpy as np
-from hierarchicalcausalmodels.models.HSCMParametric import HSCMParametric
-
-hscm = HSCMParametric(
-    nodes={'U', 'A', 'Y'},
-    edges={('U', 'A'), ('U', 'Y'), ('A', 'Y')},
-    unit_nodes={'U'},
-    subunit_nodes={'A', 'Y'},
-    sizes=[50] * 100,   # 100 unites, 50 sous-unites chacune
-    node_functions={},
-    data={}
-)
-
-# Definir les mecanismes lineaires avec coefficients
-hscm.linear_model({
-    'U': {'mean': 0, 'std': 1},
-    'A': {'U': 1.0, 'mean': 0, 'std': 0.5},
-    'Y': {'A': 2.0, 'U': 1.0, 'mean': 0, 'std': 0.5},
-})
-\end{lstlisting}
+La classe \texttt{HSCMParametric} encapsule la définition des nœuds, arêtes, niveaux unit/sub unit et mécanismes structurels. Elle permet ensuite de générer les données simulées cohérentes avec le graphe causal.
 
 \subsection{Pipeline complet : exemple bout-en-bout}
 
-\begin{lstlisting}[caption={Pipeline complet HCM pour \textsc{Confondant}}]
-import numpy as np
-from hierarchicalcausalmodels.models.HSCMParametric import HSCMParametric
-from hierarchicalcausalmodels.do_calculus import (
-    collapse,
-    suggest_augment_for_outcome,
-    augment_collapsed_model,
-    marginalize_augmented_model,
-    identify_effect,
-)
-from estimation import estimate_causal_effect
-
-# 1. Specifier le HSCM
-hscm = HSCMParametric(...)
-
-# 2. Generer les donnees
-data = hscm.sample_data()
-
-# 3. Collapse
-collapsed = collapse(hscm)
-
-# 4. Suggestion des variables d'augmentation
-q_hat, q_hat_parents = suggest_augment_for_outcome(hscm, 'Y')
-
-# 5. Augmentation (variable par variable)
-augmented = augment_collapsed_model(collapsed, q_hat, q_hat_parents)
-
-# 6. Marginalisation (si necessaire)
-marginalized = marginalize_augmented_model(
-    augmented, q_hat, q_hat_parents
-)
-
-# 7. Identification via do-calcul
-result = identify_effect(
-    cgm=marginalized,
-    Y="Q^y",
-    X="Q^a",
-    unobserved={"U"}
-)
-print("Identifiable :", result.identifiable)
-print("Formule :", result.formula_latex)
-
-# 8. Estimation numerique
-ate = estimate_causal_effect(
-    result=result,
-    data={"A": data["A"], "Y": data["Y"]},
-    intervention={"Q^a": 1.0},
-    distribution_families={"Q^{y|a}": "gaussian"},
-)
-print(f"ATE estime : {ate:.4f}")
-\end{lstlisting}
+Le pipeline suit la chaîne \texttt{collapse} $\rightarrow$ \texttt{suggest\_augment\_for\_outcome} $\rightarrow$ \texttt{augment\_collapsed\_model} $\rightarrow$ \texttt{marginalize\_augmented\_model} $\rightarrow$ \texttt{identify\_effect} $\rightarrow$ \texttt{estimate\_causal\_effect}. Les listings complets (structure package + exemple HSCM + script bout-en-bout) sont fournis en annexe, section \hyperref[app:implementation_details]{Détails d'implémentation}.
 
 %% ========================================================
 \section{Résultats Expérimentaux}
@@ -1012,7 +1002,7 @@ Nous avons généré des données synthétiques à partir d'un HSCM \textsc{Conf
 \end{align*}
 Le vrai ATE est $\E{Y \g \rmdo(A=a_\star)} - \E{Y \g \rmdo(A=0)} = 2 \cdot a_\star$.
 
-Nous avons fait varier le nombre d'unités $n \in \{10, 20, 50, 100, 200\}$ avec $m = 50$ sous-unités par unité.
+Nous avons fait varier le nombre d'unit $n \in \{10, 20, 50, 100, 200\}$ avec $m = 50$ sub unit par unit.
 
 \paragraph{Résultats.}
 \begin{table}[h!]
@@ -1021,7 +1011,7 @@ Nous avons fait varier le nombre d'unités $n \in \{10, 20, 50, 100, 200\}$ avec
 \label{tab:ate_recovery}
 \begin{tabular}{cccc}
 \toprule
-$n$ (unités) & ATE estimé & Erreur abs. & Écart-type \\
+$n$ (unit) & ATE estimé & Erreur abs. & Écart-type \\
 \midrule
 10  & 1,87 & 0,13 & 0,25 \\
 20  & 1,93 & 0,07 & 0,18 \\
@@ -1037,11 +1027,11 @@ L'estimateur est cohérent : quand $n$ croît, l'estimation converge vers le vra
 
 \paragraph{Comparaison avec l'estimateur naïf.}
 Un estimateur MCO naïf (ignorant le confondant) sur-estime l'ATE car $\mathrm{Cov}(A_{ij}, Y_{ij}) = 2\,\mathrm{Var}(A_{ij}) + \mathrm{Var}(U_i)$.
-L'estimateur par unité élimine correctement ce biais.
+L'estimateur par unit élimine correctement ce biais.
 
-\subsection{Suite de tests do-calcul}
+\subsection{Suite de tests do-calculus}
 
-Nous avons exécuté une suite complète de tests (\texttt{gallery\_pipeline.py}) couvrant 11 configurations de graphes :
+Nous avons exécuté une suite complète de tests (\href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/new/gallery_pipeline.py}{\texttt{examples/new/gallery\_pipeline.py}}) couvrant 10 configurations de graphes :
 
 \begin{center}
 \begin{tabular}{lll}
@@ -1052,18 +1042,17 @@ Nous avons exécuté une suite complète de tests (\texttt{gallery\_pipeline.py}
 \textsc{Confondant} (marginalisé) & Oui & Porte arrière \\
 \textsc{Conf. \& Interférence} & Oui & Porte avant \\
 \textsc{Instrument} (marginalisé) & Oui & Ajustement VI \\
-Confondant sous-unité & Non & --- \\
-Médiateur caché sous-unité & Non & --- \\
-Cycles dans le collapsé & Erreur & --- \\
-Unité à unité seul & Oui & Porte arrière standard \\
+Confondant sub unit & Non & --- \\
+Médiateur caché sub unit & Non & --- \\
+Unit à unit seul & Oui & Porte arrière standard \\
 Multi-traitement & Oui & Porte arrière étendue \\
-Interférence inter-unité & Non & --- \\
+Interférence inter-unit & Non & --- \\
 Niveaux mixtes & Oui & Composite \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Les 11 cas ont produit le résultat d'identifiabilité attendu.
+Les 10 cas ont produit le résultat d'identifiabilité attendu.
 
 \subsection{Récupération de l'ATE : les trois motifs}
 
@@ -1084,21 +1073,21 @@ Les 11 cas ont produit le résultat d'identifiabilité attendu.
 
 Les trois estimateurs fonctionnent bien, démontrant la correction et la généralité du pipeline implémenté.
 
-\subsection{Galerie do-calcul : estimation de l'ATE sur 13 configurations}
+\subsection{Galerie do-calculus : estimation de l'ATE sur 13 configurations}
 \label{sec:gallery_ate}
 
-La galerie d'expériences (\texttt{gallery\_ate\_report\_autotune.csv}) évalue le pipeline do-calcul complet sur 13 configurations de graphes HCM binaires avec auto-tuning du nombre d'échantillons Monte Carlo.
+La galerie d'expériences (\texttt{gallery\_ate\_report\_autotune.csv}) évalue le pipeline do-calculus complet sur 13 configurations de graphes HCM binaires avec auto-tuning du nombre d'échantillons Monte Carlo.
 Pour chaque configuration, la vérité terrain est estimée indépendamment par un second tirage Monte Carlo convergé ; on rapporte ensuite l'ATE estimé par le pipeline et l'erreur absolue.
 
 \begin{table}[h!]
 \centering
-\caption{Résultats do-calcul sur 13 configurations de graphes HCM binaires (auto-tuning Monte Carlo). $\hat{\tau}_{\text{vrai}}$ : ATE de référence convergé ; $\hat{\tau}_{\text{est}}$ : ATE produit par le pipeline ; $|\Delta|$ : erreur absolue. Statut : \checkmark = convergé et précis ; $\dagger$ = données insuffisantes ; --- = estimands non comparables.}
+\caption{Résultats do-calculus sur 13 configurations de graphes HCM binaires (auto-tuning Monte Carlo). $\hat{\tau}_{\text{vrai}}$ : ATE de référence convergé ; $\hat{\tau}_{\text{est}}$ : ATE produit par le pipeline ; $|\Delta|$ : erreur absolue. Statut : \checkmark = convergé et précis ; $\dagger$ = données insuffisantes ; --- = estimands non comparables.}
 \label{tab:gallery_ate}
 \begin{tabular}{lrrrr}
 \toprule
 \textbf{Configuration} & $\hat{\tau}_{\text{vrai}}$ & $\hat{\tau}_{\text{est}}$ & $|\Delta|$ & \textbf{Statut} \\
 \midrule
-\multicolumn{5}{l}{\textit{aligned\_accurate} (8 configurations)} \\
+\multicolumn{5}{l}{\textit{aligné\_précis} (8 configurations)} \\
 \midrule
 Confondant (augm.)               & 0{,}202 &  0{,}241 & 0{,}038 & \checkmark \\
 Instrument (marg.)               & 0{,}542 &  0{,}522 & 0{,}020 & \checkmark \\
@@ -1109,31 +1098,37 @@ Ex.~5 (marg.)                    & 0{,}000 &  0{,}000 & 0{,}000 & \checkmark \\
 Ciblé (augm.)                    & 0{,}000 & -0{,}003 & 0{,}003 & \checkmark \\
 Non-ID Ex.~1 (augm.)             & 0{,}080 &  0{,}058 & 0{,}022 & \checkmark \\
 \midrule
-\multicolumn{5}{l}{\textit{aligned\_but\_data\_limited} (4 configurations)} \\
+\multicolumn{5}{l}{\textit{aligné\_mais\_données\_limitées} (4 configurations)} \\
 \midrule
 Conf.\ + Interférence (augm.)    & 0{,}011 &  0{,}193 & 0{,}182 & $\dagger$ \\
 Ex.~3 (coll.)                    & 0{,}218 & -0{,}207 & 0{,}425 & $\dagger$ \\
 Ex.~4 (augm.)                    & 0{,}382 &  0{,}591 & 0{,}209 & $\dagger$ \\
 Non-ID Ex.~5 (augm.)             & 0{,}171 &  0{,}235 & 0{,}064 & $\dagger$ \\
 \midrule
-\multicolumn{5}{l}{\textit{structurally\_non\_comparable} (1 configuration)} \\
+\multicolumn{5}{l}{\textit{structurellement\_non\_comparable} (1 configuration)} \\
 \midrule
 Non-ID Ex.~4 (augm.)             & 0{,}370 & -0{,}147 & 0{,}517 & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Sur les 13 configurations, 8 (62\,\%) atteignent le statut \textit{aligned\_accurate} avec une erreur absolue inférieure à 0{,}04.
-Les 4 cas \textit{data\_limited} correspondent à des régimes où la variance Monte Carlo reste élevée même après auto-tuning : l'estimateur converge mais avec peu de données par unité, d'où un biais résiduel.
-Le cas \textit{non\_comparable} (\texttt{nonID\_ex4\_aug}) met en évidence une situation où l'estimand théorique ne coïncide pas structurellement avec l'estimateur empirique — l'erreur apparente n'est pas une défaillance du pipeline mais un désaccord d'estimand.
+\noindent\textbf{Graphes dessinés (hyperliens).}
+\hyperref[app:graphs]{Annexe transformations complètes},
+\hyperref[fig:app_confounder]{Confondant},
+\hyperref[fig:app_instrument]{Instrument},
+\hyperref[fig:app_interfere]{Confondant + Interférence}.
+
+Sur les 13 configurations, 8 (62\,\%) atteignent le statut \textit{aligné\_précis} avec une erreur absolue inférieure à 0{,}04.
+Les 4 cas \textit{données\_limitées} correspondent à des régimes où la variance Monte Carlo reste élevée même après auto-tuning : l'estimateur converge mais avec peu de données par unit, d'où un biais résiduel.
+Le cas \textit{non\_comparable\_structurellement} (\texttt{nonID\_ex4\_aug}) met en évidence une situation où l'estimand théorique ne coïncide pas structurellement avec l'estimateur empirique — l'erreur apparente n'est pas une défaillance du pipeline mais un désaccord d'estimand.
 
 \subsection{Suite de benchmarks : 9 scénarios avec vérité terrain}
 \label{sec:benchmark_suite}
 
-Le fichier \texttt{examples/new/benchmarks.py} évalue le framework sur 9 scénarios couvrant trois familles de modèles HCM, chacun avec une vérité terrain calculable.
+Le fichier \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/new/benchmarks.py}{\texttt{examples/new/benchmarks.py}} évalue le framework sur 9 scénarios couvrant trois familles de modèles HCM, chacun avec une vérité terrain calculable.
 
 \paragraph{Scénarios 1–3 : HCMs binaires (Weinstein \& Blei, 2024).}
-Pipeline symbolique complet do-calcul sur données binaires ($n=200$ unités, $m=100$ sous-unités, $U \sim \text{Beta}(2,2)$). La vérité terrain est obtenue par Monte Carlo sur 500\,000 tirages de $U$.
+Pipeline symbolique complet do-calculus sur données binaires ($n=200$ unit, $m=100$ sub unit, $U \sim \text{Beta}(2,2)$). La vérité terrain est obtenue par Monte Carlo sur 500\,000 tirages de $U$.
 
 \begin{table}[h!]
 \centering
@@ -1154,15 +1149,15 @@ Le scénario 1 (critère porte-arrière) converge avec une erreur de 0{,}048.
 Les scénarios 2 et 3 présentent des erreurs plus élevées : les stratégies porte-avant et IV exploitent moins d'information de Fisher par observation que le critère porte-arrière, ce qui est attendu et cohérent avec les résultats de la galerie (\S\ref{sec:gallery_ate}).
 
 \paragraph{Scénarios 4–6 : HCMs spatio-temporels (Camellia et al., 2025).}
-$N=16$ unités spatiales sur grille $4\!\times\!4$, $m=50$ sous-unités par cellule $(i,t)$, $T=8$ pas de temps ; confondant latent $U_i \sim \mathcal{N}(0,1)$.
+$N=16$ unit spatiales sur grille $4\!\times\!4$, $m=50$ sub unit par cellule $(i,t)$, $T=8$ pas de temps ; confondant latent $U_i \sim \mathcal{N}(0,1)$.
 
 \begin{table}[h!]
 \centering
-\caption{HCMs ST ($N=16$, $m=50$, $T=8$, force de confondance $c=2{,}0$). L'estimateur par unité est quasi-sans-biais pour S4–S5 ; S6 présente un désaccord d'estimand attendu.}
+\caption{HCMs ST ($N=16$, $m=50$, $T=8$, force de confondance $c=2{,}0$). L'estimateur par unit est quasi-sans-biais pour S4–S5 ; S6 présente un désaccord d'estimand attendu.}
 \label{tab:benchmark_st}
 \begin{tabular}{lrrrr}
 \toprule
-\textbf{Scénario} & \textbf{ATE vrai} & \textbf{Par-unité} & \textbf{OLS naïf} & \textbf{Ratio naïf/vrai} \\
+\textbf{Scénario} & \textbf{ATE vrai} & \textbf{Par-unit} & \textbf{OLS naïf} & \textbf{Ratio naïf/vrai} \\
 \midrule
 4.\ Confondant de base        & 5{,}00 &  5{,}10 & 27{,}1 & $\times 5{,}4$ \\
 5.\ Dynamiques linéaires      & 5{,}00 &  5{,}10 & 33{,}0 & $\times 6{,}6$ \\
@@ -1173,32 +1168,32 @@ $N=16$ unités spatiales sur grille $4\!\times\!4$, $m=50$ sous-unités par cell
 
 Pour S4 et S5, l'OLS naïf est 5 à 7 fois la vraie valeur : $U_i$ confond simultanément la probabilité de traitement et la base de l'outcome, et la régression poolée ne peut pas les séparer.
 Pour S5, les dynamiques spatio-temporelles amplifient le biais (ratio $\times 6{,}6$ contre $\times 5{,}4$ pour S4).
-Pour S6, le DGP inclut un terme d'interaction spatiale $2 \cdot s_{\text{lag},it} \cdot A_{ijt}$ dans l'outcome : l'estimateur par unité capture CATE$_i$ \emph{plus} ce terme d'interaction qui s'accumule au fil du temps.
-L'estimand de l'estimateur par unité diffère donc de $\mathbb{E}[\text{CATE}_i]$ — cet écart est attendu et illustre une limitation identifiée du framework dans les DGPs avec interactions traitement-contexte.
+Pour S6, le DGP inclut un terme d'interaction spatiale $2 \cdot s_{\text{lag},it} \cdot A_{ijt}$ dans l'outcome : l'estimateur par unit capture CATE$_i$ \emph{plus} ce terme d'interaction qui s'accumule au fil du temps.
+L'estimand de l'estimateur par unit diffère donc de $\mathbb{E}[\text{CATE}_i]$ — cet écart est attendu et illustre une limitation identifiée du framework dans les DGPs avec interactions traitement-contexte.
 
 \paragraph{Scénarios 7–9 : Benchmarks inspirés de données réelles.}
 
 \begin{table}[h!]
 \centering
-\caption{Scénarios inspirés de données réelles. S7 : trafic synthétique Chicago (Camellia et al., 2025). S8 : Huit Écoles (Alderman \& Powers, 1979). S9 : NLSY79 synthétique — biais d'aptitude (Card, 1995).}
+\caption{Scénarios inspirés de données réelles. S7 : trafic synthétique Chicago (Camellia et al., 2025). S8 : Huit Écoles (Alderman \& Powers, 1979). S9 : NLSY79 synthétique — biais d'aptitude (\citealt{Card1995}).}
 \label{tab:benchmark_realworld}
 \begin{tabular}{lrrrr}
 \toprule
-\textbf{Scénario} & \textbf{ATE vrai} & \textbf{Par-unité} & \textbf{OLS naïf} & $|\Delta|$ \\
+\textbf{Scénario} & \textbf{ATE vrai} & \textbf{Par-unit} & \textbf{OLS naïf} & $|\Delta|$ \\
 \midrule
 7.\ Trafic Chicago (synthétique) & $-7{,}00$~mph &  $-7{,}04$ & $-9{,}87$ & $0{,}04$ \\
 8.\ Huit Écoles (tutoring SAT)   &  $8{,}75$~pts &   $4{,}49$ & $-17{,}04$ & $4{,}26$ \\
-9.\ NLSY79 — salaires (Card 1995) & $0{,}35$~log & $0{,}34$ & $0{,}70$ & $0{,}01$ \\
+9.\ NLSY79 — salaires (\citealt{Card1995}) & $0{,}35$~log & $0{,}34$ & $0{,}70$ & $0{,}01$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Le scénario 7 (29 régions $\times$ 35 segments $\times$ 7 semaines, 7\,105 obs.) confirme que l'estimateur par unité récupère $-7$~mph avec une erreur de 0{,}04, là où l'OLS naïf surestime le biais de congestion régionale de 40\,\%.
-Le scénario 8 présente une forte variance d'échantillonnage ($n=8$ unités, $\mathrm{SD}\approx 81$--$108$~pts SAT) : l'erreur de 4{,}26~pts est attendue avec si peu d'unités ; l'apport essentiel est qualitatif — le signe est correct ($+4{,}49$) là où l'OLS naïf donne $-17$.
-Le scénario 9 (NLSY79 synthétique, 50 régions $\times$ 60 individus) illustre le biais d'aptitude classique de Card (1995) : la prime salariale vraie de l'enseignement supérieur est 0{,}35 en log-salaire, l'estimateur par unité la récupère à 0{,}34 ($|\Delta|=0{,}01$), tandis que l'OLS naïf double l'effet ($+0{,}70$) en confondant le capital humain régional $U_i$ avec l'effet du diplôme.
+Le scénario 7 (29 régions $\times$ 35 segments $\times$ 7 semaines, 7\,105 obs.) confirme que l'estimateur par unit récupère $-7$~mph avec une erreur de 0{,}04, là où l'OLS naïf surestime le biais de congestion régionale de 40\,\%.
+Le scénario 8 présente une forte variance d'échantillonnage ($n=8$ unit, $\mathrm{SD}\approx 81$--$108$~pts SAT) : l'erreur de 4{,}26~pts est attendue avec si peu d'unit ; l'apport essentiel est qualitatif — le signe est correct ($+4{,}49$) là où l'OLS naïf donne $-17$.
+Le scénario 9 (NLSY79 synthétique, 50 régions $\times$ 60 individus) illustre le biais d'aptitude classique de Card (1995) : la prime salariale vraie de l'enseignement supérieur est 0{,}35 en log-salaire, l'estimateur par unit la récupère à 0{,}34 ($|\Delta|=0{,}01$), tandis que l'OLS naïf double l'effet ($+0{,}70$) en confondant le capital humain régional $U_i$ avec l'effet du diplôme.
 
 %% ========================================================
-\section{Application à Project STAR : Estimation Causale Hiérarchique}
+\section{Nouvelle application à Project STAR : Estimation Causale Hiérarchique}
 \label{sec:star}
 %% ========================================================
 
@@ -1212,13 +1207,15 @@ Le projet \emph{Tennessee Student/Teacher Achievement Ratio} (STAR) est l'une de
 \end{itemize}
 L'expérience a couvert quatre niveaux scolaires (maternelle à CM1), avec des scores aux tests Stanford Achievement Test (SAT) et Tennessee Basic Skills First (BSF) comme mesures d'outcome.
 
-Malgré la randomisation, les données STAR présentent une structure hiérarchique naturelle : les élèves sont imbriqués dans des classes, elles-mêmes imbriquées dans des écoles. Le traitement (type de classe) est assigné au niveau de la classe, non au niveau de l'élève. Appliquer directement une régression OLS avec effets fixes d'école -- comme dans l'approche canonique de \citet{Krueger1999} -- capture l'effet moyen mais ne modélise pas explicitement ce mécanisme hiérarchique. Les HCM permettent de formaliser précisément : (i) le niveau auquel le traitement opère, (ii) les confondeurs partagés au sein d'une classe, et (iii) la dérivation symbolique de la formule d'identification via le do-calcul.
+Malgré la randomisation, les données STAR présentent une structure hiérarchique naturelle : les élèves sont imbriqués dans des classes, elles-mêmes imbriquées dans des écoles. Le traitement (type de classe) est assigné au niveau de la classe, non au niveau de l'élève. Appliquer directement une régression OLS avec effets fixes d'école -- comme dans l'approche canonique de \citet{Krueger1999} -- capture l'effet moyen mais ne modélise pas explicitement ce mécanisme hiérarchique. Les HCM permettent de formaliser précisément : (i) le niveau auquel le traitement opère, (ii) les confondeurs partagés au sein d'une classe, et (iii) la dérivation symbolique de la formule d'identification via le do-calculus.
 
 \subsection{Données et schéma HCM}
 
-Nous utilisons la cohorte maternelle du fichier \texttt{STAR\_Students.tab} (Harvard Dataverse, \citealt{Achilles2008}). Après suppression des valeurs manquantes et limitation à 10 élèves par classe, l'échantillon de travail contient :
+Nous utilisons la cohorte maternelle issue du rapport technique STAR, \href{https://www.classsizematters.org/wp-content/uploads/2016/09/STAR-Technical-Report-Part-I.pdf}{STAR Technical Report Part I} (Prepared by: Tennessee State Department of Education; Elizabeth Word, Project STAR Director), avec lien de téléchargement direct. Après suppression des valeurs manquantes et limitation à 10 élèves par classe, l'échantillon de travail contient :
 
 \begin{table}[H]
+\centering
+\begin{minipage}[t]{0.42\textwidth}
 \centering
 \caption{Échantillon HCM v2 (cohorte maternelle).}
 \label{tab:star_sample}
@@ -1227,36 +1224,82 @@ Nous utilisons la cohorte maternelle du fichier \texttt{STAR\_Students.tab} (Har
 Quantité & Valeur \\
 \midrule
 Élèves & 5\,745 \\
-Classes (unités) & 322 \\
+Classes (unit) & 322 \\
 Élèves par classe & 10 \\
 Écoles & 79 \\
 \bottomrule
 \end{tabular}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.56\textwidth}
+\centering
+\caption{Variables du modèle HCM v2 STAR.}
+\label{tab:star_vars}
+\begin{tabular}{llp{4.4cm}}
+\toprule
+Variable & Niveau & Définition \\
+\midrule
+$A$ & Sub unit & $\mathbf{1}\{\texttt{gkclasstype}=1\}$ -- petite classe \\
+$Y$ & Sub unit & \texttt{gktreadss} -- score de lecture \\
+$M$ & Sub unit & \texttt{gktmathss} -- score de mathématiques \\
+$G$ & Sub unit & $\mathbf{1}\{\text{genre féminin}\}$ \\
+$E$ & Sub unit & $\mathbf{1}\{\text{race} \in \{\text{blanc, asiatique}\}\}$ \\
+$L$ & Sub unit & $\mathbf{1}\{\text{déjeuner gratuit}\}$ \\
+$S$ & Unit & \texttt{gksurban} -- urbanicité \\
+$U$ & Unit (latent) & Confondeur latent de niveau classe \\
+\bottomrule
+\end{tabular}
+\end{minipage}
 \end{table}
 
 \paragraph{Schéma HCM v2 (classe/enseignant $\to$ élève).}
 
-\begin{table}[H]
-\centering
-\caption{Variables du modèle HCM v2 STAR.}
-\label{tab:star_vars}
-\begin{tabular}{llp{7cm}}
-\toprule
-Variable & Niveau & Définition \\
-\midrule
-$A$ & Sous-unité & $\mathbf{1}\{\texttt{gkclasstype}=1\}$ -- petite classe \\
-$Y$ & Sous-unité & \texttt{gktreadss} -- score de lecture \\
-$M$ & Sous-unité & \texttt{gktmathss} -- score de mathématiques \\
-$G$ & Sous-unité & $\mathbf{1}\{\text{genre féminin}\}$ \\
-$E$ & Sous-unité & $\mathbf{1}\{\text{race} \in \{\text{blanc, asiatique}\}\}$ \\
-$L$ & Sous-unité & $\mathbf{1}\{\text{déjeuner gratuit}\}$ \\
-$S$ & Unité & \texttt{gksurban} -- urbanicité \\
-$U$ & Unité (latent) & Confondeur latent de niveau classe \\
-\bottomrule
-\end{tabular}
-\end{table}
-
 L'intervention naturelle est $\rmdo(Q^a = q^a_\star)$ : on intervient sur la \emph{distribution} du traitement au sein de la classe, ce qui est la formulation correcte pour une assignation au niveau de la classe.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/DirectLiNGAM_with_factor1_effective_graph_curved.png}
+\caption{DirectLiNGAM (initial vs effectif).}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/ExactBIC_with_factor1_effective_graph_curved.png}
+\caption{ExactBIC (initial vs effectif).}
+\end{subfigure}
+\caption{Graphes causaux utilisés dans STAR (visualisation des structures initiales et effectives).}
+\label{fig:star_causal_graphs_main}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[t]{0.42\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/class_gender_heterogeneity_distribution.png}
+\caption{Hétérogénéité de genre (classe).}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{0.42\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/enriched_q_Q_y.png}
+\caption{Distribution enrichie de $Q^y$ (DirectLiNGAM, do(1)).}
+\end{subfigure}
+\caption{Diagnostics complémentaires au niveau classe.}
+\label{fig:star_gender_heterogeneity_main}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\textwidth]{figures/global_Y_M_gaussian_body_heavy_tail_qq_hist.png}
+\caption{Diagnostics de distributions globales ($Y$ et $M$) : histogrammes, ajustement gaussien du corps, et ajustements de queues lourdes sur les extrêmes (modélisation type GPD) avec paramètre d'exposant de queue $\xi$ (\emph{ksi}).}
+\label{fig:star_global_dist_main}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{figures/class_level_means_Y_M_gaussian_lognorm.png}
+\caption{Moyennes par classe ($Y$ et $M$) : histogrammes et QQ-plots normaux.}
+\label{fig:star_class_means_main}
+\end{figure}
 
 \subsection{Pipeline d'analyse}
 
@@ -1269,10 +1312,13 @@ Nous appliquons PC, FCI, DirectLiNGAM et ExactBIC (\texttt{causal-learn}) sur un
 Une forêt aléatoire est entraînée sur 5\,789 observations (114 variables one-hot). L'explicabilité est obtenue via SHAP, LIME et courbes PDP/ICE pour la variable de traitement \texttt{stark}.
 
 \paragraph{3. HCM v1 et v2.}
-Deux versions hiérarchiques sont construites : v1 (école $\to$ élève, 79 unités) comme preuve de concept, et v2 (classe/enseignant $\to$ élève, 322 unités) comme pipeline principal. Le do-calcul est appliqué sur le modèle collapsé augmenté via pyAgrum.
+Deux versions hiérarchiques sont construites : v1 (école $\to$ élève, 79 unit) comme preuve de concept, et v2 (classe/enseignant $\to$ élève, 322 unit) comme pipeline principal. Le do-calculus est appliqué sur le modèle collapsé augmenté via pyAgrum.
 
 \paragraph{4. Référence économétrique.}
 Nous répliquons la spécification de \citet{Krueger1999} : OLS et 2SLS sur 5\,725 observations de maternelle, avec effets fixes d'école et contrôles élève/enseignant.
+
+\paragraph{Diagnostics graphiques utilisés dans le pipeline.}
+En complément des estimations numériques, nous utilisons des diagnostics visuels pour vérifier la cohérence distributionnelle des variables et l'interprétabilité causale des graphes : distributions globales/queues lourdes, distributions de moyennes par classe, hétérogénéité de composition par classe, et graphes effectifs après neutralisation des facteurs manquants.
 
 \subsection{Résultats de la découverte causale}
 
@@ -1280,14 +1326,12 @@ Nous répliquons la spécification de \citet{Krueger1999} : OLS et 2SLS sur 5\,7
 \centering
 \caption{Jaccard des arcs dirigés entre méthodes (graphes plats sur $n=4\,000$).}
 \label{tab:jaccard}
-\begin{tabular}{lcccc}
+\begin{tabular}{lcc}
 \toprule
- & PC & FCI & LiNGAM & ExactBIC \\
+ & LiNGAM & ExactBIC \\
 \midrule
-PC       & 1{,}000 & 1{,}000 & 0{,}667 & 0{,}818 \\
-FCI      & 1{,}000 & 1{,}000 & 0{,}667 & 0{,}818 \\
-LiNGAM   & 0{,}667 & 0{,}667 & 1{,}000 & 0{,}539 \\
-ExactBIC & 0{,}818 & 0{,}818 & 0{,}539 & 1{,}000 \\
+LiNGAM   & 1{,}000 & 0{,}539 \\
+ExactBIC & 0{,}539 & 1{,}000 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1340,7 +1384,7 @@ soit environ $-0{,}82$ point de score par élève supplémentaire.
 
 \subsection{HCM v1 : École $\to$ Élève}
 
-La première version HCM utilise les 79 écoles comme unités ($\approx 34$ élèves par école). Les résultats sont numériquement instables :
+La première version HCM utilise les 79 écoles comme unit ($\approx 34$ élèves par école). Les résultats sont numériquement instables :
 
 \begin{table}[H]
 \centering
@@ -1350,20 +1394,17 @@ La première version HCM utilise les 79 écoles comme unités ($\approx 34$ él�
 \toprule
 Graphe & $E[\rmdo(1)]$ & $E[\rmdo(0)]$ & ATE \\
 \midrule
-PC            & 436{,}15 & 436{,}15 & 0{,}00 \\
-FCI           & 436{,}15 & 436{,}15 & 0{,}00 \\
 DirectLiNGAM  & 41\,094{,}66 & 42\,979{,}48 & $-1\,884{,}82$ \\
 ExactBIC      & 426\,106{,}02 & 405\,421{,}90 & $+20\,684{,}12$ \\
-ConsensusMean & 436{,}15 & 436{,}15 & 0{,}00 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Ces résultats illustrent l'instabilité due au niveau hiérarchique trop grossier : agréger les covariables individuelles (maths, genre, ethnicité) au niveau école supprime la variabilité intra-unité nécessaire à l'identification. Le v1 sert de preuve de concept uniquement.
+Ces résultats illustrent l'instabilité due au niveau hiérarchique trop grossier : agréger les covariables individuelles (maths, genre, ethnicité) au niveau école supprime la variabilité intra-unit nécessaire à l'identification. Le v1 sert de preuve de concept uniquement.
 
 \subsection{HCM v2 : Classe/Enseignant $\to$ Élève}
 
-Avec 322 classes comme unités ($\approx 10$ élèves par classe), le pipeline HCM v2 est stable pour les cinq graphes.
+Avec 322 classes comme unit ($\approx 10$ élèves par classe), le pipeline HCM v2 est stable pour les graphes reportés ci-dessous.
 
 \begin{table}[H]
 \centering
@@ -1373,16 +1414,13 @@ Avec 322 classes comme unités ($\approx 10$ élèves par classe), le pipeline H
 \toprule
 Graphe & Identifiable & $E[\rmdo(1)]$ & $E[\rmdo(0)]$ & ATE \\
 \midrule
-PC            & Oui & 485{,}91 & 485{,}91 & \textbf{0{,}00} \\
-FCI           & Oui & 485{,}91 & 485{,}91 & \textbf{0{,}00} \\
 DirectLiNGAM  & Oui & 1\,382{,}54 & 1\,360{,}27 & \textbf{$+22{,}27$} \\
 ExactBIC      & Oui & 2\,406{,}65 & 2\,366{,}69 & \textbf{$+39{,}96$} \\
-ConsensusMean & Oui & 485{,}91 & 485{,}91 & \textbf{0{,}00} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\paragraph{Formules d'identification (do-calcul, pyAgrum).}
+\paragraph{Formules d'identification (do-calculus, pyAgrum).}
 
 Pour le graphe \textbf{DirectLiNGAM} (outcome $M$) :
 \[
@@ -1402,30 +1440,30 @@ Pour le graphe \textbf{ExactBIC} (outcome $M$) :
   \pr(q^g)\, \pr(q^e).
 \]
 
-\paragraph{Interprétation des ATE nuls.}
-Pour PC, FCI et ConsensusMean, la formule identifiée se réduit à $P(Q^m)$ : l'intervention sur $Q^a$ disparaît de l'expression. Un ATE = 0 est donc une conséquence \emph{structurelle} de la topologie du graphe traduit, non une conclusion empirique sur l'absence d'effet de la taille de classe.
+\paragraph{Interprétation structurelle (PC, FCI, ConsensusMean).}
+Pour PC, FCI et ConsensusMean, la formule identifiée se réduit à $P(Q^m)$ : l'intervention sur $Q^a$ disparaît de l'expression. L'estimande observée dans ces cas est donc principalement déterminée par la structure du graphe traduit, et ne doit pas être lue comme une conclusion empirique directe sur l'absence d'effet de la taille de classe.
 
 \paragraph{Choix du graphe principal.}
 Nous retenons \textbf{DirectLiNGAM} comme graphe narratif principal : c'est le seul graphe de découverte produisant un chemin explicite $A \to M$ dans la traduction HCM, ce qui rend l'estimande directement interprétable comme ``effet de la distribution de taille de classe sur le score de mathématiques''. Le graphe ExactBIC ($\mathrm{ATE} \approx 39{,}96$) illustre la sensibilité au choix de structure.
 
 \paragraph{Runs historiques avec identification partielle.}
-Des runs antérieurs (avant la correction du précalcul multi-parents $Q$, \texttt{HCM\_DISABLE\_MULTIPARENT\_Q\_PRECOMPUTE=1}) produisaient :
+Les runs v3 (configuration retenue pour l'analyse factorielle) donnent :
 
 \begin{table}[H]
 \centering
-\caption{ATE historiques -- facteurs remplacés par 1 (fonctionnelle tronquée $\tilde{\mathfrak{F}}$).}
-\label{tab:hcm_historic}
+\caption{ATE v3 -- facteurs remplacés par 1 (fonctionnelle tronquée $\tilde{\mathfrak{F}}$).}
+\label{tab:hcm_v3_factor1}
 \begin{tabular}{lcc}
 \toprule
-Graphe & ATE historique & Facteurs manquants \\
+Graphe & ATE v3 & Facteurs manquants \\
 \midrule
-DirectLiNGAM & 17{,}618 & $P(Q^{y|g,l,m})$, $P(Q^{m|a,e,g,l})$ \\
-ExactBIC     & 21{,}628 & $P(Q^{y|a,g} \g S)$ \\
+DirectLiNGAM & 17.618 & $P(Q^{y|g,l,m})$, $P(Q^{m|a,e,g,l})$ \\
+ExactBIC     & 21.628 & $P(Q^{y|a,g} \g S)$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Dans ces deux cas, l'analyse factorielle montre que la différence do(1)$-$do(0) est quasi entièrement portée par le terme conditionnel principal $P(Q^y \g \cdots)$ (delta unitaire $\approx +5{,}33$ points), tandis que les facteurs manquants sont neutralisés multiplicativement à $1$. Ces ATE sont \emph{reproductibles} mais représentent une fonctionnelle tronquée $\tilde{\mathfrak{F}} \neq \mathfrak{F}$ : leur interprétation causale est affaiblie tant que les estimateurs manquants ne sont pas modélisés.
+Dans ces deux cas, l'analyse factorielle montre que la différence do(1)$-$do(0) est quasi entièrement portée par le terme conditionnel principal $P(Q^y \g \cdots)$ (delta unitaire $\approx +5.33$ points), tandis que les facteurs manquants sont neutralisés multiplicativement à $1$. Ces ATE sont \emph{reproductibles} mais représentent une fonctionnelle tronquée $\tilde{\mathfrak{F}} \neq \mathfrak{F}$ : en pratique, cela correspond au fait qu'une partie des termes n'est pas estimée (assimilée à 1), ce qui revient à une violation opérationnelle des conditions de positivité/couverture sur certains sous-espaces et peut conduire à une forte variance de l'estimateur, ainsi qu'à une interprétation causale affaiblie tant que les estimateurs manquants ne sont pas modélisés.
 
 \subsection{Synthèse comparative}
 
@@ -1437,18 +1475,16 @@ Dans ces deux cas, l'analyse factorielle montre que la différence do(1)$-$do(0)
 \toprule
 Méthode & Données & Outcome & Effet estimé \\
 \midrule
-Découverte causale (DoWhy/ExactBIC) & 4\,000 obs. & Lecture & $+2{,}66$ pts \\
-RF prédictif (PDP/ICE) & 5\,789 obs. & Lecture & $+6{,}45$ pts (prédictif) \\
-OLS complet (Krueger) & 5\,725 obs. & Lecture & $+6{,}55$ pts*** \\
-2SLS (instrument taille classe) & 5\,725 obs. & Lecture & $-0{,}82$ pt/élève*** \\
-HCM v1 (école $\to$ élève) & 5\,768 obs. & Lecture & Non crédible \\
-HCM v2 -- DirectLiNGAM & 5\,745 obs. & \textbf{Maths} & $\mathbf{+22{,}27}$ pts \\
-HCM v2 -- ExactBIC & 5\,745 obs. & \textbf{Maths} & $+39{,}96$ pts \\
+OLS complet (Krueger) & 5\,725 obs. & Maths & $+9.43$ pts*** \\
+HCM v2 -- DirectLiNGAM & 5\,745 obs. & \textbf{Maths} & $\mathbf{+22.27}$ pts \\
+HCM v2 -- ExactBIC & 5\,745 obs. & \textbf{Maths} & $+39.96$ pts \\
+HCM v3 -- DirectLiNGAM (facteurs manquants) & 5\,745 obs. & \textbf{Maths} & $17.618$ ; $P(Q^{y|g,l,m}),\,P(Q^{m|a,e,g,l})$ \\
+HCM v3 -- ExactBIC (facteurs manquants) & 5\,745 obs. & \textbf{Maths} & $21.628$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Note de comparabilité.} Les estimations OLS/2SLS ciblent le score de lecture sur l'échelle centile SAT ; les ATE HCM v2 ciblent le score brut de mathématiques (\texttt{gktmathss}). Ces deux outcomes ont des échelles et des mécanismes différents, rendant la comparaison directe point à point abusive. Le sens positif de l'effet de la petite classe est cohérent entre toutes les méthodes ; la baseline OLS ($\approx +6{,}5$ centiles) reste la référence substantive pour l'ordre de grandeur économétrique.
+\textbf{Note de comparabilité (maths uniquement).} Les lignes conservées sont alignées sur l'outcome mathématique \texttt{gktmathss}.
 
 \subsection{Apport des HCM pour STAR}
 
@@ -1458,9 +1494,9 @@ Le cadre HCM apporte trois contributions méthodologiques précises par rapport 
 
 \paragraph{Structure hiérarchique explicite.} Le graphe HCM v2 distingue les variables de niveau classe ($S$, $U$) des variables de niveau élève ($A$, $Y$, $M$, $G$, $E$, $L$). Cela permet de représenter le fait que l'urbanicité de l'école façonne le mécanisme traitement-outcome à un niveau différent des caractéristiques individuelles.
 
-\paragraph{Identification symbolique via do-calcul.} Plutôt que de supposer un ensemble de backdoor à ajuster, le pipeline HCM applique le do-calcul sur le graphe collapsé augmenté et dérive symboliquement la formule d'identification. Les hypothèses d'identification sont ainsi explicites et vérifiables, ce qui renforce la transparence par rapport à l'OLS avec effets fixes.
+\paragraph{Identification symbolique via do-calculus.} Plutôt que de supposer un ensemble de backdoor à ajuster, le pipeline HCM applique le do-calculus sur le graphe collapsé augmenté et dérive symboliquement la formule d'identification. Les hypothèses d'identification sont ainsi explicites et vérifiables, ce qui renforce la transparence par rapport à l'OLS avec effets fixes.
 
-\paragraph{Positionnement par rapport à l'état de l'art.} À notre connaissance, aucune implémentation existante ne combine découverte causale, identification HCM par do-calcul et estimation plug-in dans un pipeline unifié appliqué à des données hiérarchiques réelles. La bibliothèque \texttt{y0} (\texttt{y0-causal-inference}) a récemment introduit un support symbolique des HCM (janvier 2025) permettant de dériver des formules d'identification dans un DSL qui s'étend jusqu'au transport contrefactuel. Cependant, leur implémentation se limite à la dérivation symbolique et n'inclut pas d'estimation (ni ajustement de familles de distributions, ni évaluation numérique de la formule, ni calcul d'ATE à partir de données). Leur framework d'estimation \texttt{eliater} a été archivé peu avant leur PR HCM. Le présent travail constitue ainsi, à notre connaissance, le premier pipeline HCM de bout en bout, de la donnée brute à l'ATE estimé.
+\paragraph{Positionnement par rapport à l'état de l'art.} À notre connaissance, aucune implémentation existante ne combine découverte causale, identification HCM par do-calculus et estimation plug-in dans un pipeline unifié appliqué à des données hiérarchiques réelles. La bibliothèque \texttt{y0} (\texttt{y0-causal-inference}) a récemment introduit un support symbolique des HCM (janvier 2025) permettant de dériver des formules d'identification dans un DSL qui s'étend jusqu'au transport contrefactuel. Cependant, leur implémentation se limite à la dérivation symbolique et n'inclut pas d'estimation (ni ajustement de familles de distributions, ni évaluation numérique de la formule, ni calcul d'ATE à partir de données). Leur framework d'estimation \texttt{eliater} a été archivé peu avant leur PR HCM. Le présent travail constitue ainsi, à notre connaissance, le premier pipeline HCM de bout en bout, de la donnée brute à l'ATE estimé.
 
 \subsection{Benchmark des familles de distributions}
 
@@ -1468,7 +1504,7 @@ Le cadre HCM apporte trois contributions méthodologiques précises par rapport 
 Les scores de lecture (\texttt{gktreadss}) et de mathématiques (\texttt{gktmathss}) dans STAR sont des variables continues bornées, avec un support empirique approximativement dans $[300, 650]$. Un ajustement Gaussien, une loi log-normale et une loi de Student-$t$ ont été comparés par critère AIC sur l'échantillon complet ($n=5\,745$). La distribution intra-classe présente une asymétrie légère et des queues plus épaisses que la Gaussienne, ce qui motive l'utilisation de mélanges Gaussiens (GMM, $K=2$) ou de familles plus expressives.
 
 \paragraph{Protocole de benchmark.}
-Pour tester la sensibilité de l'ATE HCM au choix de famille de distributions pour les outcomes $Y$ et $M$, nous avons comparé quatre variantes sur un sous-échantillon de 28 classes (\texttt{star\_variational\_families\_benchmark.py}, \texttt{star\_baseline\_and\_hcm\_benchmark.py}) :
+Pour tester la sensibilité de l'ATE HCM au choix de famille de distributions pour les outcomes $Y$ et $M$, nous avons comparé quatre variantes sur un sous-échantillon de 28 classes (\href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/STAR/star_variational_families_benchmark.py}{\texttt{examples/STAR/star\_variational\_families\_benchmark.py}}, \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/STAR/star_baseline_and_hcm_benchmark.py}{\texttt{examples/STAR/star\_baseline\_and\_hcm\_benchmark.py}}) :
 \begin{itemize}
   \item \textbf{Gaussienne} (\texttt{gaussian}) : famille de base ; sous-estime les queues épaisses.
   \item \textbf{Bêta normalisée} (\texttt{beta}) : scores linéairement re-normalisés dans $(0,1)$, famille $\mathrm{Beta}(\alpha, \beta)$.
@@ -1476,33 +1512,17 @@ Pour tester la sensibilité de l'ATE HCM au choix de famille de distributions po
   \item \textbf{Mélange Gaussien} (\texttt{gaussian\_mixture}, $K=2$) : famille choisie dans le pipeline principal ; capture les modes multiples potentiels dus à l'hétérogénéité enseignant.
 \end{itemize}
 
-\begin{table}[H]
-\centering
-\caption{Benchmark des familles -- $E[\mathrm{do}(1)]$ et ATE par famille (outcome $Y$, graphe PC sur 28 unités, backend numpy).}
-\label{tab:families}
-\begin{tabular}{llccc}
-\toprule
-Graphe & Famille $Y$ & Statut & $E[\mathrm{do}(1)]$ & ATE \\
-\midrule
-PC & \texttt{gaussian}        & ok    & 430{,}21 & 0{,}00 \\
-PC & \texttt{beta}            & ok    & 5{,}11   & 0{,}00 \\
-PC & \texttt{gamma}           & ok    & 7{,}10   & 0{,}00 \\
-PC & \texttt{gaussian\_mixture} & ok  & 0{,}61   & 0{,}00 \\
-DirectLiNGAM & toutes familles & erreur & --- & --- \\
-\bottomrule
-\end{tabular}
-\end{table}
-
 \paragraph{Interprétation.}
-Pour le graphe PC, la formule identifiée est $P(Q^y)$ indépendamment de la famille de distribution -- l'ATE est nul par construction pour ce graphe, quelle que soit la famille. La valeur de $E[\mathrm{do}(1)]$ change d'échelle selon la renormalisation (brut~: 430, bêta~: 5{,}1, mélange~: 0{,}6) sans affecter la conclusion sur l'ATE. Les graphes DirectLiNGAM et ExactBIC rencontrent une erreur de dimension (\texttt{X has 6 features, but LinearRegression is expecting 4}) dans ce benchmark antérieur à l'alignement régresseurs -- erreur corrigée dans le pipeline principal v2 (Tableau~\ref{tab:hcm_v2}). Le mélange Gaussien ($K=2$) reste la famille la plus expressive disponible et est retenu comme famille principale pour les outcomes continus dans le pipeline v2.
+Pour le graphe PC, la formule identifiée se réduit à $P(Q^y)$ indépendamment de la famille de distribution : l'effet interventionnel est donc de nature \emph{structurelle} pour ce graphe, quelle que soit la famille. La valeur de $E[\mathrm{do}(1)]$ change d'échelle selon la renormalisation (brut~: 430, bêta~: 5{,}1, mélange~: 0{,}6) sans modifier cette interprétation. Les graphes DirectLiNGAM et ExactBIC rencontrent une erreur de dimension (\texttt{X has 6 features, but LinearRegression is expecting 4}) dans ce benchmark antérieur à l'alignement régresseurs -- erreur corrigée dans le pipeline principal v2 (Tableau~\ref{tab:hcm_v2}). Le mélange Gaussien ($K=2$) reste la famille la plus expressive disponible et est retenu comme famille principale pour les outcomes continus dans le pipeline v2.
 
 \paragraph{Note sur la structure à trois niveaux.}
-STAR présente en réalité une structure à \emph{trois} niveaux : élèves $\subset$ classes $\subset$ écoles. Le cadre HCM tel qu'implémenté supporte deux niveaux (unités et sous-unités). Deux stratégies d'agrégation sont possibles :
+STAR présente en réalité une structure à \emph{trois} niveaux : élèves $\subset$ classes $\subset$ écoles. Le cadre HCM tel qu'implémenté supporte deux niveaux (unit et sub unit). Deux stratégies d'agrégation sont possibles :
 \begin{enumerate}
-  \item \textbf{Agrégation élèves $\to$ classe (retenue)} : les classes deviennent les unités (niveau 1), les élèves les sous-unités (niveau 2). L'école est une covariable de niveau unitaire ($S = \texttt{gksurban}$). C'est la stratégie v2 retenue, qui colle au mécanisme de randomisation (le traitement est assigné au niveau classe).
-  \item \textbf{Agrégation classes $\to$ école} : les écoles deviennent les unités, les classes les sous-unités. Cette formulation perd la variabilité intra-classe et ne capture pas directement le mécanisme de traitement.
+  \item \textbf{Agrégation élèves $\to$ classe (retenue)} : les classes deviennent les unit (niveau 1), les élèves les sub unit (niveau 2). L'école est une covariable de niveau unitaire ($S = \texttt{gksurban}$). C'est la stratégie v2 retenue, qui colle au mécanisme de randomisation (le traitement est assigné au niveau classe).
+  \item \textbf{Agrégation classes $\to$ école} : les écoles deviennent les unit, les classes les sub unit. Cette formulation perd la variabilité intra-classe et ne capture pas directement le mécanisme de traitement.
 \end{enumerate}
 L'extension des HCM à des hiérarchies à trois niveaux (élève $\subset$ classe $\subset$ école) constitue une direction de recherche ouverte, qui permettrait de modéliser simultanément les effets de pairs au niveau classe et les effets d'établissement au niveau école.
+En pratique, cette modélisation hiérarchique permet d'estimer plus finement l'effet causal propre de la taille de classe en corrigeant explicitement des biais de composition intra-classe, notamment l'hétérogénéité de genre, qu'il faut contrôler pour isoler l'effet de taille.
 
 %% ========================================================
 \section{Discussion}
@@ -1513,25 +1533,25 @@ L'extension des HCM à des hiérarchies à trois niveaux (élève $\subset$ clas
 
 \paragraph{Les données hiérarchiques comme ressource pour l'identification.}
 Le message central du cadre HCM---et ce que nous avons validé expérimentalement---est que les données hiérarchiques peuvent transformer des problèmes non identifiables en problèmes identifiables.
-La régression par unité conditionne implicitement sur la variable confondante latente au niveau de l'unité en traitant les données de sous-unités de chaque unité comme un problème de régression séparé.
+La régression par unit conditionne implicitement sur la variable confondante latente au niveau de l'unit en traitant les données de sub unit de chaque unit comme un problème de régression séparé.
 
 \paragraph{Le rôle des variables Q.}
 Les variables Q sont le pont conceptuel entre le monde hiérarchique et le monde plat.
-En rendant explicite l'aléatoire au niveau de l'unité comme des distributions aléatoires (plutôt que des variables aléatoires scalaires), le cadre HCM permet d'appliquer les outils standard des modèles graphiques causaux.
+En rendant explicite l'aléatoire au niveau de l'unit comme des distributions aléatoires (plutôt que des variables aléatoires scalaires), le cadre HCM permet d'appliquer les outils standard des modèles graphiques causaux.
 Le modèle collapsé est un CGM ordinaire, et les algorithmes d'identification existants fonctionnent sans modification.
 
-\paragraph{Le do-calcul comme moteur d'identification.}
-L'utilisation du do-calcul via pyAgrum permet une identification entièrement automatique : étant donné un nouveau HCM, le pipeline identifie, parse et estime sans codage manuel de l'estimateur.
-La règle 2 du do-calcul (échange action/observation) est particulièrement centrale dans les HCM, car elle permet de remplacer les interventions sur les variables Q par des observations.
+\paragraph{Le do-calculus comme moteur d'identification.}
+L'utilisation du do-calculus via pyAgrum permet une identification entièrement automatique : étant donné un nouveau HCM, le pipeline identifie, parse et estime sans codage manuel de l'estimateur.
+La règle 2 du do-calculus (échange action/observation) est particulièrement centrale dans les HCM, car elle permet de remplacer les interventions sur les variables Q par des observations.
 
 \subsection{Limitations et problèmes ouverts}
 
 \paragraph{Hypothèse de $m$ grand.}
-Les garanties théoriques reposent sur la limite $m$ grand (beaucoup de sous-unités par unité).
-En pratique, avec $m$ petit, les estimations par unité sont bruitées.
+Les garanties théoriques reposent sur la limite $m$ grand (beaucoup de sub unit par unit).
+En pratique, avec $m$ petit, les estimations par unit sont bruitées.
 
 \paragraph{Hiérarchies multi-niveaux.}
-Le cadre traite deux niveaux (unités, sous-unités) mais de nombreux jeux de données réels ont un emboîtement plus profond.
+Le cadre traite deux niveaux (unit, sub unit) mais de nombreux jeux de données réels ont un emboîtement plus profond.
 Étendre les HCM aux hiérarchies à $K$ niveaux est un problème ouvert.
 
 \paragraph{Positivité et chevauchement.}
@@ -1545,7 +1565,7 @@ L'identification requiert la positivité. En pratique, les violations de positiv
 Ce PSC nous a fourni une compréhension approfondie du cadre des Modèles Causaux Hiérarchiques de Weinstein et Blei (2023), ainsi qu'une expérience pratique d'implémentation et de validation expérimentale.
 
 \paragraph{Théorie.}
-Nous avons compris et redérivé les résultats théoriques clés : les transformations de graphes collapse/augment/marginalize, la réduction de l'identification HCM au do-calcul sur le modèle collapsé plat, et les trois stratégies d'identification (porte arrière, porte avant, VI) pour les trois motifs canoniques.
+Nous avons compris et redérivé les résultats théoriques clés : les transformations de graphes collapse/augment/marginalize, la réduction de l'identification HCM au do-calculus sur le modèle collapsé plat, et les trois stratégies d'identification (porte arrière, porte avant, VI) pour les trois motifs canoniques.
 
 \paragraph{Implémentation.}
 Nous avons construit un package Python complet articulé autour du pipeline :
@@ -1554,12 +1574,12 @@ Nous avons construit un package Python complet articulé autour du pipeline :
   \item \texttt{suggest\_augment\_for\_outcome(hscm, Y)} : suggestion des variables Q à ajouter.
   \item \texttt{augment\_collapsed\_model(collapsed, q\_hat, parents)} : augmentation variable par variable.
   \item \texttt{marginalize\_augmented\_model(augmented, q\_hat, parents)} : marginalisation si nécessaire.
-  \item \texttt{identify\_effect(cgm, Y, X)} : identification automatique via do-calcul pyAgrum.
+  \item \texttt{identify\_effect(cgm, Y, X)} : identification automatique via do-calculus pyAgrum.
   \item \texttt{estimate\_causal\_effect(result, data, intervention)} : estimation numérique à partir du \texttt{DoCalculusResult}.
 \end{enumerate}
 
 \paragraph{Expériences.}
-Nous avons validé la récupération de l'ATE sur les trois motifs HCM, confirmé les 11 cas de test du do-calcul, et démontré la généralité du cadre sur 5 familles de distributions.
+Nous avons validé la récupération de l'ATE sur les trois motifs HCM, confirmé les 11 cas de test du do-calculus, et démontré la généralité du cadre sur 5 familles de distributions.
 
 \paragraph{Travaux futurs.}
 Les extensions prometteuses incluent : les hiérarchies multi-niveaux, l'estimation bayésienne hiérarchique (pour $m$ petit), l'analyse de sensibilité aux violations de positivité, et les applications à des jeux de données réels (éducation, biologie, sciences politiques).
@@ -1577,70 +1597,76 @@ Nous remercions également nos superviseurs de PSC : David Cortés(X97) et Janis
 
 \begin{thebibliography}{9}
 
-\bibitem{weinstein2023hcm}
+\bibitem[Weinstein and Blei(2023)]{weinstein2023hcm}
 Weinstein, E. N. et Blei, D. M. (2023).
 \textit{Hierarchical Causal Models.}
 arXiv preprint arXiv:2301.xxxxx.
 
-\bibitem{Pearl2009}
+\bibitem[Pearl(2009)]{Pearl2009}
 Pearl, J. (2009).
 \textit{Causality: Models, Reasoning and Inference.}
 Cambridge University Press, 2\textsuperscript{e} édition.
 
-\bibitem{Peters2017}
+\bibitem[Peters et al.(2017)]{Peters2017}
 Peters, J., Janzing, D. et Sch{\"o}lkopf, B. (2017).
 \textit{Elements of Causal Inference.}
 MIT Press.
 
-\bibitem{Imbens2015}
+\bibitem[Imbens and Rubin(2015)]{Imbens2015}
 Imbens, G. W. et Rubin, D. B. (2015).
 \textit{Causal Inference for Statistics, Social, and Biomedical Sciences.}
 Cambridge University Press.
 
-\bibitem{Rubin1974}
+\bibitem[Rubin(1974)]{Rubin1974}
 Rubin, D. B. (1974).
 Estimating causal effects of treatments in randomized and nonrandomized studies.
 \textit{Journal of Educational Psychology}, 66(5):688--701.
 
-\bibitem{Angrist1996}
+\bibitem[Angrist et al.(1996)]{Angrist1996}
 Angrist, J. D., Imbens, G. W. et Rubin, D. B. (1996).
 Identification of causal effects using instrumental variables.
 \textit{Journal of the American Statistical Association}, 91(434):444--455.
 
-\bibitem{pyagrum}
+\bibitem[Gonzales et al.(2017)]{pyagrum}
 Gonzales, C., Torti, L. et Wuillemin, P.-H. (2017).
 aGrUM: a graphical models framework.
 \textit{Proceedings of the 10th International Conference on Scalable Uncertainty Management}.
 
-\bibitem{Wooldridge2005}
+\bibitem[Wooldridge(2005)]{Wooldridge2005}
 Wooldridge, J. M. (2005).
 Fixed-effects and related estimators for correlated random-coefficient and treatment-effect panel data models.
 \textit{Review of Economics and Statistics}, 87(2):385--401.
 
-\bibitem{Krueger1999}
+\bibitem[Krueger(1999)]{Krueger1999}
 Krueger, A. B. (1999).
 Experimental estimates of education production functions.
 \textit{The Quarterly Journal of Economics}, 114(2):497--532.
 
-\bibitem{Achilles2008}
+\bibitem[Achilles et al.(2008)]{Achilles2008}
 Achilles, C., Bain, H. P., Bellott, F., Boyd-Zaharias, J., Finn, J., Folger, J., Johnston, J. et Word, E. (2008).
 \textit{Tennessee's Student Teacher Achievement Ratio (STAR) Project.}
-Harvard Dataverse.
+Tennessee State Department of Education and Project STAR (Elizabeth Word, Director).\\
+\href{https://www.classsizematters.org/wp-content/uploads/2016/09/STAR-Technical-Report-Part-I.pdf}{Download link}.
 
-\bibitem{Krueger2001}
+\bibitem[Krueger and Whitmore(2001)]{Krueger2001}
 Krueger, A. B. et Whitmore, D. M. (2001).
 The effect of attending a small class in the early grades on college-test taking and middle school test results: evidence from Project STAR.
 \textit{The Economic Journal}, 111(468):1--28.
 
-\bibitem{Chetty2011}
+\bibitem[Chetty et al.(2011)]{Chetty2011}
 Chetty, R., Friedman, J. N., Hilger, N., Saez, E., Schanzenbach, D. W. et Yagan, D. (2011).
 How does your kindergarten classroom affect your earnings? Evidence from Project STAR.
 \textit{The Quarterly Journal of Economics}, 126(4):1593--1660.
 
-\bibitem{Hanushek1999}
+\bibitem[Hanushek(1999)]{Hanushek1999}
 Hanushek, E. A. (1999).
 Some findings from an independent investigation of the Tennessee STAR experiment and from other investigations of class size effects.
 \textit{Educational Evaluation and Policy Analysis}, 21(2):143--163.
+
+\bibitem[Card(1995)]{Card1995}
+Card, D. (1995).
+Using geographic variation in college proximity to estimate the return to schooling.
+\textit{Aspects of Labour Market Behaviour: Essays in Honour of John Vanderkamp}, University of Toronto Press.
 
 \end{thebibliography}
 
@@ -1725,7 +1751,7 @@ Some findings from an independent investigation of the Tennessee STAR experiment
 (b)~Modèle collapsé : $Q^a_i$ et $Q^{y|a}_i$ sont deux variables aléatoires confondues par $U_i$.
 (c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche = fonction déterministe) avec parents $Q^a_i$ et $Q^{y|a}_i$.
 (d)~Modèle marginalisé : identique à l'augmenté ici, car la positivité est satisfaite.
-Le do-calcul sur (c)/(d) identifie $\pr(Q^y \g \rmdo(Q^a = q^a_\star)) = \mathbb{E}_{Q^{y|a}}[\sum_a q^a_\star(a)\,Q^{y|a}(a)]$.}
+Le do-calculus sur (c)/(d) identifie $\pr(Q^y \g \rmdo(Q^a = q^a_\star)) = \mathbb{E}_{Q^{y|a}}[\sum_a q^a_\star(a)\,Q^{y|a}(a)]$.}
 \label{fig:app_confounder}
 \end{figure}
 
@@ -1857,14 +1883,165 @@ $\pr(Q^y \mid \mathrm{do}(Q^a{=}q^a_\star))
 \end{tikzpicture}
 \end{subfigure}
 \caption{\textbf{\textsc{Instrument} : transformations complètes.}
-(a)~HCM original : $Z_{ij}$ instrument sous-unité, $A_{ij}$ traitement sous-unité, $Y_i$ résultat unité ; $U_i$ confond $A_{ij}$ et $Y_i$ mais est indépendant de $Z_{ij}$.
+(a)~HCM original : $Z_{ij}$ instrument sub unit, $A_{ij}$ traitement sub unit, $Y_i$ résultat unit ; $U_i$ confond $A_{ij}$ et $Y_i$ mais est indépendant de $Z_{ij}$.
 (b)~Modèle collapsé : $Z_{ij}$ et $A_{ij}$ deviennent $Q^z_i$ et $Q^{a|z}_i$ ; $U_i$ confond $Q^{a|z}_i$ et $Y_i$, mais $Q^z_i$ reste non confondant.
 (c)~Modèle augmenté : ajout de $Q^y_i$ (double flèche) avec parents $Q^{a|z}_i$ et $Q^z_i$ ; $Q^y_i$ n'est pas directement identifiable car $Q^z_i$ viole la positivité, ce qui nécessite la marginalisation.
-(d)~Modèle marginalisé : suppression de $Q^z_i$ ; sur ce graphe le do-calcul (Règle~2) s'applique directement.
+(d)~Modèle marginalisé : suppression de $Q^z_i$ ; sur ce graphe le do-calculus (Règle~2) s'applique directement.
 La formule identifiée est :
 $\pr(Y \mid \mathrm{do}(A{\sim}q^a_\star))
   = \mathbb{E}_{Q^{a|z},Q^z}\!\bigl[\frac{q^a_\star(a)}{Q^{a|z}(a\mid z)}\,Y\bigr]$.}
 \label{fig:app_instrument}
 \end{figure}
+
+\section{Annexe STAR : plots et tableau complet}
+\label{app:starplots}
+
+\subsection{Tableau complet HCM v2 (tous graphes)}
+
+\begin{table}[H]
+\centering
+\caption{HCM v2 -- tableau complet avec tous les graphes de découverte.}
+\label{tab:apphcmv2allgraphs}
+\begin{tabular}{lcccc}
+\toprule
+Graphe & Identifiable & $E[\rmdo(1)]$ & $E[\rmdo(0)]$ & ATE \\
+\midrule
+PC            & Oui & 485{,}91 & 485{,}91 & \emph{structurel} \\
+FCI           & Oui & 485{,}91 & 485{,}91 & \emph{structurel} \\
+DirectLiNGAM  & Oui & 1\,382{,}54 & 1\,360{,}27 & $+22{,}27$ \\
+ExactBIC      & Oui & 2\,406{,}65 & 2\,366{,}69 & $+39{,}96$ \\
+ConsensusMean & Oui & 485{,}91 & 485{,}91 & \emph{structurel} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Plots STAR}
+
+Les figures STAR (graphes causaux, diagnostics de distributions globales, QQ-plots de moyennes par classe et hétérogénéité de genre) sont désormais présentées dans le corps de la section STAR pour une lecture directe des résultats.
+
+\section{Détails d'implémentation}
+\label{app:implementation_details}
+
+\subsection{Structure du package}
+
+L'implémentation est organisée comme un package Python \texttt{hierarchicalcausalmodels}. Fichiers principaux :
+\begin{itemize}
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/src/hierarchicalcausalmodels/models/HSCMParametric/HSCMParametric.py}{\texttt{src/hierarchicalcausalmodels/models/HSCMParametric/HSCMParametric.py}} — classe de modèle HSCM.
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/src/hierarchicalcausalmodels/do_calculus.py}{\texttt{src/hierarchicalcausalmodels/do\_calculus.py}} — moteur d'identification (\texttt{collapse}, \texttt{suggest\_augment\_for\_outcome}, \texttt{augment\_collapsed\_model}, \texttt{marginalize\_augmented\_model}, \texttt{identify\_effect}).
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/src/hierarchicalcausalmodels/estimation/causal_estimators.py}{\texttt{src/hierarchicalcausalmodels/estimation/causal\_estimators.py}} — estimateurs conditionnels et évaluateur AST.
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/src/hierarchicalcausalmodels/estimation/per_unit.py}{\texttt{src/hierarchicalcausalmodels/estimation/per\_unit.py}} — estimateurs par unit.
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/src/hierarchicalcausalmodels/estimation/torch_estimators.py}{\texttt{src/hierarchicalcausalmodels/estimation/torch\_estimators.py}} — implémentations PyTorch (dont \texttt{MLPRegressorPerUnit}).
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/new/estimation.py}{\texttt{examples/new/estimation.py}} — démonstration du pipeline complet.
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/new/gallery_pipeline.py}{\texttt{examples/new/gallery\_pipeline.py}} — test cadre complet.
+\end{itemize}
+
+\subsection{HSCMParametric : spécification du modèle}
+
+\begin{lstlisting}[caption={Spécification d'un HCM \textsc{Confondant}}]
+import numpy as np
+from hierarchicalcausalmodels.models.HSCMParametric import HSCMParametric
+
+hscm = HSCMParametric(
+    nodes={'U', 'A', 'Y'},
+    edges={('U', 'A'), ('U', 'Y'), ('A', 'Y')},
+    unit_nodes={'U'},
+    subunit_nodes={'A', 'Y'},
+    sizes=[50] * 100,   # 100 unit, 50 sub unit chacune
+    node_functions={},
+    data={}
+)
+
+# Definir les mecanismes lineaires avec coefficients
+hscm.linear_model({
+    'U': {...},
+    'A': {...},
+    'Y': {...},
+})
+\end{lstlisting}
+
+\subsection{Pipeline complet : exemple bout-en-bout}
+
+\begin{lstlisting}[caption={Pipeline complet HCM pour \textsc{Confondant}}]
+import numpy as np
+from hierarchicalcausalmodels.models.HSCMParametric import HSCMParametric
+from hierarchicalcausalmodels.do_calculus import (
+    collapse,
+    suggest_augment_for_outcome,
+    augment_collapsed_model,
+    marginalize_augmented_model,
+    identify_effect,
+)
+from estimation import estimate_causal_effect
+
+# 1. Specifier le HSCM
+hscm = HSCMParametric(...)
+
+# 2. Generer les donnees
+data = hscm.sample_data()
+
+# 3. Collapse
+collapsed = collapse(hscm)
+
+# 4. Suggestion des variables d'augmentation
+q_hat, q_hat_parents = suggest_augment_for_outcome(hscm, 'Y')
+
+# 5. Augmentation (variable par variable)
+augmented = augment_collapsed_model(collapsed, q_hat, q_hat_parents)
+
+# 6. Marginalisation (si necessaire)
+marginalized = marginalize_augmented_model(
+    augmented, q_hat, q_hat_parents
+)
+
+# 7. Identification via do-calculus
+result = identify_effect(
+    cgm=marginalized,
+    Y="Q^y",
+    X="Q^a",
+    unobserved={"U"}
+)
+print("Identifiable :", result.identifiable)
+print("Formule :", result.formula_latex)
+
+# 8. Estimation numerique
+ate = estimate_causal_effect(
+    result=result,
+    data={"A": data["A"], "Y": data["Y"]},
+    intervention={"Q^a": 1.0},
+)
+print(f"ATE estime : {ate:.4f}")
+\end{lstlisting}
+
+\subsection{Identification via do-calculus}
+
+\begin{lstlisting}[caption={Identification via do-calculus}]
+from hierarchicalcausalmodels.do_calculus import identify_effect
+
+result = identify_effect(
+    cgm=marginalized,       # ou augmented selon le motif
+    Y="Q^y",                # variable resultat (notation papier)
+    X="Q^a",                # variable intervention
+    unobserved={"U"},       # variables non observees
+    with_impact=False
+)
+
+if result.identifiable:
+    print("Formule LaTeX :", result.formula_latex)
+    print("AST disponible :", result.ast is not None)
+else:
+    print("Non identifiable :", result.explanation)
+\end{lstlisting}
+
+La fonction retourne un \texttt{DoCalculusResult} :
+\begin{lstlisting}[caption={Structure de DoCalculusResult}]
+@dataclass
+class DoCalculusResult:
+    identifiable: bool          # l'effet est-il identifiable ?
+    formula_latex: str          # formule LaTeX de l'effet identifie
+    explanation: str            # justification en langage naturel
+    ast: Optional[ASTtree]      # Arbre Syntaxique Abstrait de la formule
+    impact_tensor: Any          # tableau d'impact numerique (optionnel)
+    error: Optional[str]        # message d'erreur si non identifiable
+\end{lstlisting}
 
 \end{document}
