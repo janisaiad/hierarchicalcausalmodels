@@ -370,3 +370,60 @@ ex. $q^{a}_{(1)} \leftrightarrow \text{petite classe}$, $q^{a}_{(0)} \leftrighta
 
 - JSON : `examples/STAR/results/star_hcm_v2_teacher_student.json` (`formula_latex` par graphe).
 - Graphes discovery : `examples/STAR/results/causal_discovery_star.json` (`DirectLiNGAM.directed_edges`, `ExactBIC.directed_edges`).
+
+---
+
+## 9. Comparaison parallèle : valeurs ATE + benchmarks temporels
+
+Rerun dédié effectué pour comparer séquentiel vs parallèle sur les runs historiques
+ATE "10–40" (`DirectLiNGAM`, `ExactBIC`) avec la même configuration :
+
+- `HCM_DISABLE_MULTIPARENT_Q_PRECOMPUTE=1`
+- `n_mc_samples=60`
+- familles : `A=bernoulli`, `Y=gaussian`, `M=gaussian`, `G=bernoulli`, `E=bernoulli`, `L=bernoulli`, `S=categorical`
+
+Fichier de résultats :
+
+- `examples/STAR/results/ate_10_40_parallel_speed_test.json`
+
+### 9.1 Temps total (do1 + do0) et ATE
+
+#### DirectLiNGAM
+
+| Mode | Paramètres | Temps total (s) | `E_do_1` / `E_do_0` | ATE |
+|---|---|---:|---:|---:|
+| `seq` | `n_jobs=1`, `threads` | `9.307` | (identiques au run historique) | `17.618368` |
+| `threads4` | `n_jobs=4`, `threads` | `10.731` | proche | `17.583207` |
+| `proc4` | `n_jobs=4`, `processes` | `8.501` | proche | `17.583207` |
+
+#### ExactBIC
+
+| Mode | Paramètres | Temps total (s) | `E_do_1` / `E_do_0` | ATE |
+|---|---|---:|---:|---:|
+| `seq` | `n_jobs=1`, `threads` | `3.109` | (identiques au run historique) | `21.628106` |
+| `threads4` | `n_jobs=4`, `threads` | `3.630` | proche | `21.600522` |
+| `proc4` | `n_jobs=4`, `processes` | `1.897` | proche | `21.600522` |
+
+### 9.2 Lecture
+
+- Sur ces deux graphes, `threads4` n'améliore pas le temps (légèrement plus lent).
+- `proc4` est le meilleur mode de parallélisation (gain net, surtout sur ExactBIC).
+- Les ATE restent du même ordre de grandeur ; les petits écarts (quelques centièmes)
+  sont cohérents avec des différences de parcours numérique / Monte Carlo en mode parallèle.
+
+### 9.3 Rappel benchmark parallèle global (économétrique STAR-like)
+
+Source : `examples/STAR/results/parallel_benchmark_results.json`.
+
+Sur `5725` lignes, `24` specs OLS, `10` specs IV :
+
+| Mode | OLS (s) | IV / 2SLS (s) |
+|---|---:|---:|
+| séquentiel | `12.3242` | `21.4296` |
+| `threads4` | `6.7054` | `14.8683` |
+| `proc4` | `0.4604` | `2.0457` |
+
+Coefficients inchangés (stabilité numérique) :
+
+- OLS (`small`, premier spec) : `6.508425...`
+- IV (`class_size`, premier spec) : `-0.818225...`
