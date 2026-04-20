@@ -87,16 +87,40 @@
 \subtitle{Projet Scientifique Collectif (PSC)}
 \author{%
 \begin{tabular}{ll}
-\textbf{Étudiant 1} & Anass Ettahiri \\[4pt]
-\textbf{Étudiant 2} & Yasser Oufqir \\[4pt]
-\textbf{Étudiant 3} & Simon Patry \\[4pt]
-\textbf{Étudiant 4} & Aymen El Ouadrhiri \\[4pt]
-\textbf{Étudiant 5} & Aghiles Drali \\[4pt]
-\end{tabular}\\[1.5em]
+\textbf{Étudiant 1} & Anass Ettahiri \\[1pt]
+\textbf{Étudiant 2} & Yasser Oufqir \\[1pt]
+\textbf{Étudiant 3} & Simon Patry \\[1pt]
+\textbf{Étudiant 4} & Aymen El Ouadrhiri \\[1pt]
+\textbf{Étudiant 5} & Aghiles Drali \\[1pt]
+\end{tabular}\\[0.6em]
 \textit{Encadré par :} David Cortés et Janis Aiad%
 }
 \date{Année académique 2025--2026}
 \logo{logo}
+
+%% Réduire les espacements de la page de titre pour tout faire tenir sur une page
+\renewcommand{\titlepagelayout}{%
+    \noindent\makebox[\textwidth][c]{%
+      \raisebox{-\totalheight}[0pt][0pt]{%
+        \color{bleu303pale}%
+        \includegraphics[height=\hauteurlogopage]{\polyarmes}}}
+    \vspace*{0.08\textheight}
+    \begin{center}
+        \Huge\sffamily\bfseries\color{bleu303}
+        \MakeUppercaseWithNewline{\polytitresave}\\
+        \vspace*{0.10\textheight}
+        \LARGE\hspace{0cm}\polysoustitresave\\
+        \vspace*{0.07\textheight}
+        \Large\mdseries\hspace{0cm}\polydatesave\\
+        \includegraphics{\polyfiletcourtbleu}
+        \\[0.4\baselineskip]
+        \rmfamily\hspace{0cm}\polyauthorsave\\[\fill]
+        $\;$\titlepagebottomline{}
+        \vspace*{-0.5\margebas}
+    \end{center}
+    \thispagestyle{empty}
+    \clearpage
+}
 
 %% ===== Theorem environments =====
 \newtheorem{definition}{Définition}
@@ -679,8 +703,7 @@ La fonction \texttt{collapse} implémente l'Algorithme 1 de l'article : chaque v
 from hierarchicalcausalmodels.do_calculus import collapse
 
 collapsed = collapse(hscm)
-# collapsed est un CausalGraphicalModel plat
-# avec des noeuds Q^a, Q^{y|a}, U, etc.
+# collapsed est un CausalGraphicalModel plat avec des noeuds Q^a, U, etc.
 \end{lstlisting}
 
 \paragraph{Exemple : motif \textsc{Confondant}.}
@@ -789,7 +812,18 @@ augmented = augment_collapsed_model(collapsed, q_hat, q_hat_parents)
 \caption{\textbf{\textsc{Confondant \& Interférence} : collapse et augmentation.} Le modèle collapsé a la structure porte avant $Q^a \to Z \to Q^{y|a}$, permettant l'identification via le critère de porte avant malgré le confondant caché $U$.}
 \end{figure}
 
-\subsection{Étape 4 : \texttt{marginalize\_augmented\_model}}
+\subsection{Étape 4 : \texttt{marginalization\_Qc\_eligible\_parents}}
+
+Avant de marginaliser, il faut savoir \emph{quelles} variables parents spéciales des Q-variables augmentées considérer.
+La fonction \texttt{marginalization\_Qc\_eligible\_parents} implémente la stratégie de l'article : pour préserver la positivité, il suffit de considérer les parents des Q-variables augmentées dont cette dernière est leur seul fils.
+
+\begin{lstlisting}[caption={Suggestion de parents elligibles pour la marginalisation}]
+from hierarchicalcausalmodels.do_calculus import marginalization_Qc_eligible_parents
+
+q_hat_special_parents = marginalization_Qc_eligible_parents(augmented, q_hat)
+\end{lstlisting}
+
+\subsection{Étape 5 : \texttt{marginalize\_augmented\_model}}
 
 \begin{definition}[Marginalisation]
 Dans certains graphes, le modèle augmenté viole la positivité (la distribution marginale $Q^Y_i$ peut avoir une densité nulle pour certaines valeurs).
@@ -806,11 +840,11 @@ from hierarchicalcausalmodels.do_calculus import marginalize_augmented_model
 marginalized = marginalize_augmented_model(
     augmented_collapsed_model=augmented,
     q_hat=q_hat,
-    q_hat_special_parents=q_hat_parents
+    q_hat_special_parents=q_hat_special_parents
 )
 \end{lstlisting}
 
-\subsection{Étape 5 : \texttt{identify\_effect}}
+\subsection{Étape 6 : \texttt{identify\_effect}}
 
 \begin{definition}[Problème d'identification dans les HCM]
 Étant donné un HCM, on souhaite identifier l'effet causal d'un traitement sub unit $A$ sur un résultat sub unit (ou unit) $Y$ sous une intervention douce $\rmdo(A \sim q^a_\star)$ :
@@ -865,7 +899,7 @@ Formule de repondération de type VI :
 Étant donné une formule identifiée (par ex., Éq.~\eqref{eq:confounder_id}), il faut estimer les distributions conditionnelles requises à partir des données.
 La structure des données est : $n$ unit, chacune contenant $m$ observations de sub unit $\{(a_{ij}, y_{ij})\}_{j=1}^m$.
 
-\subsection{Étape 6 : \texttt{estimate\_causal\_effect} --- Estimation numérique de l'estimande}
+\subsection{Étape 7 : \texttt{estimate\_causal\_effect} --- Estimation numérique de l'estimande}
 
 La fonction \texttt{estimate\_causal\_effect} (dans \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/new/estimation.py}{\texttt{examples/new/estimation.py}}) est le point d'entrée principal pour l'estimation numérique.
 Elle prend le \texttt{DoCalculusResult} retourné par \texttt{identify\_effect} et évalue l'estimande numériquement à partir des données observées, en s'appuyant en interne sur \texttt{ast\_to\_estimator}.
@@ -929,7 +963,7 @@ Cet estimateur est cohérent quand $n \to \infty$ et $m \to \infty$ :
 \subsection{Parallélisation des calculs d'ATE}
 
 La parallélisation est un enjeu majeur pour la librairie : les évaluations de formules HCM (en particulier sur des graphes denses) peuvent devenir coûteuses dès que l'on multiplie les runs \texttt{do(1)}/\texttt{do(0)}, les variantes de graphes et les diagnostics.
-Nous avons donc benchmarké trois modes d'exécution pour les calculs ATE sur les runs de référence 10--40 (source : \texttt{examples/STAR/results/ate\_10\_40\_parallel\_speed\_test.json}, avec \texttt{HCM\_DISABLE\_MULTIPARENT\_Q\_PRECOMPUTE=1}).
+Nous avons donc benchmarké trois modes d'exécution pour les calculs ATE sur les runs de référence 10--40 (source : \texttt{ate\_10\_40\_parallel\_speed\_test.json}, avec \texttt{HCM\_DISABLE\_MULTIPARENT\_Q\_PRECOMPUTE=1}).
 
 \begin{table}[h!]
 \centering
@@ -976,7 +1010,7 @@ y_pred = model.predict(X_test)
 
 \subsection{Structure du package}
 
-L'implémentation est organisée autour de trois blocs : \texttt{models} (spécification HSCM), \texttt{do\_calculus} (identification symbolique), et \texttt{estimation} (évaluation numérique de la formule). Les scripts \texttt{examples/new/estimation.py} et \texttt{examples/new/gallery\_pipeline.py} servent respectivement de démonstration minimale et de validation complète.
+L'implémentation est organisée autour de trois blocs : \texttt{models} (spécification HSCM), \texttt{do\_calculus} (identification symbolique), et \texttt{estimation} (évaluation numérique de la formule). Les scripts suivants : \texttt{examples/new/estimation.py} et \texttt{examples/new/gallery\_pipeline.py}, servent respectivement de démonstration minimale et de validation complète.
 
 \subsection{HSCMParametric : Spécification du modèle}
 
@@ -984,7 +1018,7 @@ La classe \texttt{HSCMParametric} encapsule la définition des nœuds, arêtes, 
 
 \subsection{Pipeline complet : exemple bout-en-bout}
 
-Le pipeline suit la chaîne \texttt{collapse} $\rightarrow$ \texttt{suggest\_augment\_for\_outcome} $\rightarrow$ \texttt{augment\_collapsed\_model} $\rightarrow$ \texttt{marginalize\_augmented\_model} $\rightarrow$ \texttt{identify\_effect} $\rightarrow$ \texttt{estimate\_causal\_effect}. Les listings complets (structure package + exemple HSCM + script bout-en-bout) sont fournis en annexe, section \hyperref[app:implementation_details]{Détails d'implémentation}.
+Le pipeline suit la chaîne \texttt{collapse} $\rightarrow$ \texttt{suggest\_augment\_for\_outcome} $\rightarrow$ \texttt{augment\_collapsed\_model} $\rightarrow$ \texttt{marginalization\_Qc\_eligible\_parents} $\rightarrow$ \texttt{marginalize\_augmented\_model} $\rightarrow$ \texttt{identify\_effect} $\rightarrow$ \texttt{estimate\_causal\_effect}. Les listings complets (structure package + exemple HSCM + script bout-en-bout) sont fournis en annexe, section \hyperref[app:implementation_details]{Détails d'implémentation}.
 
 %% ========================================================
 \section{Résultats Expérimentaux}
@@ -1213,6 +1247,22 @@ Malgré la randomisation, les données STAR présentent une structure hiérarchi
 
 Nous utilisons la cohorte maternelle issue du rapport technique STAR, \href{https://www.classsizematters.org/wp-content/uploads/2016/09/STAR-Technical-Report-Part-I.pdf}{STAR Technical Report Part I} (Prepared by: Tennessee State Department of Education; Elizabeth Word, Project STAR Director), avec lien de téléchargement direct. Après suppression des valeurs manquantes et limitation à 10 élèves par classe, l'échantillon de travail contient :
 
+\begin{figure}[H]
+\centering
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/DirectLiNGAM_with_factor1_effective_graph_curved.png}
+\caption{DirectLiNGAM (initial vs effectif).}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{figures/ExactBIC_with_factor1_effective_graph_curved.png}
+\caption{ExactBIC (initial vs effectif).}
+\end{subfigure}
+\caption{Graphes causaux utilisés dans STAR (visualisation des structures initiales et effectives).}
+\label{fig:star_causal_graphs_main}
+\end{figure}
+
 \begin{table}[H]
 \centering
 \begin{minipage}[t]{0.42\textwidth}
@@ -1254,22 +1304,6 @@ $U$ & Unit (latent) & Confondeur latent de niveau classe \\
 \paragraph{Schéma HCM v2 (classe/enseignant $\to$ élève).}
 
 L'intervention naturelle est $\rmdo(Q^a = q^a_\star)$ : on intervient sur la \emph{distribution} du traitement au sein de la classe, ce qui est la formulation correcte pour une assignation au niveau de la classe.
-
-\begin{figure}[H]
-\centering
-\begin{subfigure}[t]{0.48\textwidth}
-\centering
-\includegraphics[width=\textwidth]{figures/DirectLiNGAM_with_factor1_effective_graph_curved.png}
-\caption{DirectLiNGAM (initial vs effectif).}
-\end{subfigure}\hfill
-\begin{subfigure}[t]{0.48\textwidth}
-\centering
-\includegraphics[width=\textwidth]{figures/ExactBIC_with_factor1_effective_graph_curved.png}
-\caption{ExactBIC (initial vs effectif).}
-\end{subfigure}
-\caption{Graphes causaux utilisés dans STAR (visualisation des structures initiales et effectives).}
-\label{fig:star_causal_graphs_main}
-\end{figure}
 
 \begin{figure}[H]
 \centering
@@ -1475,10 +1509,10 @@ Dans ces deux cas, l'analyse factorielle montre que la différence do(1)$-$do(0)
 \toprule
 Méthode & Données & Outcome & Effet estimé \\
 \midrule
-OLS complet (Krueger) & 5\,725 obs. & Maths & $+9.43$ pts*** \\
-HCM v2 -- DirectLiNGAM & 5\,745 obs. & \textbf{Maths} & $\mathbf{+22.27}$ pts \\
+OLS complet (Krueger) & 5\,725 obs. & \textbf{Maths} & $+9.43$ pts \\
+HCM v2 -- DirectLiNGAM & 5\,745 obs. & \textbf{Maths} & $+22.27$ pts \\
 HCM v2 -- ExactBIC & 5\,745 obs. & \textbf{Maths} & $+39.96$ pts \\
-HCM v3 -- DirectLiNGAM (facteurs manquants) & 5\,745 obs. & \textbf{Maths} & $17.618$ ; $P(Q^{y|g,l,m}),\,P(Q^{m|a,e,g,l})$ \\
+HCM v3 -- DirectLiNGAM (facteurs manquants) & 5\,745 obs. & \textbf{Maths} & $17.618$ ; ($P(Q^{y|g,l,m}),\,P(Q^{m|a,e,g,l})$) \\
 HCM v3 -- ExactBIC (facteurs manquants) & 5\,745 obs. & \textbf{Maths} & $21.628$ \\
 \bottomrule
 \end{tabular}
@@ -1504,7 +1538,7 @@ Le cadre HCM apporte trois contributions méthodologiques précises par rapport 
 Les scores de lecture (\texttt{gktreadss}) et de mathématiques (\texttt{gktmathss}) dans STAR sont des variables continues bornées, avec un support empirique approximativement dans $[300, 650]$. Un ajustement Gaussien, une loi log-normale et une loi de Student-$t$ ont été comparés par critère AIC sur l'échantillon complet ($n=5\,745$). La distribution intra-classe présente une asymétrie légère et des queues plus épaisses que la Gaussienne, ce qui motive l'utilisation de mélanges Gaussiens (GMM, $K=2$) ou de familles plus expressives.
 
 \paragraph{Protocole de benchmark.}
-Pour tester la sensibilité de l'ATE HCM au choix de famille de distributions pour les outcomes $Y$ et $M$, nous avons comparé quatre variantes sur un sous-échantillon de 28 classes (\href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/STAR/star_variational_families_benchmark.py}{\texttt{examples/STAR/star\_variational\_families\_benchmark.py}}, \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/STAR/star_baseline_and_hcm_benchmark.py}{\texttt{examples/STAR/star\_baseline\_and\_hcm\_benchmark.py}}) :
+Pour tester la sensibilité de l'ATE HCM au choix de famille de distributions pour les outcomes $Y$ et $M$, nous avons comparé quatre variantes sur un sous-échantillon de 28 classes (\href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/psc/examples/STAR/star_variational_families_benchmark.py}{\texttt{star\_variational\_families\_benchmark.py}}, \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/psc/examples/STAR/star_baseline_and_hcm_benchmark.py}{\texttt{star\_baseline\_and\_hcm\_benchmark.py}}) :
 \begin{itemize}
   \item \textbf{Gaussienne} (\texttt{gaussian}) : famille de base ; sous-estime les queues épaisses.
   \item \textbf{Bêta normalisée} (\texttt{beta}) : scores linéairement re-normalisés dans $(0,1)$, famille $\mathrm{Beta}(\alpha, \beta)$.
@@ -1926,13 +1960,13 @@ Les figures STAR (graphes causaux, diagnostics de distributions globales, QQ-plo
 
 L'implémentation est organisée comme un package Python \texttt{hierarchicalcausalmodels}. Fichiers principaux :
 \begin{itemize}
-  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/src/hierarchicalcausalmodels/models/HSCMParametric/HSCMParametric.py}{\texttt{src/hierarchicalcausalmodels/models/HSCMParametric/HSCMParametric.py}} — classe de modèle HSCM.
-  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/src/hierarchicalcausalmodels/do_calculus.py}{\texttt{src/hierarchicalcausalmodels/do\_calculus.py}} — moteur d'identification (\texttt{collapse}, \texttt{suggest\_augment\_for\_outcome}, \texttt{augment\_collapsed\_model}, \texttt{marginalize\_augmented\_model}, \texttt{identify\_effect}).
-  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/src/hierarchicalcausalmodels/estimation/causal_estimators.py}{\texttt{src/hierarchicalcausalmodels/estimation/causal\_estimators.py}} — estimateurs conditionnels et évaluateur AST.
-  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/src/hierarchicalcausalmodels/estimation/per_unit.py}{\texttt{src/hierarchicalcausalmodels/estimation/per\_unit.py}} — estimateurs par unit.
-  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/src/hierarchicalcausalmodels/estimation/torch_estimators.py}{\texttt{src/hierarchicalcausalmodels/estimation/torch\_estimators.py}} — implémentations PyTorch (dont \texttt{MLPRegressorPerUnit}).
-  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/new/estimation.py}{\texttt{examples/new/estimation.py}} — démonstration du pipeline complet.
-  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/new/gallery_pipeline.py}{\texttt{examples/new/gallery\_pipeline.py}} — test cadre complet.
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/psc/src/hierarchicalcausalmodels/models/HSCMParametric/HSCMParametric.py}{\texttt{src/hierarchicalcausalmodels/models/HSCMParametric/HSCMParametric.py}} — classe de modèle HSCM.
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/psc/src/hierarchicalcausalmodels/do_calculus.py}{\texttt{src/hierarchicalcausalmodels/do\_calculus.py}} — moteur d'identification (\texttt{collapse}, \texttt{suggest\_augment\_for\_outcome}, \texttt{augment\_collapsed\_model}, \texttt{marginalize\_augmented\_model}, \texttt{identify\_effect}).
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/psc/src/hierarchicalcausalmodels/estimation/causal_estimators.py}{\texttt{src/hierarchicalcausalmodels/estimation/causal\_estimators.py}} — estimateurs conditionnels et évaluateur AST.
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/psc/src/hierarchicalcausalmodels/estimation/per_unit.py}{\texttt{src/hierarchicalcausalmodels/estimation/per\_unit.py}} — estimateurs par unit.
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/psc/src/hierarchicalcausalmodels/estimation/torch_estimators.py}{\texttt{src/hierarchicalcausalmodels/estimation/torch\_estimators.py}} — implémentations PyTorch (dont \texttt{MLPRegressorPerUnit}).
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/psc/examples/new/estimation.py}{\texttt{examples/new/estimation.py}} — démonstration du pipeline complet.
+  \item \href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/psc/examples/new/gallery_pipeline.py}{\texttt{examples/new/gallery\_pipeline.py}} — test cadre complet.
 \end{itemize}
 
 \subsection{HSCMParametric : spécification du modèle}
@@ -1988,12 +2022,17 @@ q_hat, q_hat_parents = suggest_augment_for_outcome(hscm, 'Y')
 # 5. Augmentation (variable par variable)
 augmented = augment_collapsed_model(collapsed, q_hat, q_hat_parents)
 
-# 6. Marginalisation (si necessaire)
+# 6. Suggestion de parents elligibles pour la marginalisation pour les variables d'augmentation
+marginalize_candidates = marginalization_Qc_eligible_parents(
+    augmented, q_hat
+  )
+
+# 7. Marginalisation (si necessaire)
 marginalized = marginalize_augmented_model(
-    augmented, q_hat, q_hat_parents
+    augmented, q_hat, marginalize_candidates
 )
 
-# 7. Identification via do-calculus
+# 8. Identification via do-calculus
 result = identify_effect(
     cgm=marginalized,
     Y="Q^y",
@@ -2003,7 +2042,7 @@ result = identify_effect(
 print("Identifiable :", result.identifiable)
 print("Formule :", result.formula_latex)
 
-# 8. Estimation numerique
+# 9. Estimation numerique
 ate = estimate_causal_effect(
     result=result,
     data={"A": data["A"], "Y": data["Y"]},
