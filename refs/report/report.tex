@@ -91,9 +91,9 @@
 \textbf{Étudiant 2} & Yasser Oufqir \\[4pt]
 \textbf{Étudiant 3} & Simon Patry \\[4pt]
 \textbf{Étudiant 4} & Aymen El Ouadrhiri \\[4pt]
-\textbf{Étudiant 5} & [Membre du groupe 5] \\[4pt]
+\textbf{Étudiant 5} & Aghiles Drali \\[4pt]
 \end{tabular}\\[1.5em]
-\textit{Encadré par :} [Nom du superviseur]%
+\textit{Encadré par :} David Cortés et Janis Aiad%
 }
 \date{Année académique 2025--2026}
 \logo{typographix}
@@ -108,52 +108,6 @@
 \begin{document}
 
 \maketitle
-
-%% ========================================================
-%%  Figure des trois motifs (après la page de titre officielle)
-%% ========================================================
-\begin{center}
-\begin{tikzpicture}
-%% CONFONDANT
-\node[obs]                               (y1) {$Y_{ij}$};
-\node[obs, left=1cm of y1] (a1) {$A_{ij}$};
-\node[latent, above=0.4cm of a1, xshift=0.8cm]  (u1) {$U_i$};
-\edge {a1,u1} {y1} ; \edge {u1} {a1} ;
-\plate[dashed] {in1} {(a1)(y1)} {$m$} ;
-\plate {out1} {(in1)(u1)} {$n$} ;
-\node[above=0.1cm of out1] {\textsc{Confondant}};
-
-%% INTERFÉRENCE
-\node[obs, right=4cm of y1]                               (y2) {$Y_{ij}$};
-\node[obs, left=1cm of y2] (a2) {$A_{ij}$};
-\node[latent, above=0.4cm of a2, xshift=0.8cm]  (u2) {$U_i$};
-\node[obs, below=.6cm of a2] (z2) {$Z_i$};
-\edge {a2,u2} {y2} ; \edge {u2} {a2} ;
-\edge {a2} {z2} ;
-\edge {z2} {y2} ;
-\plate[dashed] {in2} {(a2)(y2)} {$m$} ;
-\plate {out2} {(in2)(u2)(z2)} {$n$} ;
-\node[above=0.1cm of out2] {\textsc{Confondant \& Interférence}};
-
-%% INSTRUMENT
-\node[obs, right=9cm of y1]                               (y3) {$Y_{i}$};
-\node[obs, left=0.4cm of y3] (a3) {$A_{ij}$};
-\node[obs, left=0.4cm of a3] (z3) {$Z_{ij}$};
-\node[latent, above=0.4cm of a3, xshift=0.6cm]  (u3) {$U_i$};
-\edge {a3,u3} {y3} ;
-\edge {u3} {a3} ;
-\edge {z3} {a3} ;
-\plate[dashed] {in3} {(a3)(z3)} {$m$} ;
-\plate {out3} {(in3)(u3)(y3)} {$n$} ;
-\node[above=0.1cm of out3] {\textsc{Instrument}};
-
-\end{tikzpicture}
-\end{center}
-\captionof{figure}{Les trois motifs fondamentaux des Modèles Causaux Hiérarchiques (HCM) étudiés dans ce PSC.
-Chaque modèle capture des unités $i$ (plaque extérieure) contenant des sous-unités $j$ (plaque intérieure en pointillé).
-$U_i$ est une variable latente confondante au niveau de l'unité, $A_{ij}$ le traitement de la sous-unité, $Y_{ij}$ le résultat de la sous-unité.}
-
-\newpage
 
 %% ========================================================
 %%  RÉSUMÉ
@@ -1618,7 +1572,7 @@ Nous remercions les auteurs de l'article HCM, Eli N. Weinstein et David M. Blei,
 Nous remercions également nos superviseurs de PSC : David Cortés(X97) et Janis Aiad(X22), pour leurs conseils et encadrement tout au long du projet.
 
 %% ========================================================
-\section*{Références}
+%% (Le titre « Références » est généré automatiquement par thebibliography)
 %% ========================================================
 
 \begin{thebibliography}{9}
@@ -1690,6 +1644,8 @@ Some findings from an independent investigation of the Tennessee STAR experiment
 
 \end{thebibliography}
 
+\newpage
+
 %% ========================================================
 \appendix
 %% ========================================================
@@ -1697,7 +1653,16 @@ Some findings from an independent investigation of the Tennessee STAR experiment
 \section{Transformations de graphes complètes}
 \label{app:graphs}
 
+\enlargethispage{4\baselineskip}
+{\setlength{\intextsep}{2pt}%
+\setlength{\textfloatsep}{2pt}%
+\setlength{\floatsep}{2pt}%
+\setlength{\abovecaptionskip}{2pt}%
+\setlength{\belowcaptionskip}{0pt}%
+
+\vspace{-1em}
 \subsection{\textsc{Confondant} : transformation complète}
+\vspace{-1em}
 
 \begin{figure}[H]
 \centering
@@ -1764,7 +1729,9 @@ Le do-calcul sur (c)/(d) identifie $\pr(Q^y \g \rmdo(Q^a = q^a_\star)) = \mathbb
 \label{fig:app_confounder}
 \end{figure}
 
+\vspace{0.8em}
 \subsection{\textsc{Confondant et Interférence} : transformation complète}
+\vspace{-0.5em}
 
 \begin{figure}[H]
 \centering
@@ -1824,8 +1791,7 @@ $\pr(Q^y \mid \mathrm{do}(Q^a{=}q^a_\star))
   = \sum_{z} \pr(Q^{y|a} \mid Z{=}z)\;\pr(Z{=}z \mid Q^a{=}q^a_\star)$.}
 \label{fig:app_interfere}
 \end{figure}
-
-
+}
 
 \subsection{\textsc{Instrument} : transformation complète}
 
