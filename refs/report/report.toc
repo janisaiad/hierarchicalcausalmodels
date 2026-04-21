@@ -57,24 +57,24 @@
 \contentsline {subsection}{\numberline {5.6}Estimateur neuronal : MLPRegressorPerUnit}{19}{subsection.5.6}%
 \contentsline {section}{\numberline {6}Implémentation}{19}{section.6}%
 \contentsline {subsection}{\numberline {6.1}Structure du package}{19}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}HSCMParametric : Spécification du modèle}{19}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.2}HSCMParametric : Spécification du modèle}{20}{subsection.6.2}%
 \contentsline {subsection}{\numberline {6.3}Pipeline complet : exemple bout-en-bout}{20}{subsection.6.3}%
 \contentsline {section}{\numberline {7}Résultats Expérimentaux}{20}{section.7}%
 \contentsline {subsection}{\numberline {7.1}Récupération de l'ATE : motif \textsc {Confondant}}{20}{subsection.7.1}%
 \contentsline {paragraph}{Configuration.}{20}{paragraph*.33}%
 \contentsline {paragraph}{Résultats.}{20}{paragraph*.34}%
-\contentsline {paragraph}{Comparaison avec l'estimateur naïf.}{20}{paragraph*.36}%
+\contentsline {paragraph}{Comparaison avec l'estimateur naïf.}{21}{paragraph*.36}%
 \contentsline {subsection}{\numberline {7.2}Suite de tests do-calculus}{21}{subsection.7.2}%
 \contentsline {subsection}{\numberline {7.3}Récupération de l'ATE : les trois motifs}{21}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}Galerie do-calculus : estimation de l'ATE sur 13 configurations}{21}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.4}Galerie do-calculus : estimation de l'ATE sur 8 configurations}{21}{subsection.7.4}%
 \contentsline {subsection}{\numberline {7.5}Suite de benchmarks : 9 scénarios avec vérité terrain}{22}{subsection.7.5}%
 \contentsline {paragraph}{Scénarios 1–3 : HCMs binaires (Weinstein \& Blei, 2024).}{22}{paragraph*.39}%
 \contentsline {paragraph}{Scénarios 4–6 : HCMs spatio-temporels (Camellia et al., 2025).}{22}{paragraph*.41}%
 \contentsline {paragraph}{Scénarios 7–9 : Benchmarks inspirés de données réelles.}{23}{paragraph*.43}%
-\contentsline {section}{\numberline {8}Nouvelle application à Project STAR : Estimation Causale Hiérarchique}{24}{section.8}%
+\contentsline {section}{\numberline {8}Nouvelle application à Project STAR : Estimation Causale Hiérarchique}{23}{section.8}%
 \contentsline {subsection}{\numberline {8.1}Présentation et motivation}{24}{subsection.8.1}%
 \contentsline {subsection}{\numberline {8.2}Données et schéma HCM}{24}{subsection.8.2}%
-\contentsline {paragraph}{Schéma HCM v2 (classe/enseignant $\to $ élève).}{25}{paragraph*.47}%
+\contentsline {paragraph}{Schéma HCM v2 (classe/enseignant $\to $ élève).}{24}{paragraph*.47}%
 \contentsline {subsection}{\numberline {8.3}Pipeline d'analyse}{27}{subsection.8.3}%
 \contentsline {paragraph}{1. Découverte causale plate.}{27}{paragraph*.51}%
 \contentsline {paragraph}{2. Explicabilité prédictive.}{27}{paragraph*.52}%
@@ -83,47 +83,45 @@
 \contentsline {paragraph}{Diagnostics graphiques utilisés dans le pipeline.}{27}{paragraph*.55}%
 \contentsline {subsection}{\numberline {8.4}Résultats de la découverte causale}{28}{subsection.8.4}%
 \contentsline {subsection}{\numberline {8.5}Explicabilité prédictive}{28}{subsection.8.5}%
-\contentsline {subsection}{\numberline {8.6}Référence économétrique : réplication de Krueger (1999)}{28}{subsection.8.6}%
+\contentsline {subsection}{\numberline {8.6}Référence économétrique : baseline maths (\texttt {gktmathss})}{29}{subsection.8.6}%
 \contentsline {subsection}{\numberline {8.7}HCM v1 : École $\to $ Élève}{29}{subsection.8.7}%
 \contentsline {subsection}{\numberline {8.8}HCM v2 : Classe/Enseignant $\to $ Élève}{29}{subsection.8.8}%
-\contentsline {paragraph}{Formules d'identification (do-calculus, pyAgrum).}{29}{paragraph*.61}%
-\contentsline {paragraph}{Interprétation structurelle (PC, FCI, ConsensusMean).}{30}{paragraph*.62}%
-\contentsline {paragraph}{Choix du graphe principal.}{30}{paragraph*.63}%
-\contentsline {paragraph}{Runs historiques avec identification partielle.}{30}{paragraph*.64}%
-\contentsline {subsection}{\numberline {8.9}Synthèse comparative}{30}{subsection.8.9}%
+\contentsline {paragraph}{Formules d'identification (do-calculus, pyAgrum).}{30}{paragraph*.61}%
+\contentsline {paragraph}{Choix du graphe principal.}{30}{paragraph*.62}%
+\contentsline {paragraph}{Runs historiques avec identification partielle.}{30}{paragraph*.63}%
+\contentsline {subsection}{\numberline {8.9}Synthèse comparative}{31}{subsection.8.9}%
 \contentsline {subsection}{\numberline {8.10}Apport des HCM pour STAR}{31}{subsection.8.10}%
-\contentsline {paragraph}{Niveau d'intervention correct.}{31}{paragraph*.67}%
-\contentsline {paragraph}{Structure hiérarchique explicite.}{31}{paragraph*.68}%
-\contentsline {paragraph}{Identification symbolique via do-calculus.}{31}{paragraph*.69}%
-\contentsline {paragraph}{Positionnement par rapport à l'état de l'art.}{31}{paragraph*.70}%
-\contentsline {subsection}{\numberline {8.11}Benchmark des familles de distributions}{31}{subsection.8.11}%
-\contentsline {paragraph}{Analyse distributionnelle des scores.}{31}{paragraph*.71}%
-\contentsline {paragraph}{Protocole de benchmark.}{31}{paragraph*.72}%
-\contentsline {paragraph}{Interprétation.}{32}{paragraph*.73}%
-\contentsline {paragraph}{Note sur la structure à trois niveaux.}{32}{paragraph*.74}%
-\contentsline {section}{\numberline {9}Discussion}{32}{section.9}%
-\contentsline {subsection}{\numberline {9.1}Enseignements clés}{32}{subsection.9.1}%
-\contentsline {paragraph}{Les données hiérarchiques comme ressource pour l'identification.}{32}{paragraph*.75}%
-\contentsline {paragraph}{Le rôle des variables Q.}{33}{paragraph*.76}%
-\contentsline {paragraph}{Le do-calculus comme moteur d'identification.}{33}{paragraph*.77}%
+\contentsline {paragraph}{Niveau d'intervention correct.}{31}{paragraph*.66}%
+\contentsline {paragraph}{Structure hiérarchique explicite.}{31}{paragraph*.67}%
+\contentsline {paragraph}{Identification symbolique via do-calculus.}{31}{paragraph*.68}%
+\contentsline {paragraph}{Positionnement par rapport à l'état de l'art.}{31}{paragraph*.69}%
+\contentsline {subsection}{\numberline {8.11}Benchmark des familles de distributions}{32}{subsection.8.11}%
+\contentsline {paragraph}{Analyse distributionnelle des scores.}{32}{paragraph*.70}%
+\contentsline {paragraph}{Protocole de benchmark.}{32}{paragraph*.71}%
+\contentsline {paragraph}{Interprétation.}{32}{paragraph*.72}%
+\contentsline {paragraph}{Note sur la structure à trois niveaux.}{32}{paragraph*.73}%
+\contentsline {section}{\numberline {9}Discussion}{33}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Enseignements clés}{33}{subsection.9.1}%
+\contentsline {paragraph}{Les données hiérarchiques comme ressource pour l'identification.}{33}{paragraph*.74}%
+\contentsline {paragraph}{Le rôle des variables Q.}{33}{paragraph*.75}%
+\contentsline {paragraph}{Le do-calculus comme moteur d'identification.}{33}{paragraph*.76}%
 \contentsline {subsection}{\numberline {9.2}Limitations et problèmes ouverts}{33}{subsection.9.2}%
-\contentsline {paragraph}{Hypothèse de $m$ grand.}{33}{paragraph*.78}%
-\contentsline {paragraph}{Hiérarchies multi-niveaux.}{33}{paragraph*.79}%
-\contentsline {paragraph}{Positivité et chevauchement.}{33}{paragraph*.80}%
+\contentsline {paragraph}{Hypothèse de $m$ grand.}{33}{paragraph*.77}%
+\contentsline {paragraph}{Hiérarchies multi-niveaux.}{33}{paragraph*.78}%
+\contentsline {paragraph}{Positivité et chevauchement.}{33}{paragraph*.79}%
 \contentsline {section}{\numberline {10}Conclusion}{33}{section.10}%
-\contentsline {paragraph}{Théorie.}{33}{paragraph*.81}%
-\contentsline {paragraph}{Implémentation.}{33}{paragraph*.82}%
-\contentsline {paragraph}{Expériences.}{34}{paragraph*.83}%
-\contentsline {paragraph}{Travaux futurs.}{34}{paragraph*.84}%
+\contentsline {paragraph}{Théorie.}{34}{paragraph*.80}%
+\contentsline {paragraph}{Implémentation.}{34}{paragraph*.81}%
+\contentsline {paragraph}{Expériences.}{34}{paragraph*.82}%
+\contentsline {paragraph}{Travaux futurs.}{34}{paragraph*.83}%
 \contentsline {section}{\numberline {A}Transformations de graphes complètes}{36}{appendix.A}%
 \contentsline {subsection}{\numberline {A.1}\textsc {Confondant} : transformation complète}{36}{subsection.A.1}%
 \contentsline {subsection}{\numberline {A.2}\textsc {Confondant et Interférence} : transformation complète}{36}{subsection.A.2}%
 \contentsline {subsection}{\numberline {A.3}\textsc {Instrument} : transformation complète}{37}{subsection.A.3}%
-\contentsline {section}{\numberline {B}Annexe STAR : plots et tableau complet}{37}{appendix.B}%
-\contentsline {subsection}{\numberline {B.1}Tableau complet HCM v2 (tous les graphes)}{37}{subsection.B.1}%
-\contentsline {subsection}{\numberline {B.2}Plots STAR}{37}{subsection.B.2}%
-\contentsline {section}{\numberline {C}Détails d'implémentation}{38}{appendix.C}%
-\contentsline {subsection}{\numberline {C.1}Structure du package}{38}{subsection.C.1}%
+\contentsline {section}{\numberline {B}Annexe STAR : plots}{37}{appendix.B}%
+\contentsline {subsection}{\numberline {B.1}Plots STAR}{37}{subsection.B.1}%
+\contentsline {section}{\numberline {C}Détails d'implémentation}{37}{appendix.C}%
+\contentsline {subsection}{\numberline {C.1}Structure du package}{37}{subsection.C.1}%
 \contentsline {subsection}{\numberline {C.2}HSCMParametric : spécification du modèle}{38}{subsection.C.2}%
-\contentsline {subsection}{\numberline {C.3}Pipeline complet : exemple bout-en-bout}{39}{subsection.C.3}%
-\contentsline {subsection}{\numberline {C.4}Identification via do-calculus}{40}{subsection.C.4}%
+\contentsline {subsection}{\numberline {C.3}Pipeline complet : exemple bout-en-bout}{38}{subsection.C.3}%
+\contentsline {subsection}{\numberline {C.4}Identification via do-calculus}{39}{subsection.C.4}%

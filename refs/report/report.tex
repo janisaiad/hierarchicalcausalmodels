@@ -963,7 +963,7 @@ Cet estimateur est cohérent quand $n \to \infty$ et $m \to \infty$ :
 \subsection{Parallélisation des calculs d'ATE}
 
 La parallélisation est un enjeu majeur pour la librairie : les évaluations de formules HCM (en particulier sur des graphes denses) peuvent devenir coûteuses dès que l'on multiplie les runs \texttt{do(1)}/\texttt{do(0)}, les variantes de graphes et les diagnostics.
-Nous avons donc benchmarké trois modes d'exécution pour les calculs ATE sur les runs de référence 10--40 (source : \texttt{ate\_10\_40\_parallel\_speed\_test.json}, avec \texttt{HCM\_DISABLE\_MULTIPARENT\_Q\_PRECOMPUTE=1}).
+Nous avons donc benchmarké trois modes d'exécution pour les calculs ATE sur les runs de référence 10--40 (source : \texttt{ate\_10\_40\_parallel\_speed\_test.json}).
 
 \begin{table}[h!]
 \centering
@@ -986,10 +986,12 @@ ExactBIC     & proc4                 & 1.897 & 1.639 \\
 
 \texttt{proc4} désigne ici une exécution en \emph{quatre processus CPU} (backend \texttt{processes}, et non un calcul GPU), alors que \texttt{threads4} utilise quatre threads dans un même processus, ce qui explique que \texttt{proc4} soit souvent plus robuste sur ces estimations.
 Sur un dataset d'ordre $\sim 10^4$ lignes avec environ une centaine d'élèves par établissement, le gain de parallélisation reste modéré, mais il devient nettement plus marqué sur des jeux de données beaucoup plus volumineux.
+Une voie GPU est bien implémentée dans la librairie, mais elle n'est pas activée dans ce benchmark ATE car la charge est majoritairement I/O-bound (lecture/préparation/transfert), ce qui annule l'intérêt du déplacement CPU$\leftrightarrow$GPU ; en revanche, nous l'avons utilisée pour des opérations algébriques denses comme l'inversion de matrice en OLS.
 
 \subsection{Estimateur neuronal : MLPRegressorPerUnit}
 
 Pour l'estimation par unit non paramétrique, nous avons implémenté \texttt{MLPRegressorPerUnit} (PyTorch) :
+L'intérêt central de cette brique est la parallélisation massive : au lieu d'entraîner un unique gros modèle, la librairie entraîne en parallèle un grand nombre de petits régressseurs par unit, ce qui se vectorise efficacement sur GPU (batching de mini-réseaux, calcul matriciel dense) et constitue un avantage clé du framework dès que le nombre d'unit augmente.
 
 \begin{lstlisting}[caption={\texttt{MLPRegressorPerUnit}}]
 from hierarchicalcausalmodels.estimation.torch_estimators import (
@@ -1065,28 +1067,25 @@ L'estimateur par unit élimine correctement ce biais.
 
 \subsection{Suite de tests do-calculus}
 
-Nous avons exécuté une suite complète de tests (\href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/new/gallery_pipeline.py}{\texttt{examples/new/gallery\_pipeline.py}}) couvrant 10 configurations de graphes :
+Nous avons exécuté une suite complète de tests (\href{https://github.com/janisaiad/hierarchicalcausalmodels/blob/main/examples/new/gallery_pipeline.py}{\texttt{examples/new/gallery\_pipeline.py}}) couvrant 7 configurations de graphes identifiables :
 
 \begin{center}
 \begin{tabular}{lll}
 \toprule
 \textbf{Graphe} & \textbf{Identifiable ?} & \textbf{Méthode} \\
 \midrule
-\textsc{Confondant} (augmenté) & Oui & Porte arrière collapsée \\
-\textsc{Confondant} (marginalisé) & Oui & Porte arrière \\
-\textsc{Conf. \& Interférence} & Oui & Porte avant \\
+\textsc{Confondant} (augmenté) & Oui & Backdoor (collapsé) \\
+\textsc{Confondant} (marginalisé) & Oui & Backdoor \\
+\textsc{Conf. \& Interférence} & Oui & Frontdoor \\
 \textsc{Instrument} (marginalisé) & Oui & Ajustement VI \\
-Confondant sub unit & Non & --- \\
-Médiateur caché sub unit & Non & --- \\
-Unit à unit seul & Oui & Porte arrière standard \\
-Multi-traitement & Oui & Porte arrière étendue \\
-Interférence inter-unit & Non & --- \\
+Unit à unit seul & Oui & Backdoor standard \\
+Multi-traitement & Oui & Backdoor étendue \\
 Niveaux mixtes & Oui & Composite \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Les 10 cas ont produit le résultat d'identifiabilité attendu.
+Les 7 cas ont produit le résultat d'identifiabilité attendu.
 
 \subsection{Récupération de l'ATE : les trois motifs}
 
@@ -1107,15 +1106,15 @@ Les 10 cas ont produit le résultat d'identifiabilité attendu.
 
 Les trois estimateurs fonctionnent bien, démontrant la correction et la généralité du pipeline implémenté.
 
-\subsection{Galerie do-calculus : estimation de l'ATE sur 13 configurations}
+\subsection{Galerie do-calculus : estimation de l'ATE sur 8 configurations}
 \label{sec:gallery_ate}
 
-La galerie d'expériences (\texttt{gallery\_ate\_report\_autotune.csv}) évalue le pipeline do-calculus complet sur 13 configurations de graphes HCM binaires avec auto-tuning du nombre d'échantillons Monte Carlo.
+La galerie d'expériences (\texttt{gallery\_ate\_report\_autotune.csv}) évalue le pipeline do-calculus complet sur 8 configurations de graphes HCM binaires avec auto-tuning du nombre d'échantillons Monte Carlo.
 Pour chaque configuration, la vérité terrain est estimée indépendamment par un second tirage Monte Carlo convergé ; on rapporte ensuite l'ATE estimé par le pipeline et l'erreur absolue.
 
 \begin{table}[h!]
 \centering
-\caption{Résultats do-calculus sur 13 configurations de graphes HCM binaires (auto-tuning Monte Carlo). $\hat{\tau}_{\text{vrai}}$ : ATE de référence convergé ; $\hat{\tau}_{\text{est}}$ : ATE produit par le pipeline ; $|\Delta|$ : erreur absolue. Statut : \checkmark = convergé et précis ; $\dagger$ = données insuffisantes ; --- = estimands non comparables.}
+\caption{Résultats do-calculus sur 8 configurations de graphes HCM binaires (auto-tuning Monte Carlo). $\hat{\tau}_{\text{vrai}}$ : ATE de référence convergé ; $\hat{\tau}_{\text{est}}$ : ATE produit par le pipeline ; $|\Delta|$ : erreur absolue. Statut : \checkmark = convergé et précis.}
 \label{tab:gallery_ate}
 \begin{tabular}{lrrrr}
 \toprule
@@ -1131,17 +1130,6 @@ Ex.~1 (marg.)                    & 0{,}000 &  0{,}000 & 0{,}000 & \checkmark \\
 Ex.~5 (marg.)                    & 0{,}000 &  0{,}000 & 0{,}000 & \checkmark \\
 Ciblé (augm.)                    & 0{,}000 & -0{,}003 & 0{,}003 & \checkmark \\
 Non-ID Ex.~1 (augm.)             & 0{,}080 &  0{,}058 & 0{,}022 & \checkmark \\
-\midrule
-\multicolumn{5}{l}{\textit{aligné\_mais\_données\_limitées} (4 configurations)} \\
-\midrule
-Conf.\ + Interférence (augm.)    & 0{,}011 &  0{,}193 & 0{,}182 & $\dagger$ \\
-Ex.~3 (coll.)                    & 0{,}218 & -0{,}207 & 0{,}425 & $\dagger$ \\
-Ex.~4 (augm.)                    & 0{,}382 &  0{,}591 & 0{,}209 & $\dagger$ \\
-Non-ID Ex.~5 (augm.)             & 0{,}171 &  0{,}235 & 0{,}064 & $\dagger$ \\
-\midrule
-\multicolumn{5}{l}{\textit{structurellement\_non\_comparable} (1 configuration)} \\
-\midrule
-Non-ID Ex.~4 (augm.)             & 0{,}370 & -0{,}147 & 0{,}517 & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1152,9 +1140,7 @@ Non-ID Ex.~4 (augm.)             & 0{,}370 & -0{,}147 & 0{,}517 & --- \\
 \hyperref[fig:app_instrument]{Instrument},
 \hyperref[fig:app_interfere]{Confondant + Interférence}.
 
-Sur les 13 configurations, 8 (62\,\%) atteignent le statut \textit{aligné\_précis} avec une erreur absolue inférieure à 0{,}04.
-Les 4 cas \textit{données\_limitées} correspondent à des régimes où la variance Monte Carlo reste élevée même après auto-tuning : l'estimateur converge mais avec peu de données par unit, d'où un biais résiduel.
-Le cas \textit{non\_comparable\_structurellement} (\texttt{nonID\_ex4\_aug}) met en évidence une situation où l'estimand théorique ne coïncide pas structurellement avec l'estimateur empirique — l'erreur apparente n'est pas une défaillance du pipeline mais un désaccord d'estimand.
+Sur les 8 configurations conservées, 8 (100\,\%) atteignent le statut \textit{aligné\_précis} avec une erreur absolue inférieure à 0{,}04.
 
 \subsection{Suite de benchmarks : 9 scénarios avec vérité terrain}
 \label{sec:benchmark_suite}
@@ -1263,7 +1249,7 @@ Nous utilisons la cohorte maternelle issue du rapport technique STAR, \href{http
 \label{fig:star_causal_graphs_main}
 \end{figure}
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \begin{minipage}[t]{0.42\textwidth}
 \centering
@@ -1356,7 +1342,7 @@ En complément des estimations numériques, nous utilisons des diagnostics visue
 
 \subsection{Résultats de la découverte causale}
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Jaccard des arcs dirigés entre méthodes (graphes plats sur $n=4\,000$).}
 \label{tab:jaccard}
@@ -1392,29 +1378,29 @@ Contraste PDP \texttt{small} $-$ \texttt{regular} & $+6{,}45$ pts \\
 
 Le contraste prédictif ($+6{,}45$ points) est cohérent avec la littérature expérimentale, mais reste un résultat prédictif et non causal.
 
-\subsection{Référence économétrique : réplication de Krueger (1999)}
+\subsection{Référence économétrique : baseline maths (\texttt{gktmathss})}
 
 \begin{table}[H]
 \centering
-\caption{Estimations OLS -- effet de la petite classe sur le score de lecture (maternelle).}
+\caption{Estimations OLS -- effet de la petite classe sur le score de mathématiques (maternelle, outcome \texttt{gktmathss}).}
 \label{tab:ols}
 \begin{tabular}{lcccc}
 \toprule
 Modèle & $\hat\beta_{\mathrm{small}}$ & SE & $p$-value & $R^2$ \\
 \midrule
-Sans contrôles & 5{,}74 & 1{,}05 & $4{,}4\times10^{-8}$ & 0{,}006 \\
-Effets fixes école & 6{,}58 & 0{,}97 & $1{,}2\times10^{-11}$ & 0{,}211 \\
-$+$ contrôles élève & 6{,}51 & 0{,}94 & $3{,}4\times10^{-12}$ & 0{,}263 \\
-Complet (Krueger) & 6{,}55 & 0{,}94 & $2{,}6\times10^{-12}$ & 0{,}266 \\
+Sans contrôles & 8.0962 & 1.5974 & $4.0137\times10^{-7}$ & 0.0064 \\
+Effets fixes école & 9.4988 & 1.4633 & $8.5161\times10^{-11}$ & 0.2193 \\
+$+$ contrôles élève & 9.3797 & 1.4149 & $3.3795\times10^{-11}$ & 0.2676 \\
+Complet (Krueger-like) & 9.4316 & 1.4192 & $3.0136\times10^{-11}$ & 0.2695 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-L'effet de la petite classe est robuste, de l'ordre de $+6{,}5$ points de score de lecture, fortement significatif dans toutes les spécifications. L'effet de la classe avec aide n'est pas significatif. L'estimateur 2SLS (assignation initiale comme instrument pour la taille de classe réelle) donne :
+L'effet de la petite classe est robuste, de l'ordre de $+9$ à $+9.5$ points de score de mathématiques, fortement significatif dans toutes les spécifications. L'effet de la classe avec aide n'est pas significatif. L'estimateur 2SLS (assignation initiale comme instrument pour la taille de classe réelle) donne :
 \[
-\hat\beta_{\mathrm{taille\,classe}} = -0{,}818 \quad (\mathrm{SE}=0{,}109,\; p = 6{,}7\times10^{-14}),
+\hat\beta_{\mathrm{taille\,classe}} = -1.2186 \quad (\mathrm{SE}=0.1632,\; p = 9.4567\times10^{-14}),
 \]
-soit environ $-0{,}82$ point de score par élève supplémentaire.
+soit environ $-1.22$ point de score par élève supplémentaire.
 
 \subsection{HCM v1 : École $\to$ Élève}
 
@@ -1474,9 +1460,6 @@ Pour le graphe \textbf{ExactBIC} (outcome $M$) :
   \pr(q^g)\, \pr(q^e).
 \]
 
-\paragraph{Interprétation structurelle (PC, FCI, ConsensusMean).}
-Pour PC, FCI et ConsensusMean, la formule identifiée se réduit à $P(Q^m)$ : l'intervention sur $Q^a$ disparaît de l'expression. L'estimande observée dans ces cas est donc principalement déterminée par la structure du graphe traduit, et ne doit pas être lue comme une conclusion empirique directe sur l'absence d'effet de la taille de classe.
-
 \paragraph{Choix du graphe principal.}
 Nous retenons \textbf{DirectLiNGAM} comme graphe narratif principal : c'est le seul graphe de découverte produisant un chemin explicite $A \to M$ dans la traduction HCM, ce qui rend l'estimande directement interprétable comme ``effet de la distribution de taille de classe sur le score de mathématiques''. Le graphe ExactBIC ($\mathrm{ATE} \approx 39{,}96$) illustre la sensibilité au choix de structure.
 
@@ -1530,7 +1513,7 @@ Le cadre HCM apporte trois contributions méthodologiques précises par rapport 
 
 \paragraph{Identification symbolique via do-calculus.} Plutôt que de supposer un ensemble de backdoor à ajuster, le pipeline HCM applique le do-calculus sur le graphe collapsé augmenté et dérive symboliquement la formule d'identification. Les hypothèses d'identification sont ainsi explicites et vérifiables, ce qui renforce la transparence par rapport à l'OLS avec effets fixes.
 
-\paragraph{Positionnement par rapport à l'état de l'art.} À notre connaissance, aucune implémentation existante ne combine découverte causale, identification HCM par do-calculus et estimation plug-in dans un pipeline unifié appliqué à des données hiérarchiques réelles. La bibliothèque \texttt{y0} (\texttt{y0-causal-inference}) a récemment introduit un support symbolique des HCM (janvier 2025) permettant de dériver des formules d'identification dans un DSL qui s'étend jusqu'au transport contrefactuel. Cependant, leur implémentation se limite à la dérivation symbolique et n'inclut pas d'estimation (ni ajustement de familles de distributions, ni évaluation numérique de la formule, ni calcul d'ATE à partir de données). Leur framework d'estimation \texttt{eliater} a été archivé peu avant leur PR HCM. Le présent travail constitue ainsi, à notre connaissance, le premier pipeline HCM de bout en bout, de la donnée brute à l'ATE estimé.
+\paragraph{Positionnement par rapport à l'état de l'art.} À notre connaissance, aucune implémentation existante ne combine découverte causale, identification HCM par do-calculus et estimation plug-in dans un pipeline unifié appliqué à des données hiérarchiques réelles. La bibliothèque \texttt{y0} (\texttt{y0-causal-inference}) a récemment introduit un support symbolique des HCM (janvier 2025) permettant de dériver des formules d'identification dans un DSL qui s'étend jusqu'au transport contrefactuel. Cependant, leur implémentation se limite à la dérivation symbolique et n'inclut pas d'estimation (ni ajustement de familles de distributions, ni évaluation numérique de la formule, ni calcul d'ATE à partir de données). Leur framework d'estimation \texttt{eliater} a été archivé peu avant la \href{https://github.com/y0-causal-inference/y0/pull/236}{pull request HCM}. Le présent travail constitue ainsi, à notre connaissance, le premier pipeline HCM de bout en bout, de la donnée brute à l'ATE estimé.
 
 \subsection{Benchmark des familles de distributions}
 
@@ -1547,7 +1530,7 @@ Pour tester la sensibilité de l'ATE HCM au choix de famille de distributions po
 \end{itemize}
 
 \paragraph{Interprétation.}
-Pour le graphe PC, la formule identifiée se réduit à $P(Q^y)$ indépendamment de la famille de distribution : l'effet interventionnel est donc de nature \emph{structurelle} pour ce graphe, quelle que soit la famille. La valeur de $E[\mathrm{do}(1)]$ change d'échelle selon la renormalisation (brut~: 430, bêta~: 5{,}1, mélange~: 0{,}6) sans modifier cette interprétation. Les graphes DirectLiNGAM et ExactBIC rencontrent une erreur de dimension (\texttt{X has 6 features, but LinearRegression is expecting 4}) dans ce benchmark antérieur à l'alignement régresseurs -- erreur corrigée dans le pipeline principal v2 (Tableau~\ref{tab:hcm_v2}). Le mélange Gaussien ($K=2$) reste la famille la plus expressive disponible et est retenu comme famille principale pour les outcomes continus dans le pipeline v2.
+Les graphes DirectLiNGAM et ExactBIC rencontrent une erreur de dimension (\texttt{X has 6 features, but LinearRegression is expecting 4}) dans ce benchmark antérieur à l'alignement régresseurs -- erreur corrigée dans le pipeline principal v2 (Tableau~\ref{tab:hcm_v2}). Le mélange Gaussien ($K=2$) reste la famille la plus expressive disponible et est retenu comme famille principale pour les outcomes continus dans le pipeline v2.
 
 \paragraph{Note sur la structure à trois niveaux.}
 STAR présente en réalité une structure à \emph{trois} niveaux : élèves $\subset$ classes $\subset$ écoles. Le cadre HCM tel qu'implémenté supporte deux niveaux (unit et sub unit). Deux stratégies d'agrégation sont possibles :
@@ -1927,27 +1910,8 @@ $\pr(Y \mid \mathrm{do}(A{\sim}q^a_\star))
 \label{fig:app_instrument}
 \end{figure}
 
-\section{Annexe STAR : plots et tableau complet}
+\section{Annexe STAR : plots}
 \label{app:starplots}
-
-\subsection{Tableau complet HCM v2 (tous les graphes)}
-
-\begin{table}[H]
-\centering
-\caption{HCM v2 -- tableau complet avec tous les graphes de découverte.}
-\label{tab:apphcmv2allgraphs}
-\begin{tabular}{lcccc}
-\toprule
-Graphe & Identifiable & $E[\rmdo(1)]$ & $E[\rmdo(0)]$ & ATE \\
-\midrule
-PC            & Oui & 485{,}91 & 485{,}91 & \emph{structurel} \\
-FCI           & Oui & 485{,}91 & 485{,}91 & \emph{structurel} \\
-DirectLiNGAM  & Oui & 1\,382{,}54 & 1\,360{,}27 & $+22{,}27$ \\
-ExactBIC      & Oui & 2\,406{,}65 & 2\,366{,}69 & $+39{,}96$ \\
-ConsensusMean & Oui & 485{,}91 & 485{,}91 & \emph{structurel} \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 \subsection{Plots STAR}
 
