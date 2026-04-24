@@ -118,10 +118,10 @@
 \contentsline {subsection}{\numberline {A.1}\textsc {Confondant} : transformation complète}{36}{subsection.A.1}%
 \contentsline {subsection}{\numberline {A.2}\textsc {Confondant et Interférence} : transformation complète}{36}{subsection.A.2}%
 \contentsline {subsection}{\numberline {A.3}\textsc {Instrument} : transformation complète}{37}{subsection.A.3}%
-\contentsline {section}{\numberline {B}Annexe STAR : plots}{37}{appendix.B}%
-\contentsline {subsection}{\numberline {B.1}Plots STAR}{37}{subsection.B.1}%
+\contentsline {section}{\numberline {B}Annexe Site Web : HCM}{37}{appendix.B}%
+\contentsline {subsection}{\numberline {B.1}Organisation du Site Web}{37}{subsection.B.1}%
 \contentsline {section}{\numberline {C}Détails d'implémentation}{37}{appendix.C}%
-\contentsline {subsection}{\numberline {C.1}Structure du package}{37}{subsection.C.1}%
+\contentsline {subsection}{\numberline {C.1}Structure du package}{38}{subsection.C.1}%
 \contentsline {subsection}{\numberline {C.2}HSCMParametric : spécification du modèle}{38}{subsection.C.2}%
 \contentsline {subsection}{\numberline {C.3}Pipeline complet : exemple bout-en-bout}{38}{subsection.C.3}%
-\contentsline {subsection}{\numberline {C.4}Identification via do-calculus}{39}{subsection.C.4}%
+\contentsline {subsection}{\numberline {C.4}Identification via do-calculus}{40}{subsection.C.4}%

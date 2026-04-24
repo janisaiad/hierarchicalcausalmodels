@@ -181,6 +181,7 @@ La Section~\ref{sec:estimation} couvre le pipeline d'estimation.
 La Section~\ref{sec:implementation} détaille notre implémentation Python.
 La Section~\ref{sec:experiments} présente les résultats expérimentaux.
 La Section~\ref{sec:conclusion} conclut.
+Un site web complémentaire, synthétisant l'ensemble des contributions, est présenté en Annexe~B.
 
 %% ========================================================
 \section{Rappels : Inférence Causale Classique}
@@ -273,7 +274,7 @@ où $Z(W)$ désigne les nœuds de $Z$ qui ne sont pas ancêtres de $W$ dans $\ma
 \draw[->] (w) -- (x);
 \draw[->] (w) -- (y);
 \draw[red,thick,dashed] (0.8,1.55) -- (0.8,0.85);
-\node[red] at (0.8,1.75) {\scriptsize coupe vers $X$};
+\node[red] at (0.8,1.80) {\scriptsize coupe vers $X$};
 \node at (1.6,-0.55) {\scriptsize $\mathcal{G}_{\overline{X}}$};
 \end{tikzpicture}
 \caption{Règle 1}
@@ -291,9 +292,8 @@ où $Z(W)$ désigne les nœuds de $Z$ qui ne sont pas ancêtres de $W$ dans $\ma
 \draw[->] (x) -- (y);
 \draw[->] (w) -- (x);
 \draw[red,thick,dashed] (0.8,1.55) -- (0.8,0.85);
-\draw[red,thick,dashed] (0.4,1.2) -- (1.2,1.2);
-\node[red] at (0.8,1.75) {\scriptsize coupe vers $X$};
-\node[red] at (0.35,1.45) {\scriptsize coupe sorties de $Z$};
+\node[red] at (0.8,1.80) {\scriptsize coupe vers $X$};
+\node[red] at (0.7,0.65) {\scriptsize sorties de $Z$};
 \node at (1.6,-0.55) {\scriptsize $\mathcal{G}_{\overline{X},\underline{Z}}$};
 \end{tikzpicture}
 \caption{Règle 2}
@@ -311,9 +311,9 @@ où $Z(W)$ désigne les nœuds de $Z$ qui ne sont pas ancêtres de $W$ dans $\ma
 \draw[->] (z) -- (w);
 \draw[->] (w) -- (y);
 \draw[red,thick,dashed] (0.8,1.55) -- (0.8,0.85);
-\draw[red,thick,dashed] (0.2,1.2) -- (1.0,0.2);
-\node[red] at (0.8,1.75) {\scriptsize coupe vers $X$};
-\node[red] at (0.55,0.55) {\scriptsize coupe $Z(W)$};
+\draw[red,thick,dashed] (0.59,0.32) -- (1.01,0.88);
+\node[red] at (0.8,1.80) {\scriptsize coupe vers $X$};
+\node[red] at (0.30,0.15) {\scriptsize coupe $Z(W)$};
 \node at (1.6,-0.55) {\scriptsize $\mathcal{G}_{\overline{X},\overline{Z(W)}}$};
 \end{tikzpicture}
 \caption{Règle 3}
@@ -1910,12 +1910,12 @@ $\pr(Y \mid \mathrm{do}(A{\sim}q^a_\star))
 \label{fig:app_instrument}
 \end{figure}
 
-\section{Annexe STAR : plots}
+\section{Annexe Site Web : HCM}
 \label{app:starplots}
 
-\subsection{Plots STAR}
+\subsection{Organisation du Site Web}
 
-Les figures STAR (graphes causaux, diagnostics de distributions globales, QQ-plots de moyennes par classe et hétérogénéité de genre) sont désormais présentées dans le corps de la section STAR pour une lecture directe des résultats.
+Un site web a été développé en complément de ce travail afin de proposer une synthèse structurée des principaux résultats obtenus. Son organisation suit celle du projet, avec des sections dédiées aux différentes problématiques étudiées, aux méthodes employées et aux analyses réalisées. L’interface met en avant des supports visuels permettant une exploration plus directe des résultats. Ce dispositif constitue un complément au présent rapport, en offrant une représentation plus synthétique et interactive des contributions, sans s’y substituer. Le site est accessible à l’adresse suivante : \url{https://yasseroufqir.github.io/hcm-website/}.
 
 \section{Détails d'implémentation}
 \label{app:implementation_details}
