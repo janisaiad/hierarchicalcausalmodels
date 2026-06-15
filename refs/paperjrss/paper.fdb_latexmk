@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1781525274.15883 "paper.tex" "paper.pdf" "paper" 1781525276.22656 0
+["pdflatex"] 1781528685.29842 "paper.tex" "paper.pdf" "paper" 1781528686.98724 0
   "/etc/texmf/web2c/texmf.cnf" 1755372237.44565 475 c0e671620eb5563b2130f56340a5fde8 ""
   "/usr/share/texlive/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/tcss0800.tfm" 1136768653 1536 16418351df4369b7cef8f784ccb87a85 ""
@@ -261,11 +261,12 @@
   "Fig/enriched_q_probabilities_star.pdf" 1780918240.38819 32598 b5bc4f9756dc456426ce32efabf195bf ""
   "Fig/global_Y_M_heavy_tail_hist.pdf" 1780918236.96822 25824 4f20c74aec214a6e7ec53bb88a626573 ""
   "Fig/global_Y_M_heavy_tail_qq.pdf" 1780918235.18024 69917 2e4213cace5368138def129c59918f9d ""
+  "Fig/gpu_hcm_pareto_frontier.pdf" 1781527206.65576 36521 b0af11f62a00ab086a1d878744c51941 ""
   "Fig/synthetic_hcm_convergence_rmse.pdf" 1781523362.48515 29818 684e24e6bf412451dc46d0cf81731c34 ""
   "oup-authoring-template.cls" 1779406898.48415 145388 b450804837af23aacbd7461a952e911c ""
-  "paper.aux" 1781525276.08868 19003 f6ae57cc822920db3fb68f3e4eb2250f "pdflatex"
-  "paper.out" 1781525276.08868 3860 667d87c37f2330eae66f86632b8fac8e "pdflatex"
-  "paper.tex" 1781525025.99449 76287 af4537e9ec57fb53a721eed4226c8d76 ""
+  "paper.aux" 1781528686.86337 21691 8475e66857195c0662397bad44c21db2 "pdflatex"
+  "paper.out" 1781528686.86727 4467 996af52315ad673d237abecd065411d2 "pdflatex"
+  "paper.tex" 1781528673.43271 78507 d4ecb0c20961495acfdefcb036d43fa3 ""
   (generated)
   "paper.aux"
   "paper.log"

@@ -15,6 +15,10 @@
 
 \graphicspath{{Fig/}}
 \onecolumn
+\raggedbottom
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
 
 \theoremstyle{thmstyleone}%
 \newtheorem{theorem}{Theorem}%
@@ -247,7 +251,7 @@ Thus pyAgrum performs identification, while the HCM backend performs translation
 \State Fit each required local density or response factor from the nested data
 \State Normalize high-variance factors when the product-form functional is numerically unstable
 \State Evaluate the AST under $\rmdo(Q^a=q_1)$ and $\rmdo(Q^a=q_0)$, optionally in parallel
-\State Return the contrast, the fitted factors, and effective-graph diagnostics
+\State Return the intervention contrast and the fitted factor representation
 \end{algorithmic}
 \end{algorithm}
 
@@ -265,7 +269,6 @@ Build pyAgrum model & $O(e+v)$ copy plus identification search & symbolic backen
 AST translation & $O(K)$ expression traversal & factor-level traversal & unchanged or small gain: $O(K)$ \\
 Per-unit $Q$ fitting & $O(nmd)$ for simple parametric factors & units and factors independent & approximately $O(nmd/P)$ plus scheduling overhead \\
 Monte Carlo evaluation & $O(BK)$ per intervention & samples, units, and branches independent & approximately $O(BK/P)$ when branches are balanced \\
-Factor diagnostics & $O(Kn)$ summaries & factors independent & approximately $O(Kn/P)$ for factor-wise summaries \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -446,25 +449,11 @@ We therefore report both the nominal identified formula and the factor normaliza
 \subsection{Canonical HCM motifs}
 
 The experimental validation starts with three canonical motifs: confounding, confounding with interference/frontdoor structure, and an instrumental-variable design.
-The data are generated from known HSCMs with $n=100$ units and $m=50$ sub-units; recovery of the causal contrast is shown in the convergence plot, so Table~\ref{tab:motifs} instead reports the parallel estimation structure for the same three motifs.
-Here $P=4$ denotes four CPU workers and $c$ denotes the average cost of one local density, response, or Monte Carlo evaluation task.
-For the GPU column, the local CUDA benchmark was run on an NVIDIA GeForce RTX 4060 Laptop GPU with 8GB VRAM using the torch batched Gaussian HCM kernel with $m=80$ sub-units; the largest successful batch was $2.8\times 10^6$ independent unit tasks in $3.29$ seconds with $6.77$GB peak allocated memory, while $3.0\times 10^6$ tasks exceeded memory.
-
-\begin{table}[!htbp]
-\centering
-\small
-\caption{Parallel estimation structure for the three canonical HCM motifs, including the largest observed single-GPU batch on the local RTX 4060 configuration.}
-\label{tab:motifs}
-\begin{tabular}{lccc}
-\toprule
-Motif & Independent tasks & CPU work, $P=4$ & GPU batch ceiling on local config \\
-\midrule
-Confounder & $n$ response tasks & $\lceil n/4\rceil c$ & up to $2.8\times 10^6$ units \\
-Confounder and interference & $2n$ response/mediator tasks & $\lceil 2n/4\rceil c$ & up to $1.4\times 10^6$ units \\
-Instrument & $3n$ instrument/weight tasks & $\lceil 3n/4\rceil c$ & up to $9.3\times 10^5$ units \\
-\bottomrule
-\end{tabular}
-\end{table}
+The data are generated from known HSCMs with $n=100$ units and $m=50$ sub-units; recovery of the causal contrast is shown in the convergence plot.
+Appendix~\ref{app:software-notes} reports the parallel estimation structure for the same motifs.
+Here $P$ denotes the number of CPU workers and $c$ denotes the average cost of one local density, response, or Monte Carlo evaluation task.
+For a GPU implementation, the relevant parallelism is not a number of Python workers but a feasible tensor batch size, which depends on both $n$ and $m$.
+We therefore treat GPU throughput as a hardware-specific Pareto frontier rather than as a fixed worker count.
 
 The confounder experiment also varies the number of units.
 With $m=50$ sub-units per unit, the estimate converges toward the true ATE as $n$ increases from 10 to 200, while pooled OLS remains biased because it mixes unit-level latent heterogeneity with the treatment effect.
@@ -472,8 +461,8 @@ This behaviour is important for interpretation: the HCM estimator is recovering 
 It is also important computationally.
 For these motifs, the expensive work consists of repeated unit-level response evaluations, factor evaluations, and Monte Carlo or quadrature branches.
 These tasks are independent conditional on the identified AST, so the sequential work $T_1$ can ideally be reduced to $T_P\simeq T_1/P$ with $P$ CPU workers, up to scheduling overhead.
-The same structure is highly GPU-parallelizable, but the GPU analogue of $P$ is not a number of Python workers: units, sub-units, intervention values, and Monte Carlo samples are stacked into tensor batches and evaluated simultaneously when the density estimators are implemented in a tensor backend such as PyTorch or JAX\@.
-The STAR timings reported below use CPU parallelism, whereas the local GPU benchmark in Table~\ref{tab:motifs} measures the maximum batch size achievable on the available CUDA device.
+The same structure is highly GPU-parallelizable: units, sub-units, intervention values, and Monte Carlo samples are stacked into tensor batches and evaluated simultaneously when the density estimators are implemented in a tensor backend such as PyTorch or JAX\@.
+The STAR timings reported below use CPU parallelism; Appendix~\ref{app:software-notes} gives the hardware-specific GPU Pareto benchmark used to document how the achievable batch frontier changes with $(n,m)$ on the available CUDA device.
 
 \subsection{Do-calculus gallery}
 
@@ -555,27 +544,9 @@ Figure~\ref{fig:complete-instrument} displays the instrument motif in the main t
 
 \subsection{Representative benchmark scenarios}
 
-Beyond the canonical motifs, we use representative benchmark families to check whether the implementation behaves correctly across binary HCMs, spatio-temporal HCMs, and applied synthetic examples with grouped socioeconomic outcomes.
-These experiments are designed not only to show that the estimator can succeed, but also to identify regimes where the empirical estimand differs from the theoretical target.
-The paper reports the cases that are most informative for this scope rather than listing every internal benchmark run.
-
-\begin{table}[!htbp]
-\centering
-\caption{Representative benchmark scenarios.}
-\label{tab:benchmarks}
-\begin{tabular}{lccc}
-\toprule
-Scenario & Ground truth & HCM/per-unit & Naive OLS \\
-\midrule
-Binary confounder & 0.315 & 0.363 & -- \\
-Spatio-temporal confounder & 5.00 & 5.10 & 27.1 \\
-Spatio-temporal dynamics & 5.00 & 5.10 & 33.0 \\
-Grouped socioeconomic outcome & 0.35 log & 0.34 & 0.70 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The spatio-temporal experiments are particularly informative because the naive OLS estimate can be five to seven times larger than the true effect when a latent unit variable simultaneously affects baseline outcomes and treatment probability.
+Beyond the canonical motifs, additional synthetic checks are used as regression tests for the implementation rather than as a separate empirical contribution.
+They cover binary HCMs, spatio-temporal HCMs, and grouped socioeconomic simulations with known targets; the numerical details are reported in Appendix~\ref{app:synthetic-benchmarks}.
+The spatio-temporal checks are the most informative because the naive OLS estimate can be five to seven times larger than the true effect when a latent unit variable simultaneously affects baseline outcomes and treatment probability.
 When the empirical estimand matches the theoretical one, the per-unit HCM estimator removes this source of bias.
 When treatment interacts with context, however, the estimator reports the corresponding empirical target; this change in target is part of the interpretation rather than a numerical failure.
 The convergence diagnostic in Figure~\ref{fig:synthetic-convergence} shows the same point visually: increasing $n\times m$ reduces RMSE for the hierarchical estimator, while the flat pooled estimator remains biased because the unit-level latent cause is still unmodelled.
@@ -587,6 +558,19 @@ The same benchmarks also demonstrate why the AST representation matters computat
 %% =============================================================================
 
 \subsection{Data and hierarchical representation}
+
+\begin{center}
+\captionof{table}{STAR HCM estimates and normalized-factor diagnostic. The Mathematics row is the main outcome analysis; the Reading row is a separate diagnostic run used to inspect the normalized $P(Q^{y\g a,g}\g S)$ factor.}
+\label{tab:hcmstar}
+\begin{tabular}{llccc}
+\toprule
+Run & Target & $E[\rmdo(1)]$ & $E[\rmdo(0)]$ & ATE \\
+\midrule
+ExactBIC & Mathematics ($M$) & 2402.75 & 2365.95 & 36.80 \\
+ExactBIC, normalized factors & Reading ($Y$) diagnostic & 1788.10 & 1766.47 & 21.63 \\
+\bottomrule
+\end{tabular}
+\end{center}
 
 Project STAR randomized kindergarten students within schools to small classes, regular classes, or regular classes with an aide.
 The full STAR-and-Beyond public-use dataset is documented by \citet{Achilles2008} and distributed through Harvard Dataverse at \href{https://doi.org/10.7910/DVN/SIWH9F}{this link}; it contains the raw student- and school-level records from the longitudinal Tennessee experiment, including demographics, class assignments, school identifiers, teacher information, and achievement outcomes.
@@ -655,13 +639,6 @@ $U$ & latent & Unobserved class heterogeneity \\
 \label{fig:score-qq-diagnostics}
 \end{figure}
 
-\begin{figure}[!htbp]
-\centering
-\includegraphics[width=0.86\textwidth]{global_Y_M_heavy_tail_hist.pdf}
-\caption{Heavy-tail histogram diagnostics for Reading ($Y$) and Mathematics ($M$). Empirical score densities are shown with GPD-type tail fits, confirming that the STAR score distributions have heavy non-Gaussian tails.}
-\label{fig:score-hist-diagnostics}
-\end{figure}
-
 \subsection{Baseline regressions}
 
 As baselines, we reproduce the standard student-level regression contrasts used in the STAR literature and compare them with a non-causal hierarchical reading of the data.
@@ -701,9 +678,8 @@ and finally includes student and teacher controls. The richest specification is
 where $X_i$ includes race, gender, free-lunch status, teacher race, teacher experience, and teacher education.
 The coefficient $\beta_1$ is therefore a student-level small-class contrast, conditional on the chosen controls.
 
-\begin{table}[!htbp]
-\centering
-\caption{OLS estimates of the small-class effect on kindergarten mathematics.}
+\begin{center}
+\captionof{table}{OLS estimates of the small-class effect on kindergarten mathematics.}
 \label{tab:ols}
 \begin{tabular}{lcccc}
 \toprule
@@ -715,7 +691,7 @@ Student controls & 9.380 & 1.415 & $3.4\times 10^{-11}$ & 0.268 \\
 Full OLS replication & 9.432 & 1.419 & $3.0\times 10^{-11}$ & 0.269 \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{center}
 
 The instrumental-variable replication uses assignment indicators as instruments for actual class size. In first stage,
 \begin{align}
@@ -767,13 +743,6 @@ This distinction motivates the HCM diagnostics below.
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.96\textwidth]{ExactBIC_with_factor1_effective_graph_curved.pdf}
-\caption{ExactBIC-derived HCM graph with normalized factors. Dashed red arrows mark dependencies whose multiplicative factors are normalized for numerical stability in the stabilized evaluation.}
-\label{fig:exactbic-effective-graph}
-\end{figure}
-
-\begin{figure}[!htbp]
-\centering
 \includegraphics[width=0.96\textwidth]{ExactBIC_transformed_q_graph.pdf}
 \caption{ExactBIC graph after HCM collapse and augmentation for the mathematics target. Student-level variables are represented by class-level mechanisms $Q$; the green node is the target class-level Mathematics distribution $Q^m$ evaluated under $\rmdo(Q^a=q_\star^a)$. The dashed red arrow indicates the $P(Q^{y\g a,g}\g S)$ factor normalized in the stabilized ExactBIC run.}
 \label{fig:exactbic-q-graph}
@@ -800,21 +769,7 @@ Thus the ExactBIC graph used here contains the translated dependencies
 Reading ($Y$) $\to$ Mathematics ($M$), Mathematics ($M$) $\to$ Free lunch ($L$), Small-class assignment ($A$) $\to$ Reading ($Y$), Gender ($G$) $\to$ Reading ($Y$), Ethnicity ($E$) $\to$ Mathematics ($M$), Ethnicity ($E$) $\to$ Free lunch ($L$), Urbanicity ($S$) $\to$ Ethnicity ($E$), Urbanicity ($S$) $\to$ Reading ($Y$), Urbanicity ($S$) $\to$ Small-class assignment ($A$), and Urbanicity ($S$) $\to$ Free lunch ($L$).
 Before identification, the HCM construction also adds the latent class-level confounding edges Unobserved class heterogeneity ($U$) $\to$ Small-class assignment ($A$) and Unobserved class heterogeneity ($U$) $\to$ Mathematics ($M$), because the target outcome in this paper is Mathematics ($M$).
 The resulting hierarchical graph is then collapsed and augmented for $Q^m$ (the class-level Mathematics mechanism), giving the $Q$-variable graph in Figure~\ref{fig:exactbic-q-graph}; this transformed graph is passed to pyAgrum and evaluated with the plug-in families used in the run: Bernoulli models for Small-class assignment ($A$), Gender ($G$), Ethnicity ($E$), and Free lunch ($L$), a categorical model for Urbanicity ($S$), and two-component Gaussian mixtures for Reading ($Y$) and Mathematics ($M$).
-
 After this translation, the class-as-unit HCM v2 model gives the estimates reported in Table~\ref{tab:hcmstar}, together with the separate normalized-factor diagnostic for the Reading mechanism.
-\begin{table}[!htbp]
-\centering
-\caption{STAR HCM estimates and normalized-factor diagnostic. The Mathematics row is the main outcome analysis; the Reading row is a separate diagnostic run used to inspect the normalized $P(Q^{y\g a,g}\g S)$ factor.}
-\label{tab:hcmstar}
-\begin{tabular}{llccc}
-\toprule
-Run & Target & $E[\rmdo(1)]$ & $E[\rmdo(0)]$ & ATE \\
-\midrule
-ExactBIC & Mathematics ($M$) & 2402.75 & 2365.95 & 36.80 \\
-ExactBIC, normalized factors & Reading ($Y$) diagnostic & 1788.10 & 1766.47 & 21.63 \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 These values should not be read as direct replacements for the student-level OLS coefficient, but the comparison is still essential.
 OLS gives a student-level contrast for a binary treatment indicator, conditional on observed covariates and school fixed effects; IV gives a class-size contrast using assignment as an instrument.
@@ -875,7 +830,7 @@ The experiments expose a central operational issue: an identified formula may co
 In the normalized-factor runs, the evaluator rescales these multiplicative factors to keep the product stable and comparable across interventions.
 In the ExactBIC STAR run, the normalized factor was the gender-dependent term $P(Q^{y\g a,g}\g S)$.
 The diagnostic is scientifically useful only when it is read at the factor level: factor levels show which terms dominate the product numerically, while unit-context factor changes show which term changes between the two interventions.
-The score distributions have heavy, non-Gaussian tails, so Figures~\ref{fig:score-qq-diagnostics} and~\ref{fig:score-hist-diagnostics} report tail diagnostics rather than relying only on a global Gaussian approximation.
+The score distributions have heavy, non-Gaussian tails, so Figure~\ref{fig:score-qq-diagnostics} reports tail diagnostics rather than relying only on a global Gaussian approximation; the corresponding histogram diagnostic is given in Appendix~\ref{app:tail-diagnostics}.
 In Figure~\ref{fig:score-qq-diagnostics}, the main Q-Q panels diagnose the whole standardized score distribution, while the inset subplots focus on the lower and upper extremes through GPD tail zooms.
 This split is important: a Gaussian plug-in can look acceptable near the centre of Reading ($Y$) and Mathematics ($M$), but still underrepresent rare low or high classroom scores that affect fitted $Q$-response factors and product-form HCM evaluations.
 The gender-composition diagnostic in Figure~\ref{fig:gender-heterogeneity} shows that class composition varies substantially across classes; an OLS coefficient on \texttt{female} adjusts for an average individual difference, but it does not represent the distribution of class composition.
@@ -1113,8 +1068,80 @@ The two additional canonical graph transformations are reported here to keep the
 \label{fig:complete-interference}
 \end{figure}
 
+\section{Effective graph diagnostic}
+\label{app:effective-graph}
+The effective graph in Figure~\ref{fig:exactbic-effective-graph} is reported in the appendix because it documents the stabilized ExactBIC computation rather than the main STAR estimand itself.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.96\textwidth]{ExactBIC_with_factor1_effective_graph_curved.pdf}
+\caption{ExactBIC-derived HCM graph with normalized factors. Dashed red arrows mark dependencies whose multiplicative factors are normalized for numerical stability in the stabilized evaluation.}
+\label{fig:exactbic-effective-graph}
+\end{figure}
+
+\section{Additional STAR tail diagnostics}
+\label{app:tail-diagnostics}
+Figure~\ref{fig:score-hist-diagnostics} provides the histogram counterpart to the Q-Q tail diagnostic reported in the main text.
+It is included as a modelling check for the Gaussian plug-in approximation, not as a separate substantive result.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.86\textwidth]{global_Y_M_heavy_tail_hist.pdf}
+\caption{Heavy-tail histogram diagnostics for Reading ($Y$) and Mathematics ($M$). Empirical score densities are shown with GPD-type tail fits, confirming that the STAR score distributions have heavy non-Gaussian tails.}
+\label{fig:score-hist-diagnostics}
+\end{figure}
+
+\section{Additional synthetic benchmarks}
+\label{app:synthetic-benchmarks}
+The additional benchmark scenarios in Table~\ref{tab:benchmarks} are included as implementation checks.
+They are not intended to define new estimands for the STAR analysis; their role is to verify that the code behaves as expected in controlled settings where the target is known.
+
+\begin{table}[!htbp]
+\centering
+\caption{Representative benchmark scenarios used as synthetic implementation checks.}
+\label{tab:benchmarks}
+\begin{tabular}{lccc}
+\toprule
+Scenario & Ground truth & HCM/per-unit & Naive OLS \\
+\midrule
+Binary confounder & 0.315 & 0.363 & -- \\
+Spatio-temporal confounder & 5.00 & 5.10 & 27.1 \\
+Spatio-temporal dynamics & 5.00 & 5.10 & 33.0 \\
+Grouped socioeconomic outcome & 0.35 log & 0.34 & 0.70 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{Software notes}
+\label{app:software-notes}
 The implementation provides graph transformations, do-calculus identification, AST evaluation, parametric and neural estimators, and STAR replication scripts. The current draft reports the stable artefacts used for the STAR analysis. The code is available at \href{https://github.com/AI-vidence/hierarchicalcausalmodels}{this link}.
+
+\begin{table}[!htbp]
+\centering
+\small
+\caption{Parallel estimation structure for the three canonical HCM motifs. The CPU column reports the work after splitting independent tasks across $P=4$ workers. The GPU implementation uses the same independent tasks, but batches them as tensors; the feasible batch size is measured separately as a function of $(n,m)$ rather than treated as a fixed worker count.}
+\label{tab:motifs}
+\begin{tabular}{lccc}
+\toprule
+Motif & Independent tasks & Sequential work & CPU work, $P=4$ \\
+\midrule
+Confounder & $n$ response tasks & $nc$ & $\lceil n/4\rceil c$ \\
+Confounder and interference & $2n$ response/mediator tasks & $2nc$ & $\lceil 2n/4\rceil c$ \\
+Instrument & $3n$ instrument/weight tasks & $3nc$ & $\lceil 3n/4\rceil c$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The GPU benchmark in Figure~\ref{fig:gpu-pareto-frontier} should be read as a regime diagnostic.
+On the local consumer GPU, small and moderate workloads are often dominated by data movement and CUDA launch overhead, so speedups become meaningful only when $n\times m$ is large enough to keep the device saturated.
+The same script is therefore intended to be rerun on accelerator hardware with larger memory and bandwidth, such as an H100, before drawing conclusions about production-scale GPU speedups.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{gpu_hcm_pareto_frontier.pdf}
+\caption{Hardware-specific Pareto benchmark for batched GPU HCM evaluation. Each point corresponds to one synthetic batched Gaussian HCM workload with a given number of units $n$ and sub-units $m$. The left panel reports the throughput--memory trade-off and highlights non-dominated CUDA points; the right panel reports the observed speedup over the batched CPU torch baseline for workloads where the CPU baseline was also measured, with the dotted line marking parity. On the local RTX 4060 Laptop GPU, the main message is the onset of a GPU-beneficial regime rather than uniformly large speedups; larger accelerators should move this frontier upward and outward.}
+\label{fig:gpu-pareto-frontier}
+\end{figure}
 \end{appendices}
 
 \end{document}
