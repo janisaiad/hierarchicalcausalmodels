@@ -81,7 +81,7 @@ The implementation and STAR replication scripts are available at \href{https://g
 The application to Project STAR motivates the paper: class-size assignment is randomized at the class level, while outcomes and covariates are observed at the student level, so the natural intervention is a class-level intervention on the distribution of treatment, not only a pooled student-level indicator.
 We validate the pipeline on canonical HCM motifs and benchmark scenarios with known ground truth, then analyse STAR kindergarten mathematics outcomes.
 OLS, instrumental-variable, and non-causal hierarchical Bayesian/OLS baselines give useful reference contrasts, whereas HCM estimates based on discovered graphs are larger and reveal sensitivity to class heterogeneity, graph structure, and gender-dependent multi-parent plug-in factors.
-The results show that symbolic identification alone is not enough for practical hierarchical causal inference: scalable estimation, diagnostics, and effective graphs are central parts of the scientific object. \textcolor{red}{mettre en valeur l'utilisation des modèles hierarchiques plutôt que à plat}
+The results show that ignoring hierarchy gives the wrong target: flat baselines estimate useful associations or student-level contrasts, but they do not encode interventions on class-level treatment distributions. Symbolic identification alone is not enough for practical hierarchical causal inference; scalable estimation, factor diagnostics, and effective graphs are central parts of the scientific object.
 }
 
 \keywords{hierarchical causal models, automatic identification, scalable estimation, do-calculus, Project STAR, class-size effects, plug-in estimation}
@@ -121,7 +121,11 @@ Once an HCM estimand has been identified, it is usually not a single regression 
 Without a structured representation, estimation becomes a monolithic formula that is hard to audit and hard to scale.
 Our implementation treats the identified formula as a computational graph, so that many conditional densities, per-unit response models, and Monte Carlo branches can be estimated independently within the same causal framework.
 
-The central device in HCM is the $Q$-variable: a random distribution at the unit level that represents how a sub-unit variable behaves conditional on its sub-unit parents.
+The central device in HCM is the $Q$-variable.
+Informally, a $Q$-variable is a class-level summary of a student-level mechanism.
+For a binary variable, it can be read as a probability or proportion inside the class; for a continuous outcome fitted with a Gaussian model, it can be read through the fitted mean and variance of that outcome in the class.
+For example, $Q_i^a$ is the small-class assignment distribution in class $i$, while a Gaussian $Q_i^m$ is summarized by parameters such as $(\hat\mu_i^m,\hat\sigma_i^{2,m})$ for mathematics scores.
+Formally, a $Q$-variable is a random distribution at the unit level that represents how a sub-unit variable behaves conditional on its sub-unit parents.
 In the large-within-unit limit, the hierarchical model can be transformed into a flat causal graphical model over $Q$-variables and unit-level variables.
 Identification can then be performed with standard do-calculus on this transformed graph.
 This paper focuses on the next operational step: turning such formulas into numerical estimators, diagnostics, and real-data workflows.
@@ -132,7 +136,48 @@ The canonical econometric analysis estimates student-level regressions with scho
 Yet the treatment mechanism is inherently hierarchical: class type is shared by students in the same class, and class composition (gender, socioeconomic status, peer environment) can influence both outcomes and the interpretation of the treatment effect.
 This application motivates our methodological question: can we implement HCM in a way that carries the analyst from raw nested data to an estimated causal effect, while making explicit which pieces of the identified formula were actually estimated?
 
-\subsection{Contributions}
+%% =============================================================================
+\section{The problem: a hierarchical causal estimand}
+\label{sec:problem}
+%% =============================================================================
+
+Causal inference asks what would happen under an intervention, not only what is associated with an observed exposure.
+For a flat dataset, the target is often written as $\E{Y\g\rmdo(A=a)}$ and identification asks whether this counterfactual quantity can be expressed using the observed distribution.
+In hierarchical data this question changes because the treatment, covariates, and outcomes are not all attached to exchangeable rows.
+In STAR, a student has an observed small-class indicator $A_{ij}$, but the scientific intervention is closer to changing the class-level assignment mechanism $Q_i^a$.
+Here this should be read concretely: if treatment is binary, $Q_i^a$ is the class-level probability or proportion of small-class assignment, not another raw student column.
+Likewise, $Q_i^m$ is not one student's mathematics score; under the Gaussian plug-in used for class scores, it is the class-specific mathematics score distribution, summarized by a fitted mean and variance.
+The target is therefore
+\begin{equation}
+  \tau(q_1,q_0)
+  =
+  \E{Q^m\g\rmdo(Q^a=q_1)}
+  -
+  \E{Q^m\g\rmdo(Q^a=q_0)},
+  \label{eq:problem-target}
+\end{equation}
+where $Q^m$ is the class-level mathematics outcome mechanism, for example the Gaussian score distribution summarized by $(\mu_i^m,\sigma_i^{2,m})$ in each class.
+A pooled regression coefficient for $A_{ij}$ and a school fixed-effect regression are informative baselines, but they answer a different question: they contrast observed student rows under adjustment, rather than intervening on a distribution of treatment mechanisms inside classes.
+
+The difficulty is that equation~\eqref{eq:problem-target} depends on several class-level mechanisms at once.
+Class composition, latent classroom quality, school context, and outcome-response mechanisms jointly determine the intervention distribution.
+We therefore collect all unobserved unit-level causes, not only a vague ``heterogeneity'' term, into a latent variable $U_i$.
+This $U_i$ is a container for unobserved class-level and school-level sources that can affect several mechanisms simultaneously; it is not meant to say that there is only one hidden cause.
+Once $U_i$ and the $Q$-variables are introduced, the problem becomes identifiable only after graph transformations and do-calculus, then estimable only after choosing plug-in models for the factors in the identified formula.
+
+The empirical motivation for this machinery is also numerical.
+In the STAR factor traces, some multiplicative factors operate on log-scale levels that differ by more than three orders of magnitude across units and interventions.
+Such $10^3$-scale differences make it easy for one unstable factor to dominate the final product.
+This is why the paper reports both raw and normalized-factor ExactBIC evaluations: the normalization is not a new estimand chosen after seeing the answer, but a stability diagnostic for a product-form causal functional.
+It also explains why a posteriori diagnostics are necessary: after identification, one must inspect which factors actually drive the contrast and whether a flat analysis has hidden a class-level mechanism.
+
+The framework is graph-general.
+Given any hierarchical graph, the pipeline collapses sub-unit mechanisms into $Q$-variables, augments the target outcome mechanism, calls pyAgrum for symbolic identification, adapts the returned expression into a closed-form HCM formula, and evaluates it with local estimators.
+The STAR ExactBIC graph is one plausible graph used to demonstrate the workflow.
+In future work we will evaluate clusters of plausible DAGs, grouping graphs that encode coherent variable blocks, rather than treating a single discovered DAG as definitive.
+
+\section{Contributions and workflow}
+\label{sec:contributions}
 
 The contribution of the paper is to make HCM operational as an automatic and scalable statistical workflow.
 Starting from a hierarchical graph, the implementation collapses the graph, augments it with outcome-distribution nodes when needed, marginalizes irrelevant variables, calls pyAgrum for symbolic do-calculus identification, adapts the returned expression into closed-form HCM formulas, and then evaluates the resulting functional with plug-in density estimators.
@@ -152,7 +197,7 @@ The \texttt{y0} library recently added symbolic HCM support through a domain-spe
 Our contribution is different: we implement the path from nested data to estimated ATE, including the adaptation of pyAgrum's symbolic output into closed-form HCM formulas, density fitting, scalable AST evaluation, diagnostics, and a real STAR workflow rather than formula derivation alone.
 
 The rest of the paper follows this computational path.
-Section~\ref{sec:method} describes the symbolic-to-numeric backend, Section~\ref{sec:experiments} validates the implementation on controlled settings, Section~\ref{sec:star} gives the Project STAR analysis, and Section~\ref{sec:conclusion} discusses limitations and future work.
+Section~\ref{sec:problem} defines the hierarchical target and why flat baselines are insufficient, Section~\ref{sec:method} describes the symbolic-to-numeric backend, Section~\ref{sec:experiments} validates the implementation on controlled settings, Section~\ref{sec:star} gives the Project STAR analysis, and Section~\ref{sec:conclusion} discusses limitations and future work.
 
 %% =============================================================================
 \section{Method}
@@ -184,6 +229,71 @@ The same separation is what makes the implementation scalable.
 The symbolic layer decides what has to be estimated; the numerical layer sees a list of conditional density, expectation, and marginalization tasks that can be fitted independently across units, factors, or Monte Carlo samples.
 Thus parallel estimation is not an external engineering add-on, but a direct consequence of representing the identified estimand as a typed computational graph.
 
+pyAgrum is used as the symbolic identification backend.
+Concretely, after collapse and augmentation, the HCM graph is an ordinary directed acyclic graph whose nodes are unit-level variables and $Q$-variables.
+We copy this graph into a pyAgrum causal model, specify the intervention node and target node, and call pyAgrum's do-calculus routine.
+pyAgrum returns a symbolic expression over the transformed graph; our code then translates its factors back into HCM density keys, such as $P(Q^{y\g a,g}\g S)$, and stores the result as a typed AST for numerical evaluation.
+Thus pyAgrum performs identification, while the HCM backend performs translation, factor fitting, normalization when needed, Monte Carlo evaluation, and diagnostics.
+
+\begin{algorithm}[!htbp]
+\caption{Automatic HCM identification and plug-in evaluation}
+\label{alg:hcm-pipeline}
+\begin{algorithmic}[1]
+\Require Hierarchical graph $G$, nested data with $n$ units and $m_i$ sub-units, treatment mechanism $Q^a$, target mechanism $Q^y$ or $Q^m$
+\State Collapse sub-unit mechanisms into unit-level $Q$-variables to obtain $G_{\col}$
+\State Augment $G_{\col}$ with the target outcome mechanism and marginalize irrelevant nodes when required
+\State Copy the transformed DAG into pyAgrum and call do-calculus identification
+\State Translate the pyAgrum expression into HCM density keys and a typed AST
+\State Fit each required local density or response factor from the nested data
+\State Normalize high-variance factors when the product-form functional is numerically unstable
+\State Evaluate the AST under $\rmdo(Q^a=q_1)$ and $\rmdo(Q^a=q_0)$, optionally in parallel
+\State Return the contrast, the fitted factors, and effective-graph diagnostics
+\end{algorithmic}
+\end{algorithm}
+
+\begin{table}[!htbp]
+\centering
+\small
+\caption{Algorithmic cost and parallel structure of the HCM backend. Here $n$ is the number of units, $m$ is the average number of sub-units per unit, $d$ is the maximum parent count, $v$ and $e$ are the numbers of transformed graph nodes and edges, $K$ is the number of density factors in the identified formula, $B$ is the number of Monte Carlo samples or quadrature points, and $P$ is the number of parallel workers.}
+\label{tab:complexity}
+\begin{tabular}{p{0.19\textwidth}p{0.20\textwidth}p{0.27\textwidth}p{0.24\textwidth}}
+\toprule
+Step & Sequential cost & Parallelization structure & Effective cost with $P$ workers \\
+\midrule
+Collapse/augmentation & $O(e+v)$ graph operations & graph-level; usually negligible & unchanged in practice: $O(e+v)$ \\
+Build pyAgrum model & $O(e+v)$ copy plus identification search & symbolic backend & mostly sequential; no robust $P$-speedup assumed \\
+AST translation & $O(K)$ expression traversal & factor-level traversal & unchanged or small gain: $O(K)$ \\
+Per-unit $Q$ fitting & $O(nmd)$ for simple parametric factors & units and factors independent & approximately $O(nmd/P)$ plus scheduling overhead \\
+Monte Carlo evaluation & $O(BK)$ per intervention & samples, units, and branches independent & approximately $O(BK/P)$ when branches are balanced \\
+Factor diagnostics & $O(Kn)$ summaries & factors independent & approximately $O(Kn/P)$ for factor-wise summaries \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.78\textwidth]{synthetic_hcm_convergence_rmse.pdf}
+\caption{Convergence diagnostic under hierarchical confounding. The flat pooled estimator does not approach the intervention target because the unit-level latent cause is ignored. The hierarchical within-unit estimator removes the unit effect and follows the expected $1/\sqrt{nm}$ decay as the total number of observations increases. Labels on the blue curve report the runtime for each simulated sample size.}
+\label{fig:synthetic-convergence}
+\end{figure}
+
+\begin{table}[!htbp]
+\centering
+\small
+\caption{Sequential versus parallel runtimes. Times are in seconds. The HCM rows are two-intervention evaluations from the STAR speed test; the OLS and IV rows are batched baseline workloads.}
+\label{tab:parallel-runtime}
+\begin{tabular}{lcccc}
+\toprule
+Workload & Sequential & 4 threads & 4 processes & Best speedup \\
+\midrule
+DirectLiNGAM HCM evaluation & 9.31 & 10.73 & 8.50 & $1.09\times$ \\
+ExactBIC HCM evaluation & 3.11 & 3.63 & 1.90 & $1.64\times$ \\
+OLS baseline batch & 12.32 & 6.71 & 0.46 & $26.77\times$ \\
+IV baseline batch & 21.43 & 14.87 & 2.05 & $10.48\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 Let $i=1,\ldots,n$ index units and $j=1,\ldots,m_i$ index sub-units.
 For each sub-unit variable $L_{ij}$ with sub-unit parents $\pa_S(L)_{ij}$, the backend creates a unit-level $Q$-node
 \begin{equation}
@@ -210,30 +320,47 @@ Here AST means an abstract syntax tree: a nested object representation of the py
 Each node has a computational role.
 A summation node stores the variables to marginalize; a product node stores the multiplicative factors; a conditional node stores one density key of the form $P(\mathrm{outcome}\g\mathrm{parents})$; and a leaf node is used for constants or fallback terms.
 The do-calculus engine demo prints this adapted object directly.
-For instance, one retained collapsed example identifies
-\[
-  \sum_{Q^{z\g a},W}
-  P(W\g Q^a)\,
-  P(Y\g Q^a,Q^{z\g a},W)
-  \left[
-    \sum_{Q^a}
-    P(Q^{z\g a}\g Q^a,W)\,
-    P(Q^a)
-  \right].
-\]
-The corresponding AST can be read horizontally as
-\[
-\begin{array}{c@{\quad\Longrightarrow\quad}c@{\quad\Longrightarrow\quad}c}
-\texttt{Sum}(Q^{z\g a},W)
+For instance, one retained collapsed example identifies the formula shown below; the corresponding AST is the tree object printed by the backend:
+\begin{center}
+\setlength{\fboxsep}{7pt}
+\begin{tabular}{@{}c@{\hspace{0.035\textwidth}}c@{}}
+\textbf{Adapted AST} & \textbf{Identified formula} \\[4pt]
+\fbox{%
+\begin{minipage}[t]{0.43\textwidth}
+\ttfamily\scriptsize
+sum on Qz\_a,W for\par
+\textbar{} *\par
+\textbar{} \textbar{} *\par
+\textbar{} \textbar{} \textbar{} P(W\textbar{}Qa)\par
+\textbar{} \textbar{} \textbar{} P(Y\textbar{}Qa,Qz\_a,W)\par
+\textbar{} \textbar{} sum on Qa for\par
+\textbar{} \textbar{} \textbar{} *\par
+\textbar{} \textbar{} \textbar{} \textbar{} P(Qz\_a\textbar{}Qa,W)\par
+\textbar{} \textbar{} \textbar{} \textbar{} joint P(Qa)
+\end{minipage}}%
 &
-\texttt{Product}
-&
-\begin{array}{c}
-\texttt{Product}\{P(W\g Q^a),\,P(Y\g Q^a,Q^{z\g a},W)\}\\[2pt]
-\texttt{Sum}(Q^a)\{\texttt{Product}[P(Q^{z\g a}\g Q^a,W),\,P(Q^a)]\}
-\end{array}
-\end{array}.
+\fbox{%
+\begin{minipage}[t]{0.40\textwidth}
+\vspace{0.35em}
+\centering
+\scriptsize
+\[
+\begin{aligned}
+&\sum_{Q^{z\g a},W}
+P(W\g Q^a)\,
+P(Y\g Q^a,Q^{z\g a},W)\\
+&\quad\times
+\left[
+\sum_{Q^a}
+P(Q^{z\g a}\g Q^a,W)\,
+P(Q^a)
+\right].
+\end{aligned}
 \]
+\vspace{0.35em}
+\end{minipage}}%
+\end{tabular}
+\end{center}
 This is the object used by the evaluator.
 The first line is the outer marginalization node over $Q^{z\g a}$ and $W$.
 The product node then has two children: a direct product of fitted conditionals, and an inner summation over $Q^a$.
@@ -248,9 +375,9 @@ The general target is
 \begin{equation}
   \tau(q_1,q_0)
   =
-  \E{Y\g \rmdo(Q^a=q_1)}
+  \E{Q^Y\g \rmdo(Q^a=q_1)}
   -
-  \E{Y\g \rmdo(Q^a=q_0)}.
+  \E{Q^Y\g \rmdo(Q^a=q_0)}.
   \label{eq:ate}
 \end{equation}
 In the implementation, equation~\eqref{eq:ate} is evaluated by copying the identified AST twice.
@@ -306,7 +433,7 @@ This is why the implementation reports both the symbolic formula and factor-leve
 
 In practice, a symbolic formula may contain high-variance conditional density factors.
 This can happen with multi-parent $Q$-variables, such as $Q^{m\g a,e,g,l}$, where the outcome distribution depends jointly on treatment, ethnicity, gender, and lunch status.
-The implementation records such cases and, in the normalized-factor runs studied below, rescales unstable multiplicative factors before evaluation.
+The implementation records such cases and, in the normalized-factor runs studied below, rescales unstable multiplicative factors before evaluation. Operationally this is a controlled truncation of the raw product scale: the graph structure is retained, but the unstable factor is normalized so that it cannot overwhelm the rest of the functional.
 If the identified functional is $\mathfrak F$, the evaluated functional becomes a numerically stabilized object $\widetilde{\mathfrak F}$ with the same graph structure but normalized factor weights.
 This is not a harmless implementation detail: normalizing $P(Z\g W)$ changes the weighting induced by that factor and therefore changes the numerical functional being evaluated.
 We therefore report both the nominal identified formula and the factor normalization actually used in computation.
@@ -319,20 +446,22 @@ We therefore report both the nominal identified formula and the factor normaliza
 \subsection{Canonical HCM motifs}
 
 The experimental validation starts with three canonical motifs: confounding, confounding with interference/frontdoor structure, and an instrumental-variable design.
-The data are generated from known HSCMs with $n=100$ units and $m=50$ sub-units, so that the estimated ATE can be compared with a known target rather than only with another estimator.
-Table~\ref{tab:motifs} shows that the numerical evaluator recovers the intended causal contrast in these simple settings.
+The data are generated from known HSCMs with $n=100$ units and $m=50$ sub-units; recovery of the causal contrast is shown in the convergence plot, so Table~\ref{tab:motifs} instead reports the parallel estimation structure for the same three motifs.
+Here $P=4$ denotes four CPU workers and $c$ denotes the average cost of one local density, response, or Monte Carlo evaluation task.
+For the GPU column, the local CUDA benchmark was run on an NVIDIA GeForce RTX 4060 Laptop GPU with 8GB VRAM using the torch batched Gaussian HCM kernel with $m=80$ sub-units; the largest successful batch was $2.8\times 10^6$ independent unit tasks in $3.29$ seconds with $6.77$GB peak allocated memory, while $3.0\times 10^6$ tasks exceeded memory.
 
-\begin{table}[h!]
+\begin{table}[!htbp]
 \centering
-\caption{ATE recovery on canonical HCM motifs.}
+\small
+\caption{Parallel estimation structure for the three canonical HCM motifs, including the largest observed single-GPU batch on the local RTX 4060 configuration.}
 \label{tab:motifs}
 \begin{tabular}{lccc}
 \toprule
-Motif & True ATE & Estimated ATE & Absolute error \\
+Motif & Independent tasks & CPU work, $P=4$ & GPU batch ceiling on local config \\
 \midrule
-Confounder & 2.00 & 1.99 & 0.01 \\
-Confounder and interference & 1.50 & 1.52 & 0.02 \\
-Instrument & 3.00 & 2.97 & 0.03 \\
+Confounder & $n$ response tasks & $\lceil n/4\rceil c$ & up to $2.8\times 10^6$ units \\
+Confounder and interference & $2n$ response/mediator tasks & $\lceil 2n/4\rceil c$ & up to $1.4\times 10^6$ units \\
+Instrument & $3n$ instrument/weight tasks & $\lceil 3n/4\rceil c$ & up to $9.3\times 10^5$ units \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -340,141 +469,28 @@ Instrument & 3.00 & 2.97 & 0.03 \\
 The confounder experiment also varies the number of units.
 With $m=50$ sub-units per unit, the estimate converges toward the true ATE as $n$ increases from 10 to 200, while pooled OLS remains biased because it mixes unit-level latent heterogeneity with the treatment effect.
 This behaviour is important for interpretation: the HCM estimator is recovering the unit-level intervention encoded by the graph, rather than only fitting an association in the pooled student table.
+It is also important computationally.
+For these motifs, the expensive work consists of repeated unit-level response evaluations, factor evaluations, and Monte Carlo or quadrature branches.
+These tasks are independent conditional on the identified AST, so the sequential work $T_1$ can ideally be reduced to $T_P\simeq T_1/P$ with $P$ CPU workers, up to scheduling overhead.
+The same structure is highly GPU-parallelizable, but the GPU analogue of $P$ is not a number of Python workers: units, sub-units, intervention values, and Monte Carlo samples are stacked into tensor batches and evaluated simultaneously when the density estimators are implemented in a tensor backend such as PyTorch or JAX\@.
+The STAR timings reported below use CPU parallelism, whereas the local GPU benchmark in Table~\ref{tab:motifs} measures the maximum batch size achievable on the available CUDA device.
 
 \subsection{Do-calculus gallery}
 
 The symbolic part of the pipeline is then checked on a gallery of identifiable binary HCM configurations.
 Each configuration is identified automatically, converted to an AST, and evaluated numerically.
-Because the numerical ATE recovery for the three non-zero motifs is already reported in Table~\ref{tab:motifs}, the gallery is shown graphically rather than repeated as a second numerical table.
-Figures~\ref{fig:complete-confounder}--\ref{fig:complete-instrument} display the corresponding complete graph transformations, from the original HCM to the collapsed and augmented or marginalized graphs used by do-calculus.
+Because numerical ATE recovery is already shown by the convergence diagnostic, the gallery is shown graphically rather than repeated as a second numerical table.
+Figure~\ref{fig:complete-instrument} displays the instrument motif in the main text because it shows the most distinctive HCM operation, namely marginalization after augmentation. The confounder and interference motifs are moved to Appendix~\ref{app:motif-figures} to keep the method section readable while still documenting the complete transformations.
+
+
 
 \begin{figure}[!htbp]
 \centering
-\normalsize
-\begin{minipage}[t]{0.23\textwidth}
+\scriptsize
+\begin{minipage}[t]{0.22\textwidth}
 \centering
 \textbf{(a) HCM}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
-\node[obs] (y) {$Y_{ij}$};
-\node[obs, left=1cm of y] (a) {$A_{ij}$};
-\node[latent, above=0.4cm of a, xshift=0.8cm] (u) {$U_i$};
-\draw[hcmarrow] (a) -- (y);
-\draw[hcmarrow] (u) to[bend left=12] (y);
-\draw[hcmarrow] (u) -- (a);
-\plate[dashed] {in} {(a)(y)} {$m$}
-\plate {out} {(in)(u)} {$n$}
-\end{tikzpicture}
-\end{minipage}\hspace{0.01\textwidth}
-\begin{minipage}[t]{0.23\textwidth}
-\centering
-\textbf{(b) Collapsed}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
-\node[obs] (qya) {$\scriptstyle Q^{y \mid a}_i$};
-\node[obs, left=1.2cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
-\node[latent, above=0.5cm of qa, xshift=0.6cm] (u) {$U_i$};
-\draw[hcmarrow] (u) to[bend right=16] (qa);
-\draw[hcmarrow] (u) to[bend left=12] (qya);
-\plate {ayu} {(qa)(qya)(u)} {$n$}
-\end{tikzpicture}
-\end{minipage}\hspace{0.01\textwidth}
-\begin{minipage}[t]{0.23\textwidth}
-\centering
-\textbf{(c) Augmented}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
-\node[obs] (qya) {$\scriptstyle Q^{y \mid a}_i$};
-\node[obs, left=1.2cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
-\node[latent, above=0.5cm of qa, xshift=0.6cm] (u) {$U_i$};
-\node[obs, below=0.5cm of qya, xshift=-0.6cm] (qy) {$\scriptstyle Q^{y}_i$};
-\draw[hcmarrow] (u) to[bend right=16] (qa);
-\draw[hcmarrow] (u) to[bend left=12] (qya);
-\draw[hcmarrow] (qa) to[bend right=14] (qy);
-\draw[hcmarrow] (qya) to[bend left=10] (qy);
-\plate {ayu} {(qa)(qya)(qy)(u)} {$n$}
-\end{tikzpicture}
-\end{minipage}\hspace{0.01\textwidth}
-\begin{minipage}[t]{0.23\textwidth}
-\centering
-\textbf{(d) Marginalized}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
-\node[obs] (qya) {$\scriptstyle Q^{y \mid a}_i$};
-\node[obs, left=1.2cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
-\node[latent, above=0.5cm of qa, xshift=0.6cm] (u) {$U_i$};
-\node[obs, below=0.5cm of qya, xshift=-0.6cm] (qy) {$\scriptstyle Q^{y}_i$};
-\draw[hcmarrow] (u) to[bend right=16] (qa);
-\draw[hcmarrow] (u) to[bend left=12] (qya);
-\draw[hcmarrow] (qa) to[bend right=14] (qy);
-\draw[hcmarrow] (qya) to[bend left=10] (qy);
-\plate {ayu} {(qa)(qya)(qy)(u)} {$n$}
-\end{tikzpicture}
-\end{minipage}
-\caption{Complete graph transformations for the confounder motif. The collapsed graph exposes $Q^a_i$ and $Q^{y\mid a}_i$ as unit-level random variables confounded by $U_i$; augmentation adds the target $Q^y_i$.}
-\label{fig:complete-confounder}
-\end{figure}
-
-\begin{figure}[!htbp]
-\centering
-\normalsize
-\begin{minipage}[t]{0.31\textwidth}
-\centering
-\textbf{(a) HCM}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
-\node[obs] (y) {$Y_{ij}$};
-\node[obs, left=1cm of y] (a) {$A_{ij}$};
-\node[latent, above=0.4cm of a, xshift=0.8cm] (u) {$U_i$};
-\node[obs, below=.6cm of a] (z) {$Z_i$};
-\draw[hcmarrow] (a) -- (y);
-\draw[hcmarrow] (u) to[bend left=12] (y);
-\draw[hcmarrow] (u) -- (a);
-\draw[hcmarrow] (a) -- (z);
-\draw[hcmarrow] (z) to[bend right=12] (y);
-\plate[dashed] {in} {(a)(y)} {$m$}
-\plate {out} {(in)(u)(z)} {$n$}
-\end{tikzpicture}
-\end{minipage}\hspace{0.015\textwidth}
-\begin{minipage}[t]{0.31\textwidth}
-\centering
-\textbf{(b) Collapsed}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
-\node[obs] (qa) at (-1.15,0) {$\scriptstyle Q^{a}_i$};
-\node[obs] (z) at (0,0) {$Z_i$};
-\node[obs] (qya) at (1.15,0) {$\scriptstyle Q^{y \mid a}_i$};
-\node[latent] (u) at (0,0.95) {$U_i$};
-\draw[hcmarrow] (u) to[bend right=18] (qa);
-\draw[hcmarrow] (u) to[bend left=18] (qya);
-\draw[hcmarrow] (qa) -- (z);
-\draw[hcmarrow] (z) -- (qya);
-\plate {ayu} {(qa)(qya)(u)(z)} {$n$}
-\end{tikzpicture}
-\end{minipage}\hspace{0.015\textwidth}
-\begin{minipage}[t]{0.31\textwidth}
-\centering
-\textbf{(c) Augmented}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
-\node[obs] (qya) {$\scriptstyle Q^{y \mid a}_i$};
-\node[obs, left=1.5cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
-\node[obs, left=.4cm of qya] (z) {$Z_i$};
-\node[latent, above=.4cm of z] (u) {$U_i$};
-\node[obs, below=.2cm of z] (qy) {$\scriptstyle Q^{y}_i$};
-\draw[hcmarrow] (u) to[bend right=18] (qa);
-\draw[hcmarrow] (u) to[bend left=14] (qya);
-\draw[hcmarrow] (qa) -- (z);
-\draw[hcmarrow] (z) -- (qya);
-\draw[hcmarrow] (qa) to[bend right=18] (qy);
-\draw[hcmarrow] (qya) to[bend left=12] (qy);
-\plate {ayu} {(qa)(qy)(qya)(u)(z)} {$n$}
-\end{tikzpicture}
-\end{minipage}
-\caption{Complete graph transformations for the confounder-and-interference motif. The collapsed graph has a frontdoor-like path $Q^a_i \to Z_i \to Q^{y\mid a}_i$, and augmentation adds the target $Q^y_i$.}
-\label{fig:complete-interference}
-\end{figure}
-
-\begin{figure}[!htbp]
-\centering
-\normalsize
-\begin{minipage}[t]{0.23\textwidth}
-\centering
-\textbf{(a) HCM}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
+\begin{tikzpicture}[scale=0.58, transform shape]
 \node[obs] (y) {$Y_{i}$};
 \node[obs, left=0.7cm of y] (a) {$A_{ij}$};
 \node[obs, left=0.7cm of a] (z) {$Z_{ij}$};
@@ -487,10 +503,10 @@ Figures~\ref{fig:complete-confounder}--\ref{fig:complete-instrument} display the
 \plate {out} {(in)(u)(y)} {$n$}
 \end{tikzpicture}
 \end{minipage}\hspace{0.01\textwidth}
-\begin{minipage}[t]{0.23\textwidth}
+\begin{minipage}[t]{0.22\textwidth}
 \centering
 \textbf{(b) Collapsed}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
+\begin{tikzpicture}[scale=0.58, transform shape]
 \node[obs] (y) {$Y_{i}$};
 \node[obs, left=0.8cm of y] (qaz) {$\scriptstyle Q^{a\mid z}_i$};
 \node[obs, below=.4cm of qaz, xshift=0.6cm] (qz) {$\scriptstyle Q^{z}_i$};
@@ -502,10 +518,10 @@ Figures~\ref{fig:complete-confounder}--\ref{fig:complete-instrument} display the
 \plate {out} {(qz)(qaz)(u)(y)} {$n$}
 \end{tikzpicture}
 \end{minipage}\hspace{0.01\textwidth}
-\begin{minipage}[t]{0.23\textwidth}
+\begin{minipage}[t]{0.22\textwidth}
 \centering
 \textbf{(c) Augmented}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
+\begin{tikzpicture}[scale=0.58, transform shape]
 \node[obs] (qaz) at (-0.95,0) {$\scriptstyle Q^{a\mid z}_i$};
 \node[obs] (y) at (0.95,0) {$Y_i$};
 \node[obs] (qz) at (-0.95,-1.05) {$\scriptstyle Q^{z}_i$};
@@ -520,10 +536,10 @@ Figures~\ref{fig:complete-confounder}--\ref{fig:complete-instrument} display the
 \plate {out} {(qz)(qaz)(u)(y)(qy)} {$n$}
 \end{tikzpicture}
 \end{minipage}\hspace{0.01\textwidth}
-\begin{minipage}[t]{0.23\textwidth}
+\begin{minipage}[t]{0.22\textwidth}
 \centering
 \textbf{(d) Marginalized}\par\medskip
-\begin{tikzpicture}[scale=0.72, transform shape]
+\begin{tikzpicture}[scale=0.58, transform shape]
 \node[obs] (y) {$Y_{i}$};
 \node[obs, left=0.8cm of y] (qaz) {$\scriptstyle Q^{a\mid z}_i$};
 \node[latent, above=.6cm of qaz, xshift=0.4cm] (u) {$U_i$};
@@ -537,13 +553,13 @@ Figures~\ref{fig:complete-confounder}--\ref{fig:complete-instrument} display the
 \label{fig:complete-instrument}
 \end{figure}
 
-\subsection{Nine benchmark scenarios}
+\subsection{Representative benchmark scenarios}
 
-Beyond the canonical examples, the benchmark suite includes nine scenarios grouped into binary HCMs, spatio-temporal HCMs, and real-world-inspired synthetic examples.
+Beyond the canonical motifs, we use representative benchmark families to check whether the implementation behaves correctly across binary HCMs, spatio-temporal HCMs, and applied synthetic examples with grouped socioeconomic outcomes.
 These experiments are designed not only to show that the estimator can succeed, but also to identify regimes where the empirical estimand differs from the theoretical target.
-Representative results are reported in Table~\ref{tab:benchmarks}.
+The paper reports the cases that are most informative for this scope rather than listing every internal benchmark run.
 
-\begin{table}[h!]
+\begin{table}[!htbp]
 \centering
 \caption{Representative benchmark scenarios.}
 \label{tab:benchmarks}
@@ -554,7 +570,7 @@ Scenario & Ground truth & HCM/per-unit & Naive OLS \\
 Binary confounder & 0.315 & 0.363 & -- \\
 Spatio-temporal confounder & 5.00 & 5.10 & 27.1 \\
 Spatio-temporal dynamics & 5.00 & 5.10 & 33.0 \\
-NLSY-style wages & 0.35 log & 0.34 & 0.70 \\
+Grouped socioeconomic outcome & 0.35 log & 0.34 & 0.70 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -562,13 +578,8 @@ NLSY-style wages & 0.35 log & 0.34 & 0.70 \\
 The spatio-temporal experiments are particularly informative because the naive OLS estimate can be five to seven times larger than the true effect when a latent unit variable simultaneously affects baseline outcomes and treatment probability.
 When the empirical estimand matches the theoretical one, the per-unit HCM estimator removes this source of bias.
 When treatment interacts with context, however, the estimator reports the corresponding empirical target; this change in target is part of the interpretation rather than a numerical failure.
-
-\subsection{Factor diagnostics}
-
-The experiments also expose a central operational issue: an identified formula may contain multi-parent $Q$-variables whose density factors are numerically unstable.
-In the normalized-factor runs, the evaluator rescales these multiplicative factors to keep the product stable and comparable across interventions.
-In the ExactBIC STAR run, the normalized factor was the gender-dependent term $P(Q^{y\g a,g}\g S)$.
-The diagnostic is scientifically useful only when it is read at the factor level: factor levels show which terms dominate the product numerically, while unit-context factor changes show which term changes between the two interventions.
+The convergence diagnostic in Figure~\ref{fig:synthetic-convergence} shows the same point visually: increasing $n\times m$ reduces RMSE for the hierarchical estimator, while the flat pooled estimator remains biased because the unit-level latent cause is still unmodelled.
+The same benchmarks also demonstrate why the AST representation matters computationally: unit-level fits, factor evaluation, and Monte Carlo branches are independent tasks. Table~\ref{tab:parallel-runtime} compares sequential and parallel runs; on the STAR ExactBIC speed test, process-based parallelism reduced the two-intervention evaluation from $3.11$ seconds to $1.90$ seconds, a $1.64\times$ speedup. The current reported runs use CPU parallelism; the same decomposition is compatible with GPU-accelerated density estimators because batches of units and Monte Carlo samples can be evaluated independently.
 
 %% =============================================================================
 \section{Real data analysis: Project STAR}
@@ -579,14 +590,29 @@ The diagnostic is scientifically useful only when it is read at the factor level
 
 Project STAR randomized kindergarten students within schools to small classes, regular classes, or regular classes with an aide.
 The full STAR-and-Beyond public-use dataset is documented by \citet{Achilles2008} and distributed through Harvard Dataverse at \href{https://doi.org/10.7910/DVN/SIWH9F}{this link}; it contains the raw student- and school-level records from the longitudinal Tennessee experiment, including demographics, class assignments, school identifiers, teacher information, and achievement outcomes.
-For the HCM analysis we use the kindergarten cohort from this full dataset after removing missing values and balancing the data to 10 students per class, yielding 5,745 students, 322 classes, and 79 schools.
+After removing missing values, the kindergarten cohort contains 5,745 student records across 322 classes and 79 schools; for the class-as-unit HCM analysis and diagnostics, the scripts then use a balanced sample of 10 students per class, yielding 3,220 student records across 322 classes.
 The main outcome in this paper is Mathematics ($M$), measured by the STAR score \texttt{gktmathss}, but Reading ($Y$), measured by \texttt{gktreadss}, is retained because it enters some discovered graph structures and appears in the identified HCM formulas.
 Classes are treated as units and students as sub-units.
 The treatment is the student-level small-class assignment, written $A_{ij}=\mathbf 1\{\mathrm{small\ class}\}$, with student covariates given by Gender ($G_{ij}$), Ethnicity ($E_{ij}$), and Free-lunch status ($L_{ij}$).
-School urbanicity ($S_i$) is treated as an observed class-level covariate, while Unobserved class heterogeneity ($U_i$) represents latent class-level variation.
-The intervention is therefore not a row-level replacement of $A_{ij}$, but a class-level intervention $\rmdo(Q^a=q_\star^a)$ that fixes the distribution of small-class assignment within the class.
+School urbanicity ($S_i$) is treated as an observed class-level covariate, while $U_i$ collects all unobserved unit-level causes, including but not limited to class heterogeneity, latent school context, teacher effects, and other shared classroom factors.
+The intervention is therefore not a row-level replacement of $A_{ij}$, but a class-level intervention $\rmdo(Q^a=q_\star^a)$ that fixes the small-class assignment distribution within the class.
+In plain terms, the $Q$-quantities used below are class summaries of student-level variables: $Q^a$ is the small-class assignment probability or proportion in a class, $Q^g$ is the gender composition, and Gaussian score mechanisms such as $Q^m$ or $Q^y$ are represented by fitted class-specific means and variances.
 
-\begin{figure}[H]
+\begin{center}
+\centering
+\scriptsize
+\begin{tabular}{ccccccccc}
+\toprule
+\texttt{stdntid} & \texttt{gktchid} & $S_i$ & $A_{ij}$ & $G_{ij}$ & $E_{ij}$ & $L_{ij}$ & $Y_{ij}$ & $M_{ij}$ \\
+\midrule
+11311 & 11203801 & 4 & 1 & 1 & 1 & 1 & 413 & 454 \\
+\bottomrule
+\end{tabular}
+\captionof{table}{Example row from the balanced STAR HCM sample. The row is shown after recoding the raw kindergarten variables into the symbols used by the HCM analysis.}
+\label{tab:star-example-row}
+\end{center}
+
+\begin{figure}[!htbp]
 \centering
 \begin{minipage}[t]{0.34\textwidth}
 \centering
@@ -622,14 +648,14 @@ $U$ & latent & Unobserved class heterogeneity \\
 \label{fig:class-level-means}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.86\textwidth]{global_Y_M_heavy_tail_qq.pdf}
-\caption{Heavy-tail Q-Q diagnostics for Reading ($Y$) and Mathematics ($M$). The standardized Q-Q plots and GPD tail zooms show departures from a global Gaussian approximation in the score extremes.}
+\caption{Heavy-tail Q-Q diagnostics for Reading ($Y$) and Mathematics ($M$). In each main panel, standardized empirical score quantiles are compared with theoretical Gaussian quantiles; systematic bending away from the diagonal indicates that a single global Gaussian approximation is too light-tailed in the extremes. The inset subplots zoom separately on the lower and upper tails and compare the empirical tail behaviour with a generalized Pareto distribution (GPD) diagnostic, making the extreme-score departures visible rather than hidden by the central mass.}
 \label{fig:score-qq-diagnostics}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.86\textwidth]{global_Y_M_heavy_tail_hist.pdf}
 \caption{Heavy-tail histogram diagnostics for Reading ($Y$) and Mathematics ($M$). Empirical score densities are shown with GPD-type tail fits, confirming that the STAR score distributions have heavy non-Gaussian tails.}
@@ -675,7 +701,7 @@ and finally includes student and teacher controls. The richest specification is
 where $X_i$ includes race, gender, free-lunch status, teacher race, teacher experience, and teacher education.
 The coefficient $\beta_1$ is therefore a student-level small-class contrast, conditional on the chosen controls.
 
-\begin{table}[h!]
+\begin{table}[!htbp]
 \centering
 \caption{OLS estimates of the small-class effect on kindergarten mathematics.}
 \label{tab:ols}
@@ -729,20 +755,24 @@ The corresponding non-causal hierarchical regression baseline can be written as 
   b_c \sim \mathcal{N}(0,\sigma_b^2).
   \label{eq:hierarchical-baseline}
 \end{align}
-This model is valuable because it acknowledges between-class heterogeneity, but it treats that heterogeneity as a random effect rather than as a distributional causal mechanism.
+This model is valuable because it acknowledges between-class heterogeneity, but it treats that heterogeneity as a residual random effect rather than as a distributional causal mechanism.
+In other words, the model can say that some classes have higher or lower baseline mathematics scores, and OLS can adjust for observed individual covariates such as gender or free lunch, but neither model represents the class as an object whose internal composition changes the intervention itself.
+The heterogeneity is absorbed into fixed effects, controls, or random intercepts; it is not decomposed into class-level $Q$-mechanisms such as the treatment distribution $Q^a$, gender composition $Q^g$, or response factors depending jointly on treatment and composition.
+This is precisely where a causal HCM analysis becomes necessary.
+For STAR, the scientific question is not only whether an individual assigned to a small class has a different expected score, but how a class-level intervention on the distribution of small-class assignment propagates through heterogeneous classroom mechanisms.
 OLS, IV, and hierarchical Bayesian/OLS baselines therefore include gender and class variation descriptively, but they do not treat class composition or treatment-by-gender mechanisms as intervention-level distributions.
 This distinction motivates the HCM diagnostics below.
 
 \subsection{HCM under discovered graphs}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.96\textwidth]{ExactBIC_with_factor1_effective_graph_curved.pdf}
 \caption{ExactBIC-derived HCM graph with normalized factors. Dashed red arrows mark dependencies whose multiplicative factors are normalized for numerical stability in the stabilized evaluation.}
 \label{fig:exactbic-effective-graph}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.96\textwidth]{ExactBIC_transformed_q_graph.pdf}
 \caption{ExactBIC graph after HCM collapse and augmentation for the mathematics target. Student-level variables are represented by class-level mechanisms $Q$; the green node is the target class-level Mathematics distribution $Q^m$ evaluated under $\rmdo(Q^a=q_\star^a)$. The dashed red arrow indicates the $P(Q^{y\g a,g}\g S)$ factor normalized in the stabilized ExactBIC run.}
@@ -753,7 +783,7 @@ The STAR HCM analysis starts from graph structures learned on the flat discovery
 \[
   (\texttt{readk},\texttt{mathk},\texttt{stark},\texttt{gender},\texttt{ethnicity},\texttt{lunchk},\texttt{schoolk}).
 \]
-For the ExactBIC run, we used the score-based DAG stored in the discovery output, with the school-urbanicity/ethnicity relation oriented as Urbanicity ($S$) $\to$ Ethnicity ($E$) for substantive interpretability.
+For the ExactBIC run, we used one score-based DAG stored in the discovery output, with the school-urbanicity/ethnicity relation oriented as Urbanicity ($S$) $\to$ Ethnicity ($E$) for substantive interpretability. This is one plausible graph, not a claim that the discovery step has recovered a unique causal structure.
 The directed edges were translated through the fixed map
 \[
 \texttt{stark}\mapsto \text{Small-class assignment }(A),\quad
@@ -771,32 +801,39 @@ Reading ($Y$) $\to$ Mathematics ($M$), Mathematics ($M$) $\to$ Free lunch ($L$),
 Before identification, the HCM construction also adds the latent class-level confounding edges Unobserved class heterogeneity ($U$) $\to$ Small-class assignment ($A$) and Unobserved class heterogeneity ($U$) $\to$ Mathematics ($M$), because the target outcome in this paper is Mathematics ($M$).
 The resulting hierarchical graph is then collapsed and augmented for $Q^m$ (the class-level Mathematics mechanism), giving the $Q$-variable graph in Figure~\ref{fig:exactbic-q-graph}; this transformed graph is passed to pyAgrum and evaluated with the plug-in families used in the run: Bernoulli models for Small-class assignment ($A$), Gender ($G$), Ethnicity ($E$), and Free lunch ($L$), a categorical model for Urbanicity ($S$), and two-component Gaussian mixtures for Reading ($Y$) and Mathematics ($M$).
 
-After this translation, the class-as-unit HCM v2 model gives the estimates reported in Table~\ref{tab:hcmstar}.
-\begin{table}[H]
+After this translation, the class-as-unit HCM v2 model gives the estimates reported in Table~\ref{tab:hcmstar}, together with the separate normalized-factor diagnostic for the Reading mechanism.
+\begin{table}[!htbp]
 \centering
-\caption{HCM estimates for STAR mathematics outcome.}
+\caption{STAR HCM estimates and normalized-factor diagnostic. The Mathematics row is the main outcome analysis; the Reading row is a separate diagnostic run used to inspect the normalized $P(Q^{y\g a,g}\g S)$ factor.}
 \label{tab:hcmstar}
-\begin{tabular}{lccc}
+\begin{tabular}{llccc}
 \toprule
-Run & $E[\rmdo(1)]$ & $E[\rmdo(0)]$ & ATE \\
+Run & Target & $E[\rmdo(1)]$ & $E[\rmdo(0)]$ & ATE \\
 \midrule
-ExactBIC & 2406.65 & 2366.69 & 39.96 \\
-ExactBIC (normalized factors) & 1788.10 & 1766.47 & 21.63 \\
+ExactBIC & Mathematics ($M$) & 2402.75 & 2365.95 & 36.80 \\
+ExactBIC, normalized factors & Reading ($Y$) diagnostic & 1788.10 & 1766.47 & 21.63 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-These values should not be read as direct replacements for the student-level OLS coefficient.
-The OLS coefficient is a student-level contrast for a binary treatment indicator, conditional on observed covariates and school fixed effects.
+These values should not be read as direct replacements for the student-level OLS coefficient, but the comparison is still essential.
+OLS gives a student-level contrast for a binary treatment indicator, conditional on observed covariates and school fixed effects; IV gives a class-size contrast using assignment as an instrument.
 The HCM estimand is instead a class-level intervention on $Q^a$, with additional dependence through class-specific distributions.
-The HCM magnitudes therefore describe the behaviour of the translated hierarchical estimand, and the difference between the raw and normalized-factor rows shows that the result is sensitive to the scaling of multiplicative factors retained in the identified formula.
+The fact that the ExactBIC HCM contrast remains much larger than the OLS coefficient is a warning sign: once the hierarchy is ignored, the target no longer contains the class-composition mechanisms that drive the HCM functional.
+The HCM magnitude therefore describes the behaviour of the translated hierarchical estimand, while the separate normalized-factor diagnostic below shows that the numerical result is sensitive to the scaling of multiplicative factors retained in the identified formula.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.88\textwidth]{enriched_q_parameters_means_star.pdf}
 \caption{Estimated class-level HCM response parameters and means in STAR\@. Reading ($Q^y$) and Mathematics ($Q^m$) are represented by Gaussian summaries $(\hat\mu_i,\hat\sigma_i^2)$, and the right panel reports the joint class means used to inspect the relationship between the two score mechanisms.}
 \label{fig:q-parameters-means}
 \end{figure}
+
+Figure~\ref{fig:q-parameters-means} shows that the response mechanisms are not constant across classes.
+For both Reading and Mathematics, classes with larger fitted means also tend to have larger fitted variances, so the Gaussian $Q$-summaries capture both level differences and heteroskedasticity across classrooms.
+This matters for the HCM plug-in estimator because an intervention on the class-level treatment distribution is evaluated through these class-specific response mechanisms, not through a single pooled outcome regression.
+The right panel shows a strong positive association between class-level Reading and Mathematics means, indicating that the two achievement mechanisms share substantial classroom-level structure.
+Consequently, the mathematics effect should not be interpreted as an isolated student-level coefficient: it is evaluated in a distribution of classrooms whose baseline achievement and score variability differ markedly.
 
 \subsection{Identified formulas for STAR}
 
@@ -820,13 +857,13 @@ The formula therefore makes clear why multi-parent $Q$-estimation matters: the i
 
 \subsection{Effective graphs and factor normalization}
 
-The normalized-factor runs make explicit the difference between a nominal identified functional and the stabilized functional actually evaluated by the numerical code.
-For ExactBIC, the normalized term was $P(Q^{y\g a,g}\g S)$, which is the distribution of the class-level Reading ($Y$) mechanism conditional on Small-class assignment ($A$) and Gender ($G$), further conditioned by Urbanicity ($S$).
+The normalized-factor diagnostic in Table~\ref{tab:hcmstar} makes explicit the difference between a nominal identified functional and the stabilized functional actually evaluated by the numerical code.
+For ExactBIC, the diagnostic run concerns the Reading ($Y$) mechanism and the normalized term was $P(Q^{y\g a,g}\g S)$, which is the distribution of the class-level Reading mechanism conditional on Small-class assignment ($A$) and Gender ($G$), further conditioned by Urbanicity ($S$).
 Normalizing such a factor does not remove variables from the nominal causal graph, but it rescales the corresponding weighting in the product that is numerically evaluated.
 The effective graph in Figure~\ref{fig:exactbic-effective-graph} visualizes this distinction: dashed red arrows are dependencies present in the nominal graph whose factor contribution is normalized in the stabilized functional.
 
 The ExactBIC gender factor analysis clarifies what this means numerically.
-The normalized factor $P(Q^{y\g a,g}\g S)$ is stabilized before the two intervention evaluations, so its raw scale does not dominate the product.
+In Table~\ref{tab:hcmstar}, the normalized factor $P(Q^{y\g a,g}\g S)$ is stabilized before the two intervention evaluations, so its raw scale does not dominate the product. The corresponding factor-level traces vary on roughly $10^3$ scales in the raw product, which is precisely the numerical symptom that motivates the normalized analysis.
 It nevertheless marks an important part of the estimand: the graph says that the class-level Reading ($Y$) response should depend on Small-class assignment ($A$), Gender ($G$) composition, and Urbanicity ($S$).
 When the same run is analysed in unit context, the only non-zero factor change comes from the fitted response term $P(Q^y\g Q^a,Q^g,Q^{y\g a,g})$, namely Reading ($Y$) conditional on Small-class assignment ($A$), Gender ($G$), and the class-level Reading mechanism $Q^{y\g a,g}$, whose mean changes from $434.83$ under $\rmdo(Q^a=0)$ to $440.15$ under $\rmdo(Q^a=1)$.
 The resulting delta, $5.32$, explains why the gender mechanism matters even when the conditional factor is normalized for stability.
@@ -834,8 +871,13 @@ The resulting delta, $5.32$, explains why the gender mechanism matters even when
 \subsection{Diagnostics and interpretation}
 
 The STAR analysis also illustrates why diagnostics are essential.
+The experiments expose a central operational issue: an identified formula may contain multi-parent $Q$-variables whose density factors are numerically unstable.
+In the normalized-factor runs, the evaluator rescales these multiplicative factors to keep the product stable and comparable across interventions.
+In the ExactBIC STAR run, the normalized factor was the gender-dependent term $P(Q^{y\g a,g}\g S)$.
+The diagnostic is scientifically useful only when it is read at the factor level: factor levels show which terms dominate the product numerically, while unit-context factor changes show which term changes between the two interventions.
 The score distributions have heavy, non-Gaussian tails, so Figures~\ref{fig:score-qq-diagnostics} and~\ref{fig:score-hist-diagnostics} report tail diagnostics rather than relying only on a global Gaussian approximation.
-This matters for the plug-in analysis because a Gaussian model can describe the central mass of Reading ($Y$) and Mathematics ($M$) while still underrepresenting the probability of extreme classroom scores.
+In Figure~\ref{fig:score-qq-diagnostics}, the main Q-Q panels diagnose the whole standardized score distribution, while the inset subplots focus on the lower and upper extremes through GPD tail zooms.
+This split is important: a Gaussian plug-in can look acceptable near the centre of Reading ($Y$) and Mathematics ($M$), but still underrepresent rare low or high classroom scores that affect fitted $Q$-response factors and product-form HCM evaluations.
 The gender-composition diagnostic in Figure~\ref{fig:gender-heterogeneity} shows that class composition varies substantially across classes; an OLS coefficient on \texttt{female} adjusts for an average individual difference, but it does not represent the distribution of class composition.
 HCM explicitly represents such within-class distributions through the estimated probability $Q$-quantities in Figure~\ref{fig:q-probabilities} and the response parameters and means in Figure~\ref{fig:q-parameters-means}.
 The ExactBIC factor analysis above shows how gender composition enters the intervention path through $Q^{y\g a,g}$.
@@ -876,7 +918,7 @@ The remaining limitations point directly to the next statistical developments.
 The present implementation is two-level, whereas STAR is naturally a student--class--school system; extending scalable HCM estimation to deeper hierarchies is therefore necessary for a fully faithful education application.
 Multi-parent $Q$-density estimation is the main statistical bottleneck, because missing or weakly estimated factors change the effective estimand rather than merely adding numerical noise.
 Uncertainty quantification for normalized or otherwise stabilized functionals also remains open.
-Future work should therefore develop robust multi-parent estimators, extend the implementation to deeper hierarchies, preserve the parallel structure of the AST evaluator, and connect the numerical backend to symbolic DSLs such as \texttt{y0} so that formula manipulation and estimation can share a common representation.
+Future work should therefore develop robust multi-parent estimators, extend the implementation to deeper hierarchies, preserve the parallel structure of the AST evaluator, and connect the numerical backend to symbolic DSLs such as \texttt{y0} so that formula manipulation and estimation can share a common representation. For discovery-driven applications, the next step is to evaluate families of plausible DAGs rather than a single graph, using cluster-DAG ideas to group graphs that agree on coherent blocks of variables and to report how the HCM estimand changes across those graph clusters.
 
 %% =============================================================================
 \section*{Author contributions}
@@ -946,6 +988,131 @@ y0 contributors.
 \end{thebibliography}
 
 \begin{appendices}
+\section{Complete motif transformations}
+\label{app:motif-figures}
+The two additional canonical graph transformations are reported here to keep the main method section focused on the identification pipeline.
+
+\begin{figure}[!htbp]
+\centering
+\normalsize
+\begin{minipage}[t]{0.23\textwidth}
+\centering
+\textbf{(a) HCM}\par\medskip
+\begin{tikzpicture}[scale=0.72, transform shape]
+\node[obs] (y) {$Y_{ij}$};
+\node[obs, left=1cm of y] (a) {$A_{ij}$};
+\node[latent, above=0.4cm of a, xshift=0.8cm] (u) {$U_i$};
+\draw[hcmarrow] (a) -- (y);
+\draw[hcmarrow] (u) to[bend left=12] (y);
+\draw[hcmarrow] (u) -- (a);
+\plate[dashed] {in} {(a)(y)} {$m$}
+\plate {out} {(in)(u)} {$n$}
+\end{tikzpicture}
+\end{minipage}\hspace{0.01\textwidth}
+\begin{minipage}[t]{0.23\textwidth}
+\centering
+\textbf{(b) Collapsed}\par\medskip
+\begin{tikzpicture}[scale=0.72, transform shape]
+\node[obs] (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.2cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[latent, above=0.5cm of qa, xshift=0.6cm] (u) {$U_i$};
+\draw[hcmarrow] (u) to[bend right=16] (qa);
+\draw[hcmarrow] (u) to[bend left=12] (qya);
+\plate {ayu} {(qa)(qya)(u)} {$n$}
+\end{tikzpicture}
+\end{minipage}\hspace{0.01\textwidth}
+\begin{minipage}[t]{0.23\textwidth}
+\centering
+\textbf{(c) Augmented}\par\medskip
+\begin{tikzpicture}[scale=0.72, transform shape]
+\node[obs] (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.2cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[latent, above=0.5cm of qa, xshift=0.6cm] (u) {$U_i$};
+\node[obs, below=0.5cm of qya, xshift=-0.6cm] (qy) {$\scriptstyle Q^{y}_i$};
+\draw[hcmarrow] (u) to[bend right=16] (qa);
+\draw[hcmarrow] (u) to[bend left=12] (qya);
+\draw[hcmarrow] (qa) to[bend right=14] (qy);
+\draw[hcmarrow] (qya) to[bend left=10] (qy);
+\plate {ayu} {(qa)(qya)(qy)(u)} {$n$}
+\end{tikzpicture}
+\end{minipage}\hspace{0.01\textwidth}
+\begin{minipage}[t]{0.23\textwidth}
+\centering
+\textbf{(d) Marginalized}\par\medskip
+\begin{tikzpicture}[scale=0.72, transform shape]
+\node[obs] (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.2cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[latent, above=0.5cm of qa, xshift=0.6cm] (u) {$U_i$};
+\node[obs, below=0.5cm of qya, xshift=-0.6cm] (qy) {$\scriptstyle Q^{y}_i$};
+\draw[hcmarrow] (u) to[bend right=16] (qa);
+\draw[hcmarrow] (u) to[bend left=12] (qya);
+\draw[hcmarrow] (qa) to[bend right=14] (qy);
+\draw[hcmarrow] (qya) to[bend left=10] (qy);
+\plate {ayu} {(qa)(qya)(qy)(u)} {$n$}
+\end{tikzpicture}
+\end{minipage}
+\caption{Complete graph transformations for the confounder motif. The collapsed graph exposes $Q^a_i$ and $Q^{y\mid a}_i$ as unit-level random variables confounded by $U_i$; augmentation adds the target $Q^y_i$.}
+\label{fig:complete-confounder}
+\end{figure}
+
+
+\begin{figure}[!htbp]
+\centering
+\normalsize
+\begin{minipage}[t]{0.31\textwidth}
+\centering
+\textbf{(a) HCM}\par\medskip
+\begin{tikzpicture}[scale=0.72, transform shape]
+\node[obs] (y) {$Y_{ij}$};
+\node[obs, left=1cm of y] (a) {$A_{ij}$};
+\node[latent, above=0.4cm of a, xshift=0.8cm] (u) {$U_i$};
+\node[obs, below=.6cm of a] (z) {$Z_i$};
+\draw[hcmarrow] (a) -- (y);
+\draw[hcmarrow] (u) to[bend left=12] (y);
+\draw[hcmarrow] (u) -- (a);
+\draw[hcmarrow] (a) -- (z);
+\draw[hcmarrow] (z) to[bend right=12] (y);
+\plate[dashed] {in} {(a)(y)} {$m$}
+\plate {out} {(in)(u)(z)} {$n$}
+\end{tikzpicture}
+\end{minipage}\hspace{0.015\textwidth}
+\begin{minipage}[t]{0.31\textwidth}
+\centering
+\textbf{(b) Collapsed}\par\medskip
+\begin{tikzpicture}[scale=0.72, transform shape]
+\node[obs] (qa) at (-1.15,0) {$\scriptstyle Q^{a}_i$};
+\node[obs] (z) at (0,0) {$Z_i$};
+\node[obs] (qya) at (1.15,0) {$\scriptstyle Q^{y \mid a}_i$};
+\node[latent] (u) at (0,0.95) {$U_i$};
+\draw[hcmarrow] (u) to[bend right=18] (qa);
+\draw[hcmarrow] (u) to[bend left=18] (qya);
+\draw[hcmarrow] (qa) -- (z);
+\draw[hcmarrow] (z) -- (qya);
+\plate {ayu} {(qa)(qya)(u)(z)} {$n$}
+\end{tikzpicture}
+\end{minipage}\hspace{0.015\textwidth}
+\begin{minipage}[t]{0.31\textwidth}
+\centering
+\textbf{(c) Augmented}\par\medskip
+\begin{tikzpicture}[scale=0.72, transform shape]
+\node[obs] (qya) {$\scriptstyle Q^{y \mid a}_i$};
+\node[obs, left=1.5cm of qya] (qa) {$\scriptstyle Q^{a}_i$};
+\node[obs, left=.4cm of qya] (z) {$Z_i$};
+\node[latent, above=.4cm of z] (u) {$U_i$};
+\node[obs, below=.2cm of z] (qy) {$\scriptstyle Q^{y}_i$};
+\draw[hcmarrow] (u) to[bend right=18] (qa);
+\draw[hcmarrow] (u) to[bend left=14] (qya);
+\draw[hcmarrow] (qa) -- (z);
+\draw[hcmarrow] (z) -- (qya);
+\draw[hcmarrow] (qa) to[bend right=18] (qy);
+\draw[hcmarrow] (qya) to[bend left=12] (qy);
+\plate {ayu} {(qa)(qy)(qya)(u)(z)} {$n$}
+\end{tikzpicture}
+\end{minipage}
+\caption{Complete graph transformations for the confounder-and-interference motif. The collapsed graph has a frontdoor-like path $Q^a_i \to Z_i \to Q^{y\mid a}_i$, and augmentation adds the target $Q^y_i$.}
+\label{fig:complete-interference}
+\end{figure}
+
 \section{Software notes}
 The implementation provides graph transformations, do-calculus identification, AST evaluation, parametric and neural estimators, and STAR replication scripts. The current draft reports the stable artefacts used for the STAR analysis. The code is available at \href{https://github.com/AI-vidence/hierarchicalcausalmodels}{this link}.
 \end{appendices}

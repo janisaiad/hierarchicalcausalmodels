@@ -1,0 +1,102 @@
+{
+  "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "torch": "2.11.0+cu128",
+  "n_subunits": 80,
+  "rows": [
+    {
+      "n_units": 1000,
+      "n_subunits": 80,
+      "tasks": 1000,
+      "cpu_seconds": 0.04818908699962776,
+      "cpu_ate": 1.5135332345962524,
+      "gpu_seconds": 0.0036358420002216008,
+      "gpu_ate": 1.5135332345962524,
+      "gpu_peak_memory_gb": 0.010349750518798828,
+      "speedup_cpu_to_gpu": 13.253900196073065
+    },
+    {
+      "n_units": 5000,
+      "n_subunits": 80,
+      "tasks": 5000,
+      "cpu_seconds": 0.006202921999829414,
+      "cpu_ate": 1.5034669637680054,
+      "gpu_seconds": 0.00669831199957116,
+      "gpu_ate": 1.503456950187683,
+      "gpu_peak_memory_gb": 0.020006179809570312,
+      "speedup_cpu_to_gpu": 0.9260425612044553
+    },
+    {
+      "n_units": 10000,
+      "n_subunits": 80,
+      "tasks": 10000,
+      "cpu_seconds": 0.011625002999608114,
+      "cpu_ate": 1.4968383312225342,
+      "gpu_seconds": 0.008593116000156442,
+      "gpu_ate": 1.4968329668045044,
+      "gpu_peak_memory_gb": 0.03207588195800781,
+      "speedup_cpu_to_gpu": 1.3528274259763833
+    },
+    {
+      "n_units": 25000,
+      "n_subunits": 80,
+      "tasks": 25000,
+      "cpu_seconds": 0.016994511999655515,
+      "cpu_ate": 1.5011396408081055,
+      "gpu_seconds": 0.019894944000043324,
+      "gpu_ate": 1.5011379718780518,
+      "gpu_peak_memory_gb": 0.06900930404663086,
+      "speedup_cpu_to_gpu": 0.85421260796806
+    },
+    {
+      "n_units": 50000,
+      "n_subunits": 80,
+      "tasks": 50000,
+      "cpu_seconds": 0.029792138000630075,
+      "cpu_ate": 1.4999074935913086,
+      "gpu_seconds": 0.03200997699968866,
+      "gpu_ate": 1.4999076128005981,
+      "gpu_peak_memory_gb": 0.1329784393310547,
+      "speedup_cpu_to_gpu": 0.9307141333128681
+    },
+    {
+      "n_units": 100000,
+      "n_subunits": 80,
+      "tasks": 100000,
+      "cpu_seconds": null,
+      "cpu_ate": null,
+      "gpu_seconds": 0.06323150699972757,
+      "gpu_ate": 1.4994456768035889,
+      "gpu_peak_memory_gb": 0.2502765655517578
+    },
+    {
+      "n_units": 200000,
+      "n_subunits": 80,
+      "tasks": 200000,
+      "cpu_seconds": null,
+      "cpu_ate": null,
+      "gpu_seconds": 0.12764563299970177,
+      "gpu_ate": 1.5001972913742065,
+      "gpu_peak_memory_gb": 0.4967803955078125
+    },
+    {
+      "n_units": 400000,
+      "n_subunits": 80,
+      "tasks": 400000,
+      "cpu_seconds": null,
+      "cpu_ate": null,
+      "gpu_seconds": 0.20174231399960263,
+      "gpu_ate": 1.4995605945587158,
+      "gpu_peak_memory_gb": 0.9735302925109863
+    }
+  ],
+  "best_gpu_batch": {
+    "n_units": 400000,
+    "n_subunits": 80,
+    "tasks": 400000,
+    "cpu_seconds": null,
+    "cpu_ate": null,
+    "gpu_seconds": 0.20174231399960263,
+    "gpu_ate": 1.4995605945587158,
+    "gpu_peak_memory_gb": 0.9735302925109863
+  }
+}

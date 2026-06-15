@@ -7,78 +7,89 @@
 \@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
 \newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
 \citation{Krueger1999}
+\@writefile{toc}{\contentsline {section}{\numberline {2}The problem: a hierarchical causal estimand}{2}{section.2}\protected@file@percent }
+\newlabel{sec:problem}{{2}{2}{The problem: a hierarchical causal estimand}{section.2}{}}
+\newlabel{eq:problem-target}{{1}{2}{The problem: a hierarchical causal estimand}{equation.2.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Contributions and workflow}{2}{section.3}\protected@file@percent }
+\newlabel{sec:contributions}{{3}{2}{Contributions and workflow}{section.3}{}}
 \citation{Pearl2009}
 \citation{Imbens2015,Angrist1996}
 \citation{weinstein2023hcm}
 \citation{Krueger1999}
 \citation{Krueger2001,Chetty2011}
 \citation{pyagrum}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{1.1}}Contributions}{2}{subsection.1.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {{1.2}}Related work and positioning}{2}{subsection.1.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {2}Method}{2}{section.2}\protected@file@percent }
-\newlabel{sec:method}{{2}{2}{Method}{section.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{2.1}}Symbolic-to-numeric backend}{2}{subsection.2.1}\protected@file@percent }
-\newlabel{eq:qdef}{{1}{3}{Symbolic-to-numeric backend}{equation.2.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{2.2}}Evaluation and diagnostics}{3}{subsection.2.2}\protected@file@percent }
-\newlabel{eq:ate}{{2}{3}{Evaluation and diagnostics}{equation.2.2}{}}
-\newlabel{eq:plugin}{{3}{3}{Evaluation and diagnostics}{equation.2.3}{}}
-\newlabel{eq:confounder-canonical}{{4}{4}{Evaluation and diagnostics}{equation.2.4}{}}
-\newlabel{eq:iv-canonical}{{5}{4}{Evaluation and diagnostics}{equation.2.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {3}Experimental results}{4}{section.3}\protected@file@percent }
-\newlabel{sec:experiments}{{3}{4}{Experimental results}{section.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{3.1}}Canonical HCM motifs}{4}{subsection.3.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces ATE recovery on canonical HCM motifs.}}{4}{table.caption.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {{3.1}}Related work and positioning}{3}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Method}{3}{section.4}\protected@file@percent }
+\newlabel{sec:method}{{4}{3}{Method}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{4.1}}Symbolic-to-numeric backend}{3}{subsection.4.1}\protected@file@percent }
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces Automatic HCM identification and plug-in evaluation}}{3}{algorithm.1}\protected@file@percent }
 \providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{tab:motifs}{{1}{4}{ATE recovery on canonical HCM motifs}{table.caption.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{3.2}}Do-calculus gallery}{4}{subsection.3.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {{3.3}}Nine benchmark scenarios}{4}{subsection.3.3}\protected@file@percent }
+\newlabel{alg:hcm-pipeline}{{1}{3}{Automatic HCM identification and plug-in evaluation}{algorithm.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Algorithmic cost and parallel structure of the HCM backend. Here $n$ is the number of units, $m$ is the average number of sub-units per unit, $d$ is the maximum parent count, $v$ and $e$ are the numbers of transformed graph nodes and edges, $K$ is the number of density factors in the identified formula, $B$ is the number of Monte Carlo samples or quadrature points, and $P$ is the number of parallel workers.}}{4}{table.caption.1}\protected@file@percent }
+\newlabel{tab:complexity}{{1}{4}{Algorithmic cost and parallel structure of the HCM backend. Here $n$ is the number of units, $m$ is the average number of sub-units per unit, $d$ is the maximum parent count, $v$ and $e$ are the numbers of transformed graph nodes and edges, $K$ is the number of density factors in the identified formula, $B$ is the number of Monte Carlo samples or quadrature points, and $P$ is the number of parallel workers}{table.caption.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Convergence diagnostic under hierarchical confounding. The flat pooled estimator does not approach the intervention target because the unit-level latent cause is ignored. The hierarchical within-unit estimator removes the unit effect and follows the expected $1/\sqrt  {nm}$ decay as the total number of observations increases. Labels on the blue curve report the runtime for each simulated sample size.}}{4}{figure.caption.2}\protected@file@percent }
+\newlabel{fig:synthetic-convergence}{{1}{4}{Convergence diagnostic under hierarchical confounding. The flat pooled estimator does not approach the intervention target because the unit-level latent cause is ignored. The hierarchical within-unit estimator removes the unit effect and follows the expected $1/\sqrt {nm}$ decay as the total number of observations increases. Labels on the blue curve report the runtime for each simulated sample size}{figure.caption.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Sequential versus parallel runtimes. Times are in seconds. The HCM rows are two-intervention evaluations from the STAR speed test; the OLS and IV rows are batched baseline workloads.}}{4}{table.caption.3}\protected@file@percent }
+\newlabel{tab:parallel-runtime}{{2}{4}{Sequential versus parallel runtimes. Times are in seconds. The HCM rows are two-intervention evaluations from the STAR speed test; the OLS and IV rows are batched baseline workloads}{table.caption.3}{}}
+\newlabel{eq:qdef}{{2}{4}{Symbolic-to-numeric backend}{equation.4.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{4.2}}Evaluation and diagnostics}{5}{subsection.4.2}\protected@file@percent }
+\newlabel{eq:ate}{{3}{5}{Evaluation and diagnostics}{equation.4.3}{}}
+\newlabel{eq:plugin}{{4}{5}{Evaluation and diagnostics}{equation.4.4}{}}
+\newlabel{eq:confounder-canonical}{{5}{5}{Evaluation and diagnostics}{equation.4.5}{}}
+\newlabel{eq:iv-canonical}{{6}{6}{Evaluation and diagnostics}{equation.4.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Experimental results}{6}{section.5}\protected@file@percent }
+\newlabel{sec:experiments}{{5}{6}{Experimental results}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{5.1}}Canonical HCM motifs}{6}{subsection.5.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Parallel estimation structure for the three canonical HCM motifs, including the largest observed single-GPU batch on the local RTX 4060 configuration.}}{6}{table.caption.4}\protected@file@percent }
+\newlabel{tab:motifs}{{3}{6}{Parallel estimation structure for the three canonical HCM motifs, including the largest observed single-GPU batch on the local RTX 4060 configuration}{table.caption.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{5.2}}Do-calculus gallery}{6}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {{5.3}}Representative benchmark scenarios}{6}{subsection.5.3}\protected@file@percent }
 \citation{Achilles2008}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Complete graph transformations for the confounder motif. The collapsed graph exposes $Q^a_i$ and $Q^{y\mid a}_i$ as unit-level random variables confounded by $U_i$; augmentation adds the target $Q^y_i$.}}{5}{figure.caption.2}\protected@file@percent }
-\newlabel{fig:complete-confounder}{{1}{5}{Complete graph transformations for the confounder motif. The collapsed graph exposes $Q^a_i$ and $Q^{y\mid a}_i$ as unit-level random variables confounded by $U_i$; augmentation adds the target $Q^y_i$}{figure.caption.2}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Complete graph transformations for the confounder-and-interference motif. The collapsed graph has a frontdoor-like path $Q^a_i \to Z_i \to Q^{y\mid a}_i$, and augmentation adds the target $Q^y_i$.}}{5}{figure.caption.3}\protected@file@percent }
-\newlabel{fig:complete-interference}{{2}{5}{Complete graph transformations for the confounder-and-interference motif. The collapsed graph has a frontdoor-like path $Q^a_i \to Z_i \to Q^{y\mid a}_i$, and augmentation adds the target $Q^y_i$}{figure.caption.3}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Complete graph transformations for the instrument motif. Marginalization removes $Q^z_i$, yielding the graph on which the do-calculus formula is evaluated.}}{5}{figure.caption.4}\protected@file@percent }
-\newlabel{fig:complete-instrument}{{3}{5}{Complete graph transformations for the instrument motif. Marginalization removes $Q^z_i$, yielding the graph on which the do-calculus formula is evaluated}{figure.caption.4}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Representative benchmark scenarios.}}{5}{table.caption.5}\protected@file@percent }
-\newlabel{tab:benchmarks}{{2}{5}{Representative benchmark scenarios}{table.caption.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{3.4}}Factor diagnostics}{5}{subsection.3.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {4}Real data analysis: Project STAR}{5}{section.4}\protected@file@percent }
-\newlabel{sec:star}{{4}{5}{Real data analysis: Project STAR}{section.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{4.1}}Data and hierarchical representation}{5}{subsection.4.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces STAR variables used in the HCM analysis.}}{6}{figure.caption.6}\protected@file@percent }
-\newlabel{tab:variables}{{3}{6}{STAR variables used in the HCM analysis}{figure.caption.6}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Class-level STAR diagnostics. Left: gender heterogeneity across classes, showing why an additive individual gender coefficient does not represent the full distribution of class composition. Right: reading and mathematics class-level score means, with histograms and Q-Q plots used to assess Gaussian plug-in choices for $Q$-variables.}}{6}{figure.caption.6}\protected@file@percent }
-\newlabel{fig:gender-heterogeneity}{{4}{6}{Class-level STAR diagnostics. Left: gender heterogeneity across classes, showing why an additive individual gender coefficient does not represent the full distribution of class composition. Right: reading and mathematics class-level score means, with histograms and Q-Q plots used to assess Gaussian plug-in choices for $Q$-variables}{figure.caption.6}{}}
-\newlabel{fig:class-level-means}{{4}{6}{Class-level STAR diagnostics. Left: gender heterogeneity across classes, showing why an additive individual gender coefficient does not represent the full distribution of class composition. Right: reading and mathematics class-level score means, with histograms and Q-Q plots used to assess Gaussian plug-in choices for $Q$-variables}{figure.caption.6}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Heavy-tail Q-Q diagnostics for Reading ($Y$) and Mathematics ($M$). The standardized Q-Q plots and GPD tail zooms show departures from a global Gaussian approximation in the score extremes.}}{6}{figure.caption.7}\protected@file@percent }
-\newlabel{fig:score-qq-diagnostics}{{5}{6}{Heavy-tail Q-Q diagnostics for Reading ($Y$) and Mathematics ($M$). The standardized Q-Q plots and GPD tail zooms show departures from a global Gaussian approximation in the score extremes}{figure.caption.7}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Heavy-tail histogram diagnostics for Reading ($Y$) and Mathematics ($M$). Empirical score densities are shown with GPD-type tail fits, confirming that the STAR score distributions have heavy non-Gaussian tails.}}{7}{figure.caption.8}\protected@file@percent }
-\newlabel{fig:score-hist-diagnostics}{{6}{7}{Heavy-tail histogram diagnostics for Reading ($Y$) and Mathematics ($M$). Empirical score densities are shown with GPD-type tail fits, confirming that the STAR score distributions have heavy non-Gaussian tails}{figure.caption.8}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{4.2}}Baseline regressions}{7}{subsection.4.2}\protected@file@percent }
-\newlabel{eq:ols-pooled}{{6}{7}{Baseline regressions}{equation.4.6}{}}
-\newlabel{eq:ols-school}{{7}{7}{Baseline regressions}{equation.4.7}{}}
-\newlabel{eq:ols}{{8}{7}{Baseline regressions}{equation.4.8}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces OLS estimates of the small-class effect on kindergarten mathematics.}}{7}{table.caption.9}\protected@file@percent }
-\newlabel{tab:ols}{{4}{7}{OLS estimates of the small-class effect on kindergarten mathematics}{table.caption.9}{}}
-\newlabel{eq:first-stage}{{9}{7}{Baseline regressions}{equation.4.9}{}}
-\newlabel{eq:second-stage}{{10}{7}{Baseline regressions}{equation.4.10}{}}
-\newlabel{eq:hierarchical-baseline}{{11}{7}{Baseline regressions}{equation.4.11}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{4.3}}HCM under discovered graphs}{8}{subsection.4.3}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces ExactBIC-derived HCM graph with normalized factors. Dashed red arrows mark dependencies whose multiplicative factors are normalized for numerical stability in the stabilized evaluation.}}{8}{figure.caption.10}\protected@file@percent }
-\newlabel{fig:exactbic-effective-graph}{{7}{8}{ExactBIC-derived HCM graph with normalized factors. Dashed red arrows mark dependencies whose multiplicative factors are normalized for numerical stability in the stabilized evaluation}{figure.caption.10}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces ExactBIC graph after HCM collapse and augmentation for the mathematics target. Student-level variables are represented by class-level mechanisms $Q$; the green node is the target class-level Mathematics distribution $Q^m$ evaluated under $\mathrm  {do}(Q^a=q_\star ^a)$. The dashed red arrow indicates the $P(Q^{y\,\vert \,a,g}\,\vert \,S)$ factor normalized in the stabilized ExactBIC run.}}{8}{figure.caption.11}\protected@file@percent }
-\newlabel{fig:exactbic-q-graph}{{8}{8}{ExactBIC graph after HCM collapse and augmentation for the mathematics target. Student-level variables are represented by class-level mechanisms $Q$; the green node is the target class-level Mathematics distribution $Q^m$ evaluated under $\rmdo (Q^a=q_\star ^a)$. The dashed red arrow indicates the $P(Q^{y\g a,g}\g S)$ factor normalized in the stabilized ExactBIC run}{figure.caption.11}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces HCM estimates for STAR mathematics outcome.}}{9}{table.caption.12}\protected@file@percent }
-\newlabel{tab:hcmstar}{{5}{9}{HCM estimates for STAR mathematics outcome}{table.caption.12}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Estimated class-level HCM response parameters and means in STAR\spacefactor \@m {}. Reading ($Q^y$) and Mathematics ($Q^m$) are represented by Gaussian summaries $(\hat  \mu _i,\hat  \sigma _i^2)$, and the right panel reports the joint class means used to inspect the relationship between the two score mechanisms.}}{9}{figure.caption.13}\protected@file@percent }
-\newlabel{fig:q-parameters-means}{{9}{9}{Estimated class-level HCM response parameters and means in STAR\@. Reading ($Q^y$) and Mathematics ($Q^m$) are represented by Gaussian summaries $(\hat \mu _i,\hat \sigma _i^2)$, and the right panel reports the joint class means used to inspect the relationship between the two score mechanisms}{figure.caption.13}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{4.4}}Identified formulas for STAR}{9}{subsection.4.4}\protected@file@percent }
-\newlabel{eq:bicstar}{{12}{9}{Identified formulas for STAR}{equation.4.12}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{4.5}}Effective graphs and factor normalization}{10}{subsection.4.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {{4.6}}Diagnostics and interpretation}{10}{subsection.4.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion}{10}{section.5}\protected@file@percent }
-\newlabel{sec:conclusion}{{5}{10}{Conclusion}{section.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Complete graph transformations for the instrument motif. Marginalization removes $Q^z_i$, yielding the graph on which the do-calculus formula is evaluated.}}{7}{figure.caption.5}\protected@file@percent }
+\newlabel{fig:complete-instrument}{{2}{7}{Complete graph transformations for the instrument motif. Marginalization removes $Q^z_i$, yielding the graph on which the do-calculus formula is evaluated}{figure.caption.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Representative benchmark scenarios.}}{7}{table.caption.6}\protected@file@percent }
+\newlabel{tab:benchmarks}{{4}{7}{Representative benchmark scenarios}{table.caption.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Real data analysis: Project STAR}{7}{section.6}\protected@file@percent }
+\newlabel{sec:star}{{6}{7}{Real data analysis: Project STAR}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{6.1}}Data and hierarchical representation}{7}{subsection.6.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Example row from the balanced STAR HCM sample. The row is shown after recoding the raw kindergarten variables into the symbols used by the HCM analysis.}}{7}{table.5}\protected@file@percent }
+\newlabel{tab:star-example-row}{{5}{7}{Example row from the balanced STAR HCM sample. The row is shown after recoding the raw kindergarten variables into the symbols used by the HCM analysis}{table.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces STAR variables used in the HCM analysis.}}{8}{figure.caption.7}\protected@file@percent }
+\newlabel{tab:variables}{{6}{8}{STAR variables used in the HCM analysis}{figure.caption.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Class-level STAR diagnostics. Left: gender heterogeneity across classes, showing why an additive individual gender coefficient does not represent the full distribution of class composition. Right: reading and mathematics class-level score means, with histograms and Q-Q plots used to assess Gaussian plug-in choices for $Q$-variables.}}{8}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:gender-heterogeneity}{{3}{8}{Class-level STAR diagnostics. Left: gender heterogeneity across classes, showing why an additive individual gender coefficient does not represent the full distribution of class composition. Right: reading and mathematics class-level score means, with histograms and Q-Q plots used to assess Gaussian plug-in choices for $Q$-variables}{figure.caption.7}{}}
+\newlabel{fig:class-level-means}{{3}{8}{Class-level STAR diagnostics. Left: gender heterogeneity across classes, showing why an additive individual gender coefficient does not represent the full distribution of class composition. Right: reading and mathematics class-level score means, with histograms and Q-Q plots used to assess Gaussian plug-in choices for $Q$-variables}{figure.caption.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Heavy-tail Q-Q diagnostics for Reading ($Y$) and Mathematics ($M$). In each main panel, standardized empirical score quantiles are compared with theoretical Gaussian quantiles; systematic bending away from the diagonal indicates that a single global Gaussian approximation is too light-tailed in the extremes. The inset subplots zoom separately on the lower and upper tails and compare the empirical tail behaviour with a generalized Pareto distribution (GPD) diagnostic, making the extreme-score departures visible rather than hidden by the central mass.}}{8}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:score-qq-diagnostics}{{4}{8}{Heavy-tail Q-Q diagnostics for Reading ($Y$) and Mathematics ($M$). In each main panel, standardized empirical score quantiles are compared with theoretical Gaussian quantiles; systematic bending away from the diagonal indicates that a single global Gaussian approximation is too light-tailed in the extremes. The inset subplots zoom separately on the lower and upper tails and compare the empirical tail behaviour with a generalized Pareto distribution (GPD) diagnostic, making the extreme-score departures visible rather than hidden by the central mass}{figure.caption.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{6.2}}Baseline regressions}{8}{subsection.6.2}\protected@file@percent }
+\newlabel{eq:ols-pooled}{{7}{8}{Baseline regressions}{equation.6.7}{}}
+\newlabel{eq:ols-school}{{8}{8}{Baseline regressions}{equation.6.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Heavy-tail histogram diagnostics for Reading ($Y$) and Mathematics ($M$). Empirical score densities are shown with GPD-type tail fits, confirming that the STAR score distributions have heavy non-Gaussian tails.}}{9}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:score-hist-diagnostics}{{5}{9}{Heavy-tail histogram diagnostics for Reading ($Y$) and Mathematics ($M$). Empirical score densities are shown with GPD-type tail fits, confirming that the STAR score distributions have heavy non-Gaussian tails}{figure.caption.9}{}}
+\newlabel{eq:ols}{{9}{9}{Baseline regressions}{equation.6.9}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces OLS estimates of the small-class effect on kindergarten mathematics.}}{9}{table.caption.10}\protected@file@percent }
+\newlabel{tab:ols}{{7}{9}{OLS estimates of the small-class effect on kindergarten mathematics}{table.caption.10}{}}
+\newlabel{eq:first-stage}{{10}{9}{Baseline regressions}{equation.6.10}{}}
+\newlabel{eq:second-stage}{{11}{9}{Baseline regressions}{equation.6.11}{}}
+\newlabel{eq:hierarchical-baseline}{{12}{9}{Baseline regressions}{equation.6.12}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces ExactBIC-derived HCM graph with normalized factors. Dashed red arrows mark dependencies whose multiplicative factors are normalized for numerical stability in the stabilized evaluation.}}{10}{figure.caption.11}\protected@file@percent }
+\newlabel{fig:exactbic-effective-graph}{{6}{10}{ExactBIC-derived HCM graph with normalized factors. Dashed red arrows mark dependencies whose multiplicative factors are normalized for numerical stability in the stabilized evaluation}{figure.caption.11}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces ExactBIC graph after HCM collapse and augmentation for the mathematics target. Student-level variables are represented by class-level mechanisms $Q$; the green node is the target class-level Mathematics distribution $Q^m$ evaluated under $\mathrm  {do}(Q^a=q_\star ^a)$. The dashed red arrow indicates the $P(Q^{y\,\vert \,a,g}\,\vert \,S)$ factor normalized in the stabilized ExactBIC run.}}{10}{figure.caption.12}\protected@file@percent }
+\newlabel{fig:exactbic-q-graph}{{7}{10}{ExactBIC graph after HCM collapse and augmentation for the mathematics target. Student-level variables are represented by class-level mechanisms $Q$; the green node is the target class-level Mathematics distribution $Q^m$ evaluated under $\rmdo (Q^a=q_\star ^a)$. The dashed red arrow indicates the $P(Q^{y\g a,g}\g S)$ factor normalized in the stabilized ExactBIC run}{figure.caption.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{6.3}}HCM under discovered graphs}{10}{subsection.6.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces STAR HCM estimates and normalized-factor diagnostic. The Mathematics row is the main outcome analysis; the Reading row is a separate diagnostic run used to inspect the normalized $P(Q^{y\,\vert \,a,g}\,\vert \,S)$ factor.}}{11}{table.caption.13}\protected@file@percent }
+\newlabel{tab:hcmstar}{{8}{11}{STAR HCM estimates and normalized-factor diagnostic. The Mathematics row is the main outcome analysis; the Reading row is a separate diagnostic run used to inspect the normalized $P(Q^{y\g a,g}\g S)$ factor}{table.caption.13}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Estimated class-level HCM response parameters and means in STAR\spacefactor \@m {}. Reading ($Q^y$) and Mathematics ($Q^m$) are represented by Gaussian summaries $(\hat  \mu _i,\hat  \sigma _i^2)$, and the right panel reports the joint class means used to inspect the relationship between the two score mechanisms.}}{11}{figure.caption.14}\protected@file@percent }
+\newlabel{fig:q-parameters-means}{{8}{11}{Estimated class-level HCM response parameters and means in STAR\@. Reading ($Q^y$) and Mathematics ($Q^m$) are represented by Gaussian summaries $(\hat \mu _i,\hat \sigma _i^2)$, and the right panel reports the joint class means used to inspect the relationship between the two score mechanisms}{figure.caption.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{6.4}}Identified formulas for STAR}{12}{subsection.6.4}\protected@file@percent }
+\newlabel{eq:bicstar}{{13}{12}{Identified formulas for STAR}{equation.6.13}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{6.5}}Effective graphs and factor normalization}{12}{subsection.6.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {{6.6}}Diagnostics and interpretation}{12}{subsection.6.6}\protected@file@percent }
 \citation{Achilles2008}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Estimated class-level HCM probability quantities used in the STAR plug-in analysis. Binary sub-unit variables are represented by class-level Bernoulli probabilities for Small-class assignment ($Q^a$), Gender ($Q^g$), Ethnicity ($Q^e$), and Free lunch ($Q^l$); $Q^{l\,\vert \,e}$ summarizes the Free-lunch mechanism conditional on Ethnicity; and $S$ is the observed class-level Urbanicity variable.}}{13}{figure.caption.15}\protected@file@percent }
+\newlabel{fig:q-probabilities}{{9}{13}{Estimated class-level HCM probability quantities used in the STAR plug-in analysis. Binary sub-unit variables are represented by class-level Bernoulli probabilities for Small-class assignment ($Q^a$), Gender ($Q^g$), Ethnicity ($Q^e$), and Free lunch ($Q^l$); $Q^{l\g e}$ summarizes the Free-lunch mechanism conditional on Ethnicity; and $S$ is the observed class-level Urbanicity variable}{figure.caption.15}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{13}{section.7}\protected@file@percent }
+\newlabel{sec:conclusion}{{7}{13}{Conclusion}{section.7}{}}
 \bibcite{Achilles2008}{{1}{2008}{{Achilles et al.}}{{}}}
 \bibcite{Angrist1996}{{2}{1996}{{Angrist et al.}}{{}}}
 \bibcite{Card1995}{{3}{1995}{{Card}}{{}}}
@@ -90,11 +101,15 @@
 \bibcite{Pearl2009}{{9}{2009}{{Pearl}}{{}}}
 \bibcite{weinstein2023hcm}{{10}{2023}{{Weinstein and Blei}}{{}}}
 \bibcite{y02025}{{11}{2025}{{y0 contributors}}{{}}}
-\global\@namedef{@lastpage@}{11}
-\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Estimated class-level HCM probability quantities used in the STAR plug-in analysis. Binary sub-unit variables are represented by class-level Bernoulli probabilities for Small-class assignment ($Q^a$), Gender ($Q^g$), Ethnicity ($Q^e$), and Free lunch ($Q^l$); $Q^{l\,\vert \,e}$ summarizes the Free-lunch mechanism conditional on Ethnicity; and $S$ is the observed class-level Urbanicity variable.}}{11}{figure.caption.14}\protected@file@percent }
-\newlabel{fig:q-probabilities}{{10}{11}{Estimated class-level HCM probability quantities used in the STAR plug-in analysis. Binary sub-unit variables are represented by class-level Bernoulli probabilities for Small-class assignment ($Q^a$), Gender ($Q^g$), Ethnicity ($Q^e$), and Free lunch ($Q^l$); $Q^{l\g e}$ summarizes the Free-lunch mechanism conditional on Ethnicity; and $S$ is the observed class-level Urbanicity variable}{figure.caption.14}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A}Software notes}{12}{appendix.a.A}\protected@file@percent }
+\global\@namedef{@lastpage@}{14}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Complete motif transformations}{14}{appendix.a.A}\protected@file@percent }
+\newlabel{app:motif-figures}{{A}{14}{Complete motif transformations}{appendix.a.A}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Complete graph transformations for the confounder motif. The collapsed graph exposes $Q^a_i$ and $Q^{y\mid a}_i$ as unit-level random variables confounded by $U_i$; augmentation adds the target $Q^y_i$.}}{14}{figure.caption.19}\protected@file@percent }
+\newlabel{fig:complete-confounder}{{10}{14}{Complete graph transformations for the confounder motif. The collapsed graph exposes $Q^a_i$ and $Q^{y\mid a}_i$ as unit-level random variables confounded by $U_i$; augmentation adds the target $Q^y_i$}{figure.caption.19}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Complete graph transformations for the confounder-and-interference motif. The collapsed graph has a frontdoor-like path $Q^a_i \to Z_i \to Q^{y\mid a}_i$, and augmentation adds the target $Q^y_i$.}}{14}{figure.caption.20}\protected@file@percent }
+\newlabel{fig:complete-interference}{{11}{14}{Complete graph transformations for the confounder-and-interference motif. The collapsed graph has a frontdoor-like path $Q^a_i \to Z_i \to Q^{y\mid a}_i$, and augmentation adds the target $Q^y_i$}{figure.caption.20}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {B}Software notes}{15}{appendix.a.B}\protected@file@percent }
 \expandafter\ifx\csname c@myauthcount@totc\endcsname\relax\newcounter{myauthcount@totc}\fi\setcounter{myauthcount@totc}{9}
 \expandafter\ifx\csname c@myhistorycount@totc\endcsname\relax\newcounter{myhistorycount@totc}\fi\setcounter{myhistorycount@totc}{3}
 \expandafter\ifx\csname c@myaddcount@totc\endcsname\relax\newcounter{myaddcount@totc}\fi\setcounter{myaddcount@totc}{4}
-\gdef \@abspage@last{12}
+\gdef \@abspage@last{15}

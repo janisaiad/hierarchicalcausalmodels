@@ -1,0 +1,60 @@
+{
+  "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "torch": "2.11.0+cu128",
+  "rows": [
+    {
+      "n_units": 800000,
+      "n_subunits": 80,
+      "tasks": 800000,
+      "gpu_seconds": 0.7760395579998658,
+      "gpu_ate": 1.4998500347137451,
+      "gpu_peak_memory_gb": 1.9391255378723145,
+      "tasks_per_second": 1030875.2843242798
+    },
+    {
+      "n_units": 1200000,
+      "n_subunits": 80,
+      "tasks": 1200000,
+      "gpu_seconds": 0.6455066560001796,
+      "gpu_ate": 1.4996405839920044,
+      "gpu_peak_memory_gb": 2.9047207832336426,
+      "tasks_per_second": 1859004.8434754885
+    },
+    {
+      "n_units": 1600000,
+      "n_subunits": 80,
+      "tasks": 1600000,
+      "gpu_seconds": 1.0567675270003747,
+      "gpu_ate": 1.499815821647644,
+      "gpu_peak_memory_gb": 3.8703160285949707,
+      "tasks_per_second": 1514051.0652722137
+    },
+    {
+      "n_units": 2000000,
+      "n_subunits": 80,
+      "tasks": 2000000,
+      "gpu_seconds": 1.878645967999546,
+      "gpu_ate": 1.499895453453064,
+      "gpu_peak_memory_gb": 4.835911273956299,
+      "tasks_per_second": 1064596.5413747842
+    },
+    {
+      "n_units": 2400000,
+      "n_subunits": 80,
+      "tasks": 2400000,
+      "gpu_seconds": 2.0154762590000246,
+      "gpu_ate": 1.4998996257781982,
+      "gpu_peak_memory_gb": 5.801506519317627,
+      "tasks_per_second": 1190785.5472288006
+    }
+  ],
+  "best_gpu_batch": {
+    "n_units": 2400000,
+    "n_subunits": 80,
+    "tasks": 2400000,
+    "gpu_seconds": 2.0154762590000246,
+    "gpu_ate": 1.4998996257781982,
+    "gpu_peak_memory_gb": 5.801506519317627,
+    "tasks_per_second": 1190785.5472288006
+  }
+}

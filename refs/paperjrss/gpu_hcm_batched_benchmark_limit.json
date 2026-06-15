@@ -1,0 +1,30 @@
+{
+  "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "torch": "2.11.0+cu128",
+  "rows": [
+    {
+      "n_units": 2800000,
+      "n_subunits": 80,
+      "tasks": 2800000,
+      "gpu_seconds": 3.294152206000035,
+      "gpu_ate": 1.5000760555267334,
+      "gpu_peak_memory_gb": 6.767101764678955,
+      "tasks_per_second": 849991.0826524723
+    },
+    {
+      "n_units": 3000000,
+      "n_subunits": 80,
+      "tasks": 3000000,
+      "gpu_error": "CUDA out of memory. Tried to allocate 916.00 MiB. GPU 0 has a total capacity of 8.00 GiB of which 343.05 MiB is free. Including non-PyTorch memory, this process has 17179869184.00 GiB memory in use. Of the allocated memory 6.36 GiB is allocated by PyTorch, and 13.87 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+    }
+  ],
+  "best_gpu_batch": {
+    "n_units": 2800000,
+    "n_subunits": 80,
+    "tasks": 2800000,
+    "gpu_seconds": 3.294152206000035,
+    "gpu_ate": 1.5000760555267334,
+    "gpu_peak_memory_gb": 6.767101764678955,
+    "tasks_per_second": 849991.0826524723
+  }
+}

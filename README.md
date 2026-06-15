@@ -106,6 +106,35 @@ print_sampled_data(sampled_data)
 hscm.cgm.draw()
 ```
 
+## Paper Reproduction
+
+The JRSS-style paper artifacts live in `refs/paperjrss/`.
+
+Use the paper reproduction notebook to regenerate the results, figures, and PDF:
+
+```bash
+uv run jupyter notebook refs/paperjrss/paper_reproduction.ipynb
+```
+
+The notebook orchestrates the existing scripts used by the paper:
+
+- `examples/new/benchmarks.py` for the synthetic HCM validation scenarios.
+- `examples/STAR/star_baseline_and_hcm_benchmark.py --outcome math` for OLS, IV, and STAR graph-family baselines.
+- `examples/STAR/star_hcm_v2_teacher_student.py` for the class-as-unit STAR HCM runs.
+- `examples/STAR/star_make_paper_ready_figures.py` for all figures copied into `refs/paperjrss/Fig/`.
+- `refs/paperjrss/make_performance_figures.py` for the convergence figure with runtime labels.
+- `latexmk -pdf paper.tex` inside `refs/paperjrss/` for the final PDF.
+
+Important paper outputs:
+
+- Main TeX source: `refs/paperjrss/paper.tex`
+- Compiled PDF: `refs/paperjrss/paper.pdf`
+- Paper figures: `refs/paperjrss/Fig/`
+- Reproduction notebook: `refs/paperjrss/paper_reproduction.ipynb`
+- STAR baseline JSON: `examples/STAR/results/star_baseline_math_benchmark.json`
+- STAR HCM JSON: `examples/STAR/results/star_hcm_v2_teacher_student.json`
+- Parallel runtime JSON: `examples/STAR/results/ate_10_40_parallel_speed_test.json`
+
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for more details.
