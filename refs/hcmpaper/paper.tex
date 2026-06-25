@@ -2647,6 +2647,170 @@ for the possibility of school-level confounders and interference
 through class size, the program's effectiveness is more
 uncertain.
 
+\section{Software notes}
+\label{sec:software_notes}
+
+The implementation separates symbolic identification from numerical
+estimation. The graphical step uses pyAgrum\footnote{\url{https://pyagrum.readthedocs.io/}}
+as a Bayesian-network and causal-graph backend. This choice is useful
+because pyAgrum gives a mature discrete Bayesian-network interface:
+graphs, conditional probability tables, discretized variables, and
+standard causal queries can be represented directly. Our use of it is
+therefore intentionally narrow. It supplies the Bayesian-network view of
+the collapsed graph, while the HSCM layer adapts the identified
+expression to the hierarchical $Q$-variables, builds an abstract syntax
+tree (AST), and dispatches the numerical work to parametric, empirical,
+or simulation-based estimators.
+
+\subsection{Computational cost}
+\label{sec:computational_cost}
+
+The general target is
+\begin{equation}
+  \tau(q_1,q_0)
+  =
+  \E{Q^Y \s \rmdo(Q^a=q_1)}
+  -
+  \E{Q^Y \s \rmdo(Q^a=q_0)}.
+  \label{eq:software_ate}
+\end{equation}
+In the implementation, \Cref{eq:software_ate} is evaluated by copying
+the identified AST twice. The first copy fixes the intervention node at
+$Q^a=q_1$, the second fixes it at $Q^a=q_0$, and the ATE is the
+difference between the two numerical evaluations. For a backdoor-like
+confounder motif, this procedure reduces to the familiar unit-averaged
+estimator
+\begin{equation}
+  \hat{\tau}(q_1,q_0)
+  =
+  \frac{1}{n}
+  \sum_{i=1}^{n}
+  \left[\hat{\mu}_i(q_1)-\hat{\mu}_i(q_0)\right],
+  \qquad
+  \hat{\mu}_i(q)=
+  \int y\,\hat{Q}^{y\mid a}_i(y\mid q)\,\di y.
+  \label{eq:software_unit_average}
+\end{equation}
+Here, the outer average is an explicit loop over units. The term
+$\hat{\mu}_i(q)$ is produced by the estimator attached to the
+conditional $Q$-node $Q^{y\mid a}_i$. For parametric families the
+integral is analytic or quadrature-based; for simulation-based
+components the backend draws Monte Carlo samples and averages the
+predicted outcomes. More complex graphs use the same evaluator, but the
+AST contains more density factors and more marginalization nodes.
+
+Scalable estimation enters at exactly this point. Each $\hat{\mu}_i$ can
+be fitted from the subunits of unit $i$, each conditional density factor
+can be estimated from its own parent set, and each branch of a sampled
+marginalization can be evaluated independently before the AST combines
+the results. The computational structure therefore mirrors the
+statistical structure: many local estimators are assembled into one
+causal functional. This is also where the implementation differs from
+the original reproduction code for the Weinstein--Blei HCM paper, which
+is organized as analysis notebooks for the paper experiments.\footnote{\url{https://github.com/EWeinstein/HCM}}
+Those notebooks are the reference implementation for the MCMC analyses
+in \Cref{sec:eight_schools}; our speedup comes from turning repeated
+local evaluations into batched tensor operations rather than changing
+the identified estimand or the MCMC target~\citep{Hoffman2014-ic,Phan2019-om,Bingham2019-aa}.
+
+\begin{table}[t]
+\centering
+\input{gpu_speedup_cuda_table.tex}
+\caption{\textbf{Synthetic GPU benchmark for two-intervention HSCM
+evaluations.} The workloads are batched Gaussian HSCM evaluations. The
+CPU column reports the sequential AST evaluator with an explicit loop
+over units; the CUDA column reports the same functional after batching
+the independent unit-level branches as tensors. Only HSCM workloads are
+shown, so the comparison stays focused on the evaluator itself.}
+\label{tab:gpu_synthetic_benchmark}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{gpu_speedup_cuda.pdf}
+\caption{\textbf{GPU speedup on synthetic HSCM evaluations.} The left
+panel reports wall-clock time for sequential CPU evaluation and batched
+CUDA evaluation. The right panel reports the corresponding speedup over
+sequential CPU; legend labels include the fitted log--log slope of
+speedup against total observations. The gain depends on how much
+independent unit-level work the AST evaluator exposes to the batched
+backend.}
+\label{fig:gpu_speedup_synthetic}
+\end{figure}
+
+\InputIfFileExists{gpu_speedup_cuda_interpretation.tex}{}{}
+
+\subsection{Estimators}
+\label{sec:estimators}
+
+The canonical motifs used in the experiments serve as validation cases
+for this machinery. They verify that pyAgrum identification, HSCM
+formula adaptation, AST evaluation, and numerical evaluation agree on
+structures whose behaviour is known in advance. In the confounder motif,
+for example, a latent unit variable affects both treatment and outcome
+mechanisms. The collapsed graph contains $Q^a_i$ and $Q^{y\mid a}_i$ as
+unit-level objects, and the intervention is evaluated by averaging the
+per-unit response,
+\begin{equation}
+  \E{Y \s \rmdo(Q^a=q_\star)}
+  =
+  \EE{i}{\int y\,Q^{y\mid a}_i(y\mid q_\star)\,\di y}.
+  \label{eq:software_confounder_response}
+\end{equation}
+In the frontdoor/interference motif, an intermediate unit-level variable
+carries part of the causal pathway and the identified functional
+contains nested sums over the mediator distribution. In the instrumental
+motif, the expression contains a reweighting term analogous to inverse
+probability weighting,
+\begin{equation}
+  \E{Y \s \rmdo(A \sim q^a_\star)}
+  =
+  \EE{Q^{a\mid z},Q^z}{
+    \frac{q^a_\star(a)}{Q^{a\mid z}(a\mid z)}Y
+  },
+  \label{eq:software_ipw}
+\end{equation}
+provided the positivity conditions are met. In the backend, the
+denominator $Q^{a\mid z}(a\mid z)$ is a fitted density node. If this
+estimator is missing or has no support at the sampled value, the
+calculation becomes unstable. The ratio $q^a_\star(a) /
+Q^{a\mid z}(a\mid z)$ is the likelihood-ratio weight between the target
+intervention law and the fitted treatment mechanism, exactly the
+quantity that appears in importance sampling and in
+Horvitz--Thompson/inverse-probability estimators
+~\citep{Rubinstein2016-mc,Horvitz1952-jasa,Robins2000-epi}. This is
+why the implementation reports both the symbolic formula and
+factor-level diagnostics.
+
+From the estimation point of view, these examples are plug-in
+evaluations of an identified functional. Parametric $Q$-nodes give
+analytic or quadrature-based terms, simulation-based nodes give Monte
+Carlo averages, and empirical $Q$-nodes give the corresponding empirical
+conditional distributions. This last case should be connected explicitly
+to the existing literature on g-computation, empirical plug-in
+estimators, and inverse-probability weighting before the estimator
+section is finalized.
+
+In practice, a symbolic formula may contain high-variance conditional
+density factors. This can happen with multi-parent $Q$-variables, such
+as $Q^{m\mid a,e,g,l}$, where the outcome distribution depends jointly
+on treatment, ethnicity, gender, and lunch status. The implementation
+records such cases and, in the normalized-factor runs studied below,
+rescales unstable multiplicative factors before evaluation.
+Operationally this is a controlled truncation of the raw product scale:
+the graph structure is retained, but the unstable factor is normalized
+so that it cannot overwhelm the rest of the functional. If the
+identified functional is $f$, the evaluated functional becomes a
+numerically stabilized object $\tilde{f}$ with the same graph structure
+but normalized factor weights. This is not a harmless implementation
+detail: normalizing $\pr(Z\mid W)$ changes the weighting induced by that
+factor and therefore changes the numerical functional being evaluated.
+We therefore report both the nominal identified formula and the factor
+normalization actually used in computation.
+
+\TODO{Add the empirical-estimator references here once the bibliography
+file is synchronized with Overleaf.}
+
  \section{Discussion} \label{sec:discussion}
 
 \subsection{Assumptions and limitations}
@@ -2743,7 +2907,7 @@ effects that are identified even when do-calculus says they are not.
 
  
 \bibliographystyle{plainnat}
-\bibliography{references}
+\bibliography{references,software_references}
 
 \pagebreak
 \appendix
